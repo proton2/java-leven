@@ -108,28 +108,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> emptyNodes = new ArrayList<>();
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
-            boolean result = (
-//                    (
-//                                    (filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==0)
-//                                    ||(filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==-256)
-//                    )&&
-                    ConstructChunkNodeData(filteredNode, camera.getFrustumPlanes())
-            );
-                    //(filteredNode.min.x==0 && filteredNode.min.y==0 && filteredNode.min.z==0) &&
-                    //(filteredNode.min.x==0 && filteredNode.min.y==-256 && filteredNode.min.z==-256) &&
-                    //(filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==-256) &&
-                    /*
-                    [1024,-1024,-2048]
-                    [1024,-1024,-1024]
-                    [1024,-1024,1024]
-
-                    [2048,-2048,-4096]
-                    [2048,-2048,-2048]
-                    [2048,-2048,0]
-                    [2048,-2048,2048]
-                     */
-                    //(filteredNode.min.x==2048 && filteredNode.min.y==-2048 && filteredNode.min.z==0) &&
-
+            boolean result = (filterNodesForDebug(filteredNode) && ConstructChunkNodeData(filteredNode, camera.getFrustumPlanes()));
             if (!result){
                 continue;
             }
@@ -151,6 +130,26 @@ public class ChunkOctree {
         constructSeams(root, constructedNodes);
 
         return constructedNodes;
+    }
+
+    boolean filterNodesForDebug(ChunkNode filteredNode){
+        //(filteredNode.min.x==0 && filteredNode.min.y==0 && filteredNode.min.z==0) &&
+        //(filteredNode.min.x==0 && filteredNode.min.y==-256 && filteredNode.min.z==-256) &&
+        //(filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==-256) &&
+                    /*
+                    [1024,-1024,-2048]
+                    [1024,-1024,-1024]
+                    [1024,-1024,1024]
+
+                    [2048,-2048,-4096]
+                    [2048,-2048,-2048]
+                    [2048,-2048,0]
+                    [2048,-2048,2048]
+                     */
+        //(filteredNode.min.x==2048 && filteredNode.min.y==-2048 && filteredNode.min.z==0) &&
+        return true;
+//                        (filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==0) ||
+//                        (filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==-256);
     }
 
     private void constructSeams(ChunkNode root, List<ChunkNode> constructedNodes) {
@@ -276,6 +275,7 @@ public class ChunkOctree {
 
     static Vec3i chunkMinForPosition(OctreeNode p) {
 	    int mask = ~(p.chunkSize);
+	    //int mask = ~(CLIPMAP_LEAF_SIZE-1);
         return new Vec3i(p.min.x & mask, p.min.y & mask, p.min.z & mask);
     }
 
@@ -303,11 +303,10 @@ public class ChunkOctree {
                     if (Frustum.cubeInFrustum(frustumPlanes, leafMin.x, leafMin.y, leafMin.z, leafSize)) {
                         OctreeNode leaf = Octree.ConstructLeaf(new OctreeNode(leafMin, leafSize, chunk.min, chunk.size));
                         if (leaf != null) {
-                            if(xi==0||xi==VOXELS_PER_CHUNK-1 || yi==0||yi==VOXELS_PER_CHUNK-1 || zi==0||zi==VOXELS_PER_CHUNK-1){
+                            if(xi==0||xi==VOXELS_PER_CHUNK-1 || yi==0||yi==VOXELS_PER_CHUNK-1 ||zi==0||zi==VOXELS_PER_CHUNK-1){
                                 seamNodes.add(leaf);
-                            } else {
-                                voxels.add(leaf);
                             }
+                            voxels.add(leaf);
                         }
                     }
                 }

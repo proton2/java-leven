@@ -89,7 +89,7 @@ public class Octree {
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
         drawInfo.position = contains(qefPosition, leaf.min.toVec3f(), leaf.size) ? qefPosition : qef.getMassPoint();
-        drawInfo.color = new Vec3f(0.7f, 0.f, 0.f);//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize);
+        drawInfo.color = new Vec3f(0.7f, 0.f, 0.f);//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize, leaf.min, leaf.size); //
         drawInfo.qef = qef.getData();
         drawInfo.averageNormal = averageNormal.div((float)edgeCount);//.normalize();
         SVD.normalize(drawInfo.averageNormal);
@@ -109,14 +109,15 @@ public class Octree {
 //            return new Vec3f(0.7f, 0.f, 0.f);
 //    }
 
-    private static Vec3f isSeamNode(Vec3f pos, Vec3i min, int size){
-        if (    (pos.X <= min.x+(size/100) || pos.X >= min.x + size) ||
-                //(pos.Y == min.y || pos.Y >= min.y + size) ||
-                (pos.Z <= min.z+(size/100) || pos.Z >= min.z + size))
-            return new Vec3f(0.f, 0.7f, 0.f);
-        else
-            return new Vec3f(0.7f, 0.f, 0.f);
-    }
+//    private static Vec3f isSeamNode(Vec3f pos, Vec3i chunkMin, int chunkSize, Vec3i leafMin, int leafSize){
+//        if (
+//                (pos.X == chunkMin.x || pos.X == chunkMin.x + chunkSize) || (pos.Z == chunkMin.z || pos.Z == chunkMin.z + chunkSize)
+//                //pos.Z == chunkMin.z+(chunkSize/100)
+//        )
+//            return new Vec3f(0.f, 0.7f, 0.f);
+//        else
+//            return new Vec3f(0.7f, 0.f, 0.f);
+//    }
 
     private static boolean isOutFromBounds(Vec3f p, Vec3f min, int size) {
         Vec3f max = min.add(size);
@@ -199,7 +200,7 @@ public class Octree {
 
         SVD.normalize(drawInfo.averageNormal);
         drawInfo.position = contains(position, node.min.toVec3f(), node.size) ? position : qef.getMassPoint();
-        drawInfo.color = isSeamNode(drawInfo.position, node.min, node.size);
+        //drawInfo.color = isSeamNode(drawInfo.position, node.min, node.size);
         drawInfo.qef = qef.getData();
 
         for (int i = 0; i < 8; i++) {
