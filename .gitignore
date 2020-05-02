@@ -6,3 +6,8 @@ bin/apps/
 /bin/
 /target/
 .settings
+.idea
+*.iml
+*.ipr
+*.iws
+*.ids
