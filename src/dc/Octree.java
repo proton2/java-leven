@@ -40,6 +40,9 @@ public class Octree {
         {0,1},{2,3},{4,5},{6,7}		// z-axis
     };
 
+    public static Vec3f Yellow = new Vec3f(0.8f, 0.8f, 0.f);
+    public static Vec3f Red = new Vec3f(0.7f, 0.f, 0.f);
+
     // -------------------------------------------------------------------------------
     public static OctreeNode ConstructLeaf(OctreeNode leaf) {
         if (leaf == null) {
@@ -89,7 +92,7 @@ public class Octree {
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
         drawInfo.position = contains(qefPosition, leaf.min.toVec3f(), leaf.size) ? qefPosition : qef.getMassPoint();
-        drawInfo.color = new Vec3f(0.7f, 0.f, 0.f);//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize, leaf.min, leaf.size); //
+        drawInfo.color = Red;//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize, leaf.min, leaf.size); //
         drawInfo.qef = qef.getData();
         drawInfo.averageNormal = averageNormal.div((float)edgeCount);//.normalize();
         SVD.normalize(drawInfo.averageNormal);
@@ -311,7 +314,8 @@ public class Octree {
         return root;
     }
 
-    public static void GenerateMeshFromOctree(OctreeNode node, List<MeshVertex> vertexBuffer, List<Integer> indexBuffer) {
+    public static void GenerateMeshFromOctree(OctreeNode node, List<MeshVertex> vertexBuffer, List<Integer> indexBuffer,
+                                              boolean isSeam) {
         if (node == null) {
             return;
         }
@@ -320,7 +324,7 @@ public class Octree {
         indexBuffer.clear();
 
         GenerateVertexIndices(node, vertexBuffer);
-        Dc.ContourCellProc(node, indexBuffer);
+        Dc.ContourCellProc(node, indexBuffer, isSeam);
     }
 
     public static void DestroyOctree(OctreeNode node) {

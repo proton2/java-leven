@@ -65,7 +65,7 @@ public class DcWrapper extends GameObject {
     private void renderMesh() {
         root = Octree.BuildOctree(getTransform().getFrustumPlanes(),
                 new Vec3i(-octreeSize / 2, -octreeSize / 2, -octreeSize / 2), octreeSize, THRESHOLDS[thresholdIndex]);
-        Octree.GenerateMeshFromOctree(root, vertices, indcies);
+        Octree.GenerateMeshFromOctree(root, vertices, indcies, false);
 
         Vertex[] vertArray = vertices.toArray(new Vertex[0]);
         int[] indices = indcies.stream().mapToInt(x -> x).toArray();

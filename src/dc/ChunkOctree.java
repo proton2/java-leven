@@ -108,7 +108,8 @@ public class ChunkOctree {
         ArrayList<ChunkNode> emptyNodes = new ArrayList<>();
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
-            boolean result = (filterNodesForDebug(filteredNode) && ConstructChunkNodeData(filteredNode, camera.getFrustumPlanes()));
+            boolean result = filterNodesForDebug(filteredNode) &&
+                    ConstructChunkNodeData(filteredNode, camera.getFrustumPlanes());
             if (!result){
                 continue;
             }
@@ -122,34 +123,18 @@ public class ChunkOctree {
                 emptyNodes.add(filteredNode);
             }
         }
-
         for (ChunkNode node : emptyNodes) {
             propagateEmptyStateDownward(node);
         }
-
         constructSeams(root, constructedNodes);
-
         return constructedNodes;
     }
 
     boolean filterNodesForDebug(ChunkNode filteredNode){
-        //(filteredNode.min.x==0 && filteredNode.min.y==0 && filteredNode.min.z==0) &&
-        //(filteredNode.min.x==0 && filteredNode.min.y==-256 && filteredNode.min.z==-256) &&
-        //(filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==-256) &&
-                    /*
-                    [1024,-1024,-2048]
-                    [1024,-1024,-1024]
-                    [1024,-1024,1024]
-
-                    [2048,-2048,-4096]
-                    [2048,-2048,-2048]
-                    [2048,-2048,0]
-                    [2048,-2048,2048]
-                     */
-        //(filteredNode.min.x==2048 && filteredNode.min.y==-2048 && filteredNode.min.z==0) &&
-        return true;
-//                        (filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==0) ||
-//                        (filteredNode.min.x==256 && filteredNode.min.y==0 && filteredNode.min.z==-256);
+        boolean res =
+                filteredNode.min.equals(new Vec3i(512,0,-512)) ||
+                filteredNode.min.equals(new Vec3i(1024,0,-1024));
+        return res;
     }
 
     private void constructSeams(ChunkNode root, List<ChunkNode> constructedNodes) {
@@ -189,11 +174,14 @@ public class ChunkOctree {
                 seamNodes.addAll(selectSeamNodes(node, neighbour, i));
             }
         }
+        if(seamNodes.isEmpty())
+            return;
+
         node.seamOctreeRoot = constructTreeUpwards(new ArrayList<>(seamNodes), node.min, node.size * 2);
 
         List<MeshVertex> seamVertices = new ArrayList<>();
         List<Integer> seamIndcies = new ArrayList<>();
-        Octree.GenerateMeshFromOctree(node.seamOctreeRoot, seamVertices, seamIndcies);
+        Octree.GenerateMeshFromOctree(node.seamOctreeRoot, seamVertices, seamIndcies, true);
         node.seamVertArray = seamVertices.toArray(new Vertex[0]);
         node.seamIndices = seamIndcies.stream().mapToInt(x -> x).toArray();
     }
@@ -211,7 +199,7 @@ public class ChunkOctree {
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
                 continue;
             }
-            octreeSeamNode.drawInfo.color = new Vec3f(0.f, 0.7f, 0.f);
+            octreeSeamNode.drawInfo.color = Octree.Yellow;
             selectedSeamNodes.add(octreeSeamNode);
         }
         return selectedSeamNodes;
@@ -274,8 +262,8 @@ public class ChunkOctree {
     }
 
     static Vec3i chunkMinForPosition(OctreeNode p) {
-	    int mask = ~(p.chunkSize);
-	    //int mask = ~(CLIPMAP_LEAF_SIZE-1);
+        //int mask = ~(p.chunkSize-1);
+	    int mask = ~(CLIPMAP_LEAF_SIZE-1);
         return new Vec3i(p.min.x & mask, p.min.y & mask, p.min.z & mask);
     }
 
@@ -286,7 +274,7 @@ public class ChunkOctree {
         }
         List<MeshVertex> vertices = new ArrayList<>();
         List<Integer> indcies = new ArrayList<>();
-        Octree.GenerateMeshFromOctree(chunk.octreeRoot, vertices, indcies);
+        Octree.GenerateMeshFromOctree(chunk.octreeRoot, vertices, indcies, false);
         chunk.vertArray = vertices.toArray(new Vertex[0]);
         chunk.indices = indcies.stream().mapToInt(x -> x).toArray();
         return chunk.active;
@@ -303,10 +291,10 @@ public class ChunkOctree {
                     if (Frustum.cubeInFrustum(frustumPlanes, leafMin.x, leafMin.y, leafMin.z, leafSize)) {
                         OctreeNode leaf = Octree.ConstructLeaf(new OctreeNode(leafMin, leafSize, chunk.min, chunk.size));
                         if (leaf != null) {
-                            if(xi==0||xi==VOXELS_PER_CHUNK-1 || yi==0||yi==VOXELS_PER_CHUNK-1 ||zi==0||zi==VOXELS_PER_CHUNK-1){
+                            voxels.add(leaf);
+                            if(nodeIsSeam(zi, yi, xi, leafMin)) {
                                 seamNodes.add(leaf);
                             }
-                            voxels.add(leaf);
                         }
                     }
                 }
@@ -319,6 +307,11 @@ public class ChunkOctree {
         chunk.seamNodes = seamNodes;
         chunk.numSeamNodes = seamNodes.size();
         return true;
+    }
+
+    private boolean nodeIsSeam(int zi, int yi, int xi, Vec3i leafMin) {
+        return (leafMin.x==1016 || leafMin.x==1024) && (leafMin.z < -395 && leafMin.z >-433); //show path of seams to debug
+        //return xi==0||xi==VOXELS_PER_CHUNK-1 || yi==0||yi==VOXELS_PER_CHUNK-1 || zi==0||zi==VOXELS_PER_CHUNK-1;
     }
 
     private OctreeNode constructTreeUpwards(List<OctreeNode> inputNodes, Vec3i rootMin, int rootNodeSize) {

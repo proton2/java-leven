@@ -101,8 +101,8 @@ public class QefSolver {
     }
 
     public float solve(Vec3f outx, float svd_tol, int svd_sweeps, float pinv_tol) {
-        //return solveSimple(outx);
-        return solveNew(outx, svd_tol, svd_sweeps, pinv_tol);
+        return solveSimple(outx);
+        //return solveNew(outx, svd_tol, svd_sweeps, pinv_tol);
     }
 
     public float solveSimple(Vec3f outx) {
