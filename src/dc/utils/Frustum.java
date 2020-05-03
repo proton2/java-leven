@@ -1,9 +1,8 @@
-package utils;
+package dc.utils;
 
 import core.math.Matrix4f;
 import core.math.Vec3f;
 import core.math.Vec4f;
-import org.joml.Vector4f;
 
 public class Frustum {
     private float[][] frustum = new float[6][4];

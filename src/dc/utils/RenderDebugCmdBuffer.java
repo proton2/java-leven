@@ -1,4 +1,4 @@
-package dc;
+package dc.utils;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
@@ -78,15 +78,6 @@ public class RenderDebugCmdBuffer {
         vertexDataBuffer[currVertexBufferSize + 5] = new Vec4f(min.x, max.y, max.z, 0.f);
         vertexDataBuffer[currVertexBufferSize + 6] = new Vec4f(max.x, max.y, max.z, 0.f);
         vertexDataBuffer[currVertexBufferSize + 7] = new Vec4f(max.x, min.y, max.z, 0.f);
-
-        int[] indices = {
-                0, 1, 2, 0, 2, 3,
-                4, 1, 0, 4, 5, 1,
-                0, 3, 4, 3, 7, 4,
-                3, 2, 6, 6, 7, 3,
-                2, 1, 5, 5, 6, 2,
-                4, 6, 5, 4, 7, 6,
-        };
 
         int[] edgeElementArray = {
                     0,1,  1,5,  5,4,  4,0,    // edges of the top face

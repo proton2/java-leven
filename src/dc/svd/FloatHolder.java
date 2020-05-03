@@ -1,4 +1,4 @@
-package svd;
+package dc.svd;
 
 /**
  * Created by proton2 on 28.12.2019.

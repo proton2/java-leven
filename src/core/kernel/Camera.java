@@ -1,12 +1,10 @@
 package core.kernel;
 
 import core.math.Matrix4f;
-import core.math.Quaternion;
 import core.math.Vec3f;
 import core.math.Vec4f;
 import core.utils.Constants;
 import core.utils.Util;
-import svd.GlslSvd;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_S;

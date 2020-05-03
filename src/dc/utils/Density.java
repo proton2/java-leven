@@ -1,4 +1,4 @@
-package dc;
+package dc.utils;
 
 import core.math.Vec2f;
 import core.math.Vec3f;

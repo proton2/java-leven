@@ -2,10 +2,9 @@ package core.utils;
 
 import core.math.*;
 import core.model.Vertex;
-import dc.DebugDrawBuffer;
+import dc.utils.DebugDrawBuffer;
 import org.lwjgl.BufferUtils;
 
-import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 

@@ -1,4 +1,4 @@
-package modules;
+package dc.shaders;
 
 import core.scene.GameObject;
 import core.shaders.Shader;

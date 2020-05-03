@@ -2,8 +2,6 @@ package core.kernel;
 
 import core.configs.Default;
 import dc.ChunkOctreeWrapper;
-import dc.DcWrapper;
-import modules.Skydome;
 
 /**
  * 

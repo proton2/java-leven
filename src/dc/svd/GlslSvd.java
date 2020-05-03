@@ -1,4 +1,4 @@
-package svd;
+package dc.svd;
 
 import core.math.Vec2f;
 import core.math.Vec3f;

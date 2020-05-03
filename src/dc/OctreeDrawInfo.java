@@ -1,7 +1,7 @@
 package dc;
 
 import core.math.Vec3f;
-import svd.QefData;
+import dc.svd.QefData;
 
 public class OctreeDrawInfo {
     public int index;

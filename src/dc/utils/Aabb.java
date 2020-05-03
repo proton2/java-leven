@@ -1,4 +1,4 @@
-package dc;
+package dc.utils;
 
 import core.math.Vec3i;
 
@@ -32,7 +32,7 @@ public class Aabb {
                         min.z > other.max.z);
     }
 
-    boolean pointIsInside(Vec3i point) {
+    public boolean pointIsInside(Vec3i point) {
         return (point.x >= min.x && point.x < max.x) &&
                 (point.y >= min.y && point.y < max.y) &&
                 (point.z >= min.z && point.z < max.z);

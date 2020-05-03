@@ -5,27 +5,29 @@ import core.buffers.MeshDcVBO;
 import core.configs.CW;
 import core.kernel.Camera;
 import core.kernel.Input;
-import core.math.Vec3f;
 import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
-import modules.DcSimpleShader;
-import modules.RenderDebugShader;
+import dc.utils.DebugDrawBuffer;
+import dc.utils.RenderDebugCmdBuffer;
+import dc.shaders.DcSimpleShader;
+import dc.shaders.RenderDebugShader;
 
 import java.util.ArrayList;
-import java.util.List;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_F1;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_F3;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
     private ChunkOctree chunkOctree;
+    protected boolean drawVoxelsBounds = false;
+    ArrayList<ChunkNode> constructedNodes;
 
     public ChunkOctreeWrapper() {
-        super();
-        chunkOctree = new ChunkOctree();
+        DualContouring dc = new DualContouringImpl();
+        VoxelOctree octree = new VoxelOctreeImpl(dc);
+        chunkOctree = new ChunkOctree(octree);
     }
 
     public void update() {
@@ -50,7 +52,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private void renderMesh() {
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
         ChunkNode rootChunk = chunkOctree.buildChunkOctree();
-        ArrayList<ChunkNode> constructedNodes = chunkOctree.update(rootChunk, Camera.getInstance(), renderCmds);
+        constructedNodes = chunkOctree.update(rootChunk, Camera.getInstance(), renderCmds);
 
         for (ChunkNode node : constructedNodes) {
             MeshDcVBO meshBuffer = new MeshDcVBO();
@@ -58,7 +60,9 @@ public class ChunkOctreeWrapper extends GameObject {
             Renderer renderer = new Renderer(meshBuffer);
             renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
             addComponent("chunks "+node.min, renderer);
-            renderNodeSeam(node);
+
+            renderChunkSeam(node);
+            renderDebugVoxelsBounds(node);
         }
 
         DebugDrawBuffer buf = renderCmds.UpdateDebugDrawBuffer();
@@ -69,7 +73,18 @@ public class ChunkOctreeWrapper extends GameObject {
         addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
     }
 
-    private void renderNodeSeam(ChunkNode node) {
+    private void renderDebugVoxelsBounds(ChunkNode node){
+        if(drawVoxelsBounds) {
+            DebugDrawBuffer buf = node.getRenderDebugVoxelsBounds().UpdateDebugDrawBuffer();
+            DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();
+            debugMeshBuffer.addData(buf);
+            Renderer debugRenderer = new Renderer(debugMeshBuffer);
+            debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
+            addComponent("voxel nodes " + node.min, debugRenderer);
+        }
+    }
+
+    private void renderChunkSeam(ChunkNode node) {
         if(node.seamVertArray!=null && node.seamVertArray.length > 0) {
             MeshDcVBO seamsMeshBuffer = new MeshDcVBO();
             seamsMeshBuffer.addData(node.seamVertArray, node.seamIndices);

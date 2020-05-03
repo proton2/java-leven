@@ -2,8 +2,6 @@ package dc;
 
 import core.math.Vec3i;
 
-import java.util.Objects;
-
 public class OctreeNode {
     public OctreeNodeType Type;
     public Vec3i min;
