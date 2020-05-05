@@ -18,13 +18,6 @@ public class VoxelHelperUtils {
         return result;
     }
 
-    boolean ConstructChunkNodeData(ChunkNode node, float b) {
-        if (b >= node.min.y && b <= node.min.y + node.size) {
-            return true;
-        }
-        return false;
-    }
-
     static private float max(float x, float y, float z){
         return Math.max(Math.max(x, y), z);
     }
@@ -40,9 +33,9 @@ public class VoxelHelperUtils {
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
-//    float Distance3DToNode(ChunkNode node, Vec3f cameraPos) {
-//        Vec3f center = node.min.add((float)node.size/2);
-//        Vec3f p = center.sub(cameraPos);
-//        return (float) Math.sqrt(p.X * p.X + p.Y * p.Y + p.Z * p.Z);
-//    }
+    float Distance3DToNode(ChunkNode node, Vec3f cameraPos) {
+        Vec3f center = node.min.add(new Vec3i(node.size/2, node.size/2, node.size/2)).toVec3f();
+        Vec3f p = center.sub(cameraPos);
+        return (float) Math.sqrt(p.X * p.X + p.Y * p.Y + p.Z * p.Z);
+    }
 }

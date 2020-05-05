@@ -294,11 +294,11 @@ public class GlslSvd {
 
         final int count = 5;
         Vec3f[] normals = {
-                SVD.Normalize(new Vec3f( 1.0f,1.0f,0.0f)),
-                SVD.Normalize(new Vec3f( 1.0f,1.0f,0.0f)),
-                SVD.Normalize(new Vec3f(-1.0f,1.0f,0.0f)),
-                SVD.Normalize(new Vec3f(-1.0f,2.0f,1.0f)),
-                SVD.Normalize(new Vec3f(-1.0f,1.0f,0.0f)),
+                new Vec3f( 1.0f,1.0f,0.0f).normalize(),
+                new Vec3f( 1.0f,1.0f,0.0f).normalize(),
+                new Vec3f(-1.0f,1.0f,0.0f).normalize(),
+                new Vec3f(-1.0f,2.0f,1.0f).normalize(),
+                new Vec3f(-1.0f,1.0f,0.0f).normalize(),
         };
         Vec3f[] points = {
                 new Vec3f(  1.0f, 0.0f, 0.3f),
@@ -307,20 +307,6 @@ public class GlslSvd {
                 new Vec3f( -1.0f, 0.0f, 0.01f),
                 new Vec3f( -1.1f, -0.1f, -0.5f),
         };
-
-        /*
-        final int count = 3;
-        Vec3f[] normals = {
-                new Vec3f( 1.0f, 0.0f, 0.0f),
-                new Vec3f( 0.0f, 1.0f, 0.0f),
-                new Vec3f(0.0f, 0.0f, 1.0f)
-        };
-        Vec3f[] points = {
-                new Vec3f(  0f, 0.5f, -0.5f),
-                new Vec3f(  -0.5f, 0f, -0.5f),
-                new Vec3f( -0.5f, 0.5f, 0f)
-        };
-        */
 
         GlslSvd solver = new GlslSvd();
 

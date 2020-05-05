@@ -6,7 +6,6 @@ public class QefSolver {
     private QefData data;
     private SMat3 ata;
     private Vec3f atb, massPoint, x;
-    //private GlslSvd.Vec4f pointaccum;
     private boolean hasSolution;
     private GlslSvd glslSvdSolver = new GlslSvd();
 
@@ -17,7 +16,6 @@ public class QefSolver {
         massPoint = new Vec3f();
         x = new Vec3f();
         hasSolution = false;
-        //pointaccum = new GlslSvd.Vec4f();
     }
 
     public Vec3f getMassPoint() {
@@ -26,7 +24,7 @@ public class QefSolver {
 
     public void add(Vec3f p, Vec3f n) {
         hasSolution = false;
-        SVD.normalize(n);
+        n.normalize();
         data.ata_00 += n.X * n.X;
         data.ata_01 += n.X * n.Y;
         data.ata_02 += n.X * n.Z;
@@ -42,8 +40,6 @@ public class QefSolver {
         data.massPoint_y += p.Y;
         data.massPoint_z += p.Z;
         ++data.numPoints;
-
-        //pointaccum.add(p,1.0f);
     }
 
     public void add(QefData rhs) {
@@ -67,11 +63,8 @@ public class QefSolver {
             setAta();
             setAtb();
         }
-
         Vec3f atax = this.ata.Vmul(pos);
         return pos.dot(atax) - 2 * pos.dot(atb) + data.btb;
-
-        //return glslSvdSolver.qef_calc_error(this.ata.convTo2dFloat(), pos, this.atb);
     }
 
     public void reset() {
@@ -79,30 +72,9 @@ public class QefSolver {
         data.clear();
     }
 
-    public float solveOld(Vec3f outx, float svd_tol, int svd_sweeps, float pinv_tol) {
-        if (data.numPoints == 0) {
-            throw new IllegalArgumentException("...");
-        }
-        this.massPoint.set(this.data.massPoint_x, this.data.massPoint_y, this.data.massPoint_z);
-
-        //massPoint *= (1.0f / data.numPoints);
-        this.massPoint = this.massPoint.mul(1.0f / this.data.numPoints);
-        setAta();
-        setAtb();
-        Vec3f tmpv = ata.Vmul(this.massPoint);
-        this.atb = this.atb.sub(tmpv);
-        this.x.set(0);
-        float result = SVD.solveSymmetric(this.ata, this.atb, this.x, svd_tol, svd_sweeps, pinv_tol);
-        this.x = this.x.add(massPoint);
-        setAtb();
-        outx.set(x);
-        hasSolution = true;
-        return result;
-    }
-
     public float solve(Vec3f outx, float svd_tol, int svd_sweeps, float pinv_tol) {
-        return solveSimple(outx);
-        //return solveNew(outx, svd_tol, svd_sweeps, pinv_tol);
+        //return solveSimple(outx);
+        return solveNew(outx, svd_tol, svd_sweeps, pinv_tol);
     }
 
     public float solveSimple(Vec3f outx) {

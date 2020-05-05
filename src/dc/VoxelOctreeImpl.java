@@ -4,9 +4,11 @@ import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
 import core.utils.Constants;
-import dc.utils.*;
 import dc.svd.QefSolver;
-import dc.svd.SVD;
+import dc.utils.Density;
+import dc.utils.Frustum;
+import dc.utils.MeshVertex;
+import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
 
@@ -28,25 +30,39 @@ public class VoxelOctreeImpl implements VoxelOctree{
 
     @Override
     public EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(ChunkNode chunk, Vec4f[] frustumPlanes,
-                                                                      int voxelsPerChunk,
-                                                                      RenderDebugCmdBuffer debugRenderBuf,
-                                                                      int clipmapLeafSize, int leafSizeScale) {
+                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) {
         List<OctreeNode> voxels = new ArrayList<>();
         List<OctreeNode> seamNodes = new ArrayList<>();
+        Vec3i faces = new Vec3i();
         for (int zi = 0; zi < voxelsPerChunk; zi++) {
             for (int yi = 0; yi < voxelsPerChunk; yi++) {
                 for (int xi = 0; xi < voxelsPerChunk; xi++) {
+
+                    faces.set(0, 0, 0);
+                    // checks which side this node is facing
+                    if (xi == 0)
+                        faces.x = -1;
+                    else if (xi == voxelsPerChunk-1)
+                        faces.x = 1;
+
+                    if (yi == 0)
+                        faces.y = -1;
+                    else if (yi == voxelsPerChunk-1)
+                        faces.y = 1;
+
+                    if (zi == 0)
+                        faces.z = -1;
+                    else if (zi == voxelsPerChunk-1)
+                        faces.z = 1;
+
                     int leafSize = (chunk.size / clipmapLeafSize) * leafSizeScale;
                     Vec3i leafMin = new Vec3i(xi, yi, zi).mul(leafSize).add(chunk.min);
                     if (Frustum.cubeInFrustum(frustumPlanes, leafMin.x, leafMin.y, leafMin.z, leafSize)) {
-                        OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunk.min, chunk.size));
+                        OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunk.min, chunk.size), faces, leafSizeScale);
                         if (leaf != null) {
                             voxels.add(leaf);
                             if(nodeIsSeam(zi, yi, xi, leafMin, voxelsPerChunk)) {
                                 seamNodes.add(leaf);
-                                if (debugRenderBuf!=null) {
-                                    debugRenderBuf.addCube(Constants.White, 0.2f, leafMin, leafSize);
-                                }
                             }
                         }
                     }
@@ -59,10 +75,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
         return res;
     }
 
-    private OctreeNode ConstructLeaf(OctreeNode leaf) {
-        if (leaf == null) {
-            return null;
-        }
+    private OctreeNode ConstructLeaf(OctreeNode leaf, Vec3i boundCheck, int leafSizeScale) {
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
@@ -71,7 +84,8 @@ public class VoxelOctreeImpl implements VoxelOctree{
             corners |= (material << i);
         }
         if (corners == 0 || corners == 255) {
-            return null;    // voxel is full inside or outside the volume
+            //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
+            return tryToCreateBoundSeamPseudoNode(leaf, boundCheck, corners, leafSizeScale);
         }
 
         // otherwise the voxel contains the surface, so find the edge intersections
@@ -100,16 +114,54 @@ public class VoxelOctreeImpl implements VoxelOctree{
         qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-        drawInfo.position = contains(qefPosition, leaf.min.toVec3f(), leaf.size) ? qefPosition : qef.getMassPoint();
-        drawInfo.color = Constants.Red;//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize, leaf.min, leaf.size); //
+        drawInfo.position = isOutFromBounds(qefPosition, leaf.min.toVec3f(), leaf.size) ? qef.getMassPoint(): qefPosition;
+        drawInfo.color = Constants.Red;//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize, leaf.min, leaf.size);
         drawInfo.qef = qef.getData();
-        drawInfo.averageNormal = averageNormal.div((float)edgeCount);//.normalize();
-        SVD.normalize(drawInfo.averageNormal);
+        drawInfo.averageNormal = averageNormal.div((float)edgeCount);
+        drawInfo.averageNormal.normalize();
         drawInfo.corners = corners;
 
         leaf.Type = Node_Leaf;
         leaf.drawInfo = drawInfo;
         return leaf;
+    }
+
+    private Vec3i[] EDGE_OFFSETS = {
+            new Vec3i(1, 2, 0), new Vec3i(1, 0, 2),
+            new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
+            new Vec3i(2, 0, 1), new Vec3i(0, 2, 1),
+            new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
+            new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2) };
+
+    private OctreeNode tryToCreateBoundSeamPseudoNode(OctreeNode leaf, Vec3i boundCheck, int corners, int nodeMinSize) {
+        // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
+        if ((boundCheck.x != 0 || boundCheck.y != 0 || boundCheck.z != 0) && leaf.size != nodeMinSize) {
+            for (int i = 0; i < 12; i++) {
+                if (!(  (boundCheck.x != 0 && boundCheck.x + 1 == EDGE_OFFSETS[i].x) ||
+                        (boundCheck.y != 0 && boundCheck.y + 1 == EDGE_OFFSETS[i].y) ||
+                        (boundCheck.z != 0 && boundCheck.z + 1 == EDGE_OFFSETS[i].z))) {
+                    continue;
+                }
+
+                // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
+                int x = leaf.min.x + (EDGE_OFFSETS[i].x) * leaf.size / 2;
+                int y = leaf.min.y + (EDGE_OFFSETS[i].y) * leaf.size / 2;
+                int z = leaf.min.z + (EDGE_OFFSETS[i].z) * leaf.size / 2;
+
+                Vec3f nodePos = new Vec3f(x,y,z);
+                float density = Density.Density_Func(nodePos);
+                if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
+                    leaf.drawInfo = new OctreeDrawInfo();
+                    leaf.drawInfo.position = nodePos;
+                    leaf.drawInfo.averageNormal = CalculateSurfaceNormal(nodePos);
+                    leaf.drawInfo.corners = corners;
+                    leaf.drawInfo.color = Constants.Blue;
+                    leaf.Type = Node_Leaf;
+                    return leaf;
+                }
+            }
+        }
+        return null;    // voxel is full inside or outside the volume
     }
 
     private Vec3f isSeamNode(Vec3f pos, Vec3i chunkMin, int chunkSize){
@@ -121,19 +173,9 @@ public class VoxelOctreeImpl implements VoxelOctree{
     }
 
     private boolean isOutFromBounds(Vec3f p, Vec3f min, int size) {
-        Vec3f max = min.add(size);
-        return (p.X < min.X || p.X > max.X ||
-                p.Y < min.Y || p.Y > max.Y ||
-                p.Z < min.Z || p.Z > max.Z);
-    }
-
-    private boolean contains(Vec3f p, Vec3f min, int size) {
-        return (p.X >= min.X - BIAS &&
-                p.Y >= min.Y - BIAS &&
-                p.Z >= min.Z - BIAS &&
-                p.X <= min.X + size + BIAS &&
-                p.Y <= min.Y + size + BIAS &&
-                p.Z <= min.Z + size + BIAS);
+        return  p.X < min.X || p.X > (min.X + size) ||
+                p.Y < min.Y || p.Y > (min.Y + size) ||
+                p.Z < min.Z || p.Z > (min.Z + size);
     }
 
     private List<OctreeNode> constructParents(List<OctreeNode> nodes, Vec3i rootMin, int parentSize, int chunkSize) {
@@ -223,7 +265,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
 	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f))) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)));
 	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H))) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)));
         Vec3f v = new Vec3f(dx, dy, dz);
-        SVD.normalize(v);
+        v.normalize();
         return v;
     }
 

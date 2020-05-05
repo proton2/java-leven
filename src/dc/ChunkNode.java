@@ -2,7 +2,6 @@ package dc;
 
 import core.math.Vec3i;
 import core.model.Vertex;
-import dc.utils.RenderDebugCmdBuffer;
 
 import java.util.List;
 
@@ -16,7 +15,6 @@ public class ChunkNode {
     int	numSeamNodes = 0;
     List<OctreeNode> seamNodes;
     OctreeNode octreeRoot, seamOctreeRoot;
-    private RenderDebugCmdBuffer renderDebugVoxelsBounds;
 
     Vertex[] vertArray, seamVertArray;
     int[] indices, seamIndices;
@@ -28,7 +26,6 @@ public class ChunkNode {
         for (int i = 0; i < 8; i++) {
             children[i] = null;
         }
-        renderDebugVoxelsBounds = new RenderDebugCmdBuffer();
     }
 
     private boolean pointIsInCube(Vec3i p, float x_min, float y_min, float z_min, float size) {
@@ -38,10 +35,6 @@ public class ChunkNode {
 
     public boolean pointIsInside(Vec3i p){
         return pointIsInCube(p, min.x, min.y, min.z, size);
-    }
-
-    public RenderDebugCmdBuffer getRenderDebugVoxelsBounds() {
-        return renderDebugVoxelsBounds;
     }
 
     @Override

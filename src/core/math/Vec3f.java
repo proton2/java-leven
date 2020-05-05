@@ -92,6 +92,13 @@ public class Vec3f {
 		
 		return this;
 	}
+
+	public Vec3f scale(float s) {
+		X *= s;
+		Y *= s;
+		Z *= s;
+		return this;
+	}
 	
 	public Vec3f rotate(float angle, Vec3f axis)
 	{

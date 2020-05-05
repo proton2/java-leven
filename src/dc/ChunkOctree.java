@@ -28,7 +28,7 @@ public class ChunkOctree {
     Vec3i worldBoundsMin = worldOrigin.sub(worldSize.div(2));
     Vec3i worldBoundsMax = worldOrigin.add(worldSize.div(2));
 
-    float[] LOD_ACTIVE_DISTANCES = {0.f,
+    private float[] LOD_ACTIVE_DISTANCES = {0.f,
             CLIPMAP_LEAF_SIZE * 1.5f,
             CLIPMAP_LEAF_SIZE * 3.5f,
             CLIPMAP_LEAF_SIZE * 5.5f,
@@ -271,8 +271,8 @@ public class ChunkOctree {
     }
 
     private boolean ConstructChunkNodeData(ChunkNode chunk, Vec4f[] frustumPlanes) {
-        EnumMap<VoxelTypes, List<OctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk, frustumPlanes, VOXELS_PER_CHUNK,
-                chunk.getRenderDebugVoxelsBounds(), CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE);
+        EnumMap<VoxelTypes, List<OctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk, frustumPlanes,
+                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE);
         if (res.get(VoxelTypes.NODES).isEmpty() || res.get(VoxelTypes.SEAMS).isEmpty()) {
             return false;
         }

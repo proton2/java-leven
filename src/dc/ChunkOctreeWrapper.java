@@ -9,14 +9,15 @@ import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
-import dc.utils.DebugDrawBuffer;
-import dc.utils.RenderDebugCmdBuffer;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
+import dc.utils.DebugDrawBuffer;
+import dc.utils.RenderDebugCmdBuffer;
 
 import java.util.ArrayList;
 
-import static org.lwjgl.glfw.GLFW.*;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F1;
+import static org.lwjgl.glfw.GLFW.GLFW_KEY_F3;
 import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
@@ -60,9 +61,10 @@ public class ChunkOctreeWrapper extends GameObject {
             Renderer renderer = new Renderer(meshBuffer);
             renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
             addComponent("chunks "+node.min, renderer);
-
             renderChunkSeam(node);
-            renderDebugVoxelsBounds(node);
+            if(drawVoxelsBounds) {
+                renderDebugVoxelsBounds(node);
+            }
         }
 
         DebugDrawBuffer buf = renderCmds.UpdateDebugDrawBuffer();
@@ -74,14 +76,16 @@ public class ChunkOctreeWrapper extends GameObject {
     }
 
     private void renderDebugVoxelsBounds(ChunkNode node){
-        if(drawVoxelsBounds) {
-            DebugDrawBuffer buf = node.getRenderDebugVoxelsBounds().UpdateDebugDrawBuffer();
-            DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();
-            debugMeshBuffer.addData(buf);
-            Renderer debugRenderer = new Renderer(debugMeshBuffer);
-            debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
-            addComponent("voxel nodes " + node.min, debugRenderer);
+        RenderDebugCmdBuffer renderDebugVoxelsBounds = new RenderDebugCmdBuffer();
+        for(OctreeNode n : node.seamNodes){
+            renderDebugVoxelsBounds.addCube(Constants.White, 0.2f, n.min, n.size);
         }
+        DebugDrawBuffer buf = renderDebugVoxelsBounds.UpdateDebugDrawBuffer();
+        DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();
+        debugMeshBuffer.addData(buf);
+        Renderer debugRenderer = new Renderer(debugMeshBuffer);
+        debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
+        addComponent("voxel nodes " + node.min, debugRenderer);
     }
 
     private void renderChunkSeam(ChunkNode node) {
