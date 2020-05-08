@@ -1,7 +1,7 @@
 package core.buffers;
 
 import core.utils.BufferUtil;
-import dc.utils.DebugDrawBuffer;
+import dc.entities.DebugDrawBuffer;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;

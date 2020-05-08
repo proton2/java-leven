@@ -3,11 +3,14 @@ package dc;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
+import core.utils.BufferUtil;
 import core.utils.Constants;
+import dc.entities.MeshBuffer;
+import dc.entities.VoxelTypes;
 import dc.svd.QefSolver;
 import dc.utils.Density;
 import dc.utils.Frustum;
-import dc.utils.MeshVertex;
+import dc.entities.MeshVertex;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
@@ -84,6 +87,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
             corners |= (material << i);
         }
         if (corners == 0 || corners == 255) {
+            // to avoid holes in seams between chunks with different resolution
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
             return tryToCreateBoundSeamPseudoNode(leaf, boundCheck, corners, leafSizeScale);
         }
@@ -142,7 +146,6 @@ public class VoxelOctreeImpl implements VoxelOctree{
                         (boundCheck.z != 0 && boundCheck.z + 1 == EDGE_OFFSETS[i].z))) {
                     continue;
                 }
-
                 // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
                 int x = leaf.min.x + (EDGE_OFFSETS[i].x) * leaf.size / 2;
                 int y = leaf.min.y + (EDGE_OFFSETS[i].y) * leaf.size / 2;
@@ -285,14 +288,19 @@ public class VoxelOctreeImpl implements VoxelOctree{
     }
 
     @Override
-    public void GenerateMeshFromOctree(OctreeNode node, List<MeshVertex> vertexBuffer, List<Integer> indexBuffer, boolean isSeam) {
+    public MeshBuffer GenerateMeshFromOctree(OctreeNode node, boolean isSeam) {
         if (node == null) {
-            return;
+            return null;
         }
-        vertexBuffer.clear();
-        indexBuffer.clear();
-        GenerateVertexIndices(node, vertexBuffer);
-        dualContouring.ContourCellProc(node, indexBuffer, isSeam);
+        List<MeshVertex> vertices = new ArrayList<>();
+        List<Integer> indcies = new ArrayList<>();
+        GenerateVertexIndices(node, vertices);
+        dualContouring.ContourCellProc(node, indcies, isSeam);
+        MeshBuffer buffer = new MeshBuffer(BufferUtil.createDcFlippedBufferAOS(vertices), BufferUtil.createFlippedBuffer(indcies),
+                vertices.size(), indcies.size());
+        vertices.clear();
+        indcies.clear();
+        return buffer;
     }
 
     public void DestroyOctree(OctreeNode node) {

@@ -1,12 +1,14 @@
 package core.utils;
 
-import core.math.*;
+import core.math.Matrix4f;
 import core.model.Vertex;
-import dc.utils.DebugDrawBuffer;
+import dc.entities.DebugDrawBuffer;
+import dc.entities.MeshVertex;
 import org.lwjgl.BufferUtils;
 
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
+import java.util.List;
 
 public class BufferUtil {
 
@@ -26,6 +28,14 @@ public class BufferUtil {
 		buffer.put(values);
 		buffer.flip();
 		
+		return buffer;
+	}
+
+	public static IntBuffer createFlippedBuffer(List<Integer> indices) {
+		IntBuffer buffer = createIntBuffer(indices.size());
+		buffer.put(indices.stream().mapToInt(x -> x).toArray());
+		buffer.flip();
+
 		return buffer;
 	}
 
@@ -57,6 +67,23 @@ public class BufferUtil {
 
 	public static FloatBuffer createDcFlippedBufferAOS(Vertex[] vertices) {
 		FloatBuffer buffer = createFloatBuffer(vertices.length * 9);
+		for (Vertex vertice : vertices) {
+			buffer.put(vertice.getPos().getX());
+			buffer.put(vertice.getPos().getY());
+			buffer.put(vertice.getPos().getZ());
+			buffer.put(vertice.getNormal().getX());
+			buffer.put(vertice.getNormal().getY());
+			buffer.put(vertice.getNormal().getZ());
+			buffer.put(vertice.getColor().getX());
+			buffer.put(vertice.getColor().getY());
+			buffer.put(vertice.getColor().getZ());
+		}
+		buffer.flip();
+		return buffer;
+	}
+
+	public static FloatBuffer createDcFlippedBufferAOS(List<MeshVertex> vertices) {
+		FloatBuffer buffer = createFloatBuffer(vertices.size() * 9);
 		for (Vertex vertice : vertices) {
 			buffer.put(vertice.getPos().getX());
 			buffer.put(vertice.getPos().getY());

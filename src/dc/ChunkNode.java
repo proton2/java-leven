@@ -1,7 +1,7 @@
 package dc;
 
 import core.math.Vec3i;
-import core.model.Vertex;
+import core.renderer.Renderer;
 
 import java.util.List;
 
@@ -16,8 +16,9 @@ public class ChunkNode {
     List<OctreeNode> seamNodes;
     OctreeNode octreeRoot, seamOctreeRoot;
 
-    Vertex[] vertArray, seamVertArray;
-    int[] indices, seamIndices;
+//    Vertex[] seamVertArray;
+//    int[] seamIndices;
+    Renderer mainMesh, seamMesh;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);

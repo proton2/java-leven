@@ -1,4 +1,4 @@
-package dc;
+package dc.entities;
 
 public enum VoxelTypes {
     NODES, SEAMS

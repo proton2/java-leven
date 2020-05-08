@@ -1,4 +1,4 @@
-package dc.utils;
+package dc.entities;
 
 import core.math.Vec4f;
 

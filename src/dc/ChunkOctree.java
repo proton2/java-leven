@@ -1,12 +1,21 @@
 package dc;
 
+import core.buffers.MeshDcVBO;
+import core.configs.CW;
 import core.kernel.Camera;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
-import core.model.Vertex;
+import core.renderer.RenderInfo;
+import core.renderer.Renderer;
 import core.utils.Constants;
-import dc.utils.*;
+import dc.entities.MeshBuffer;
+import dc.entities.VoxelTypes;
+import dc.shaders.DcSimpleShader;
+import dc.utils.Aabb;
+import dc.utils.Frustum;
+import dc.utils.RenderDebugCmdBuffer;
+import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
 
@@ -84,7 +93,7 @@ public class ChunkOctree {
     public ArrayList<ChunkNode> update(ChunkNode root, Camera camera, RenderDebugCmdBuffer renderCmds) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
-//        ArrayList<ChunkNode> invalidatedMeshes = new ArrayList<>();
+//        ArrayList<Renderer> invalidatedMeshes = new ArrayList<>();
 //        ReleaseInvalidatedNodes(root, invalidatedMeshes);
         ArrayList<ChunkNode> filteredNodes = new ArrayList<>();
         ArrayList<ChunkNode> reserveNodes = new ArrayList<>();
@@ -117,7 +126,7 @@ public class ChunkOctree {
             if (!result){
                 continue;
             }
-            if (filteredNode.vertArray!=null || filteredNode.seamNodes.size()> 0) {
+            if (filteredNode.mainMesh!=null || filteredNode.seamNodes.size()> 0) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
                 Vec3f colour = filteredNode.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green;
@@ -130,18 +139,8 @@ public class ChunkOctree {
         for (ChunkNode node : emptyNodes) {
             propagateEmptyStateDownward(node);
         }
-        constructSeams(root, constructedNodes);
-        return constructedNodes;
-    }
 
-    private boolean filterNodesForDebug(ChunkNode filteredNode){
-        boolean res =
-                filteredNode.min.equals(new Vec3i(512,0,-512)) ||
-                filteredNode.min.equals(new Vec3i(1024,0,-1024));
-        return res;
-    }
-
-    private void constructSeams(ChunkNode root, List<ChunkNode> constructedNodes) {
+        // construct seams begin
         Set<ChunkNode> seamUpdateNodes = new HashSet<>();
         for (ChunkNode constructedNode : constructedNodes) {
             for (int i = 0; i < 8; i++) {
@@ -155,12 +154,58 @@ public class ChunkOctree {
             }
         }
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
-            if (seamUpdateNode.seamVertArray!=null && seamUpdateNode.seamVertArray.length>0){
-                seamUpdateNode.seamVertArray = null;
-                seamUpdateNode.seamIndices = null;
+            if (seamUpdateNode.seamMesh!=null){
+                //invalidatedMeshes.push_back(seamUpdateNode.seamMesh);
+                seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
         }
+        // construct seams end
+        return constructedNodes;
+    }
+/*
+    private void ReleaseInvalidatedNodes(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
+        if (node==null)
+            return;
+
+        if(node.invalidated){
+            ReleaseClipmapNodeData(node, invalidatedMeshes);
+            node.invalidated=false;
+        }
+
+        for (int i = 0; i < 8; i++) {
+            ReleaseInvalidatedNodes(node.children[i], invalidatedMeshes);
+        }
+    }
+
+    void ReleaseClipmapNodeData(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
+        node.active = false;
+        meshGen->freeChunkOctree(node->min_, node->size_);
+        if (node.mainMesh!=null) {
+            // collect the invalidated mesh indices so the meshes can be removed after
+            // the replacement mesh(es) have been generated, which prevents flickering
+            invalidatedMeshes.push_back(node.mainMesh);
+            node.mainMesh = null;
+        }
+        if (node.seamMesh!=null) {
+            invalidatedMeshes.push_back(node.seamMesh);
+            node.seamMesh = null;
+        }
+        for (int i = 0; i < node.numSeamNodes; i++) {
+            OctreeNode n = node.seamNodes.get(i);
+            n.drawInfo = null;
+        }
+        node.seamNodes.clear();
+        node.seamNodes = null;
+        node.numSeamNodes = 0;
+    }
+ */
+
+    private boolean filterNodesForDebug(ChunkNode filteredNode){
+        boolean res =
+                filteredNode.min.equals(new Vec3i(512,0,-512)) ||
+                filteredNode.min.equals(new Vec3i(1024,0,-1024));
+        return res;
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){
@@ -181,12 +226,12 @@ public class ChunkOctree {
         if(seamNodes.isEmpty())
             return;
         node.seamOctreeRoot = voxelOctree.constructTreeUpwards(new ArrayList<>(seamNodes), node.min, node.size * 2);
-
-        List<MeshVertex> seamVertices = new ArrayList<>();
-        List<Integer> seamIndcies = new ArrayList<>();
-        voxelOctree.GenerateMeshFromOctree(node.seamOctreeRoot, seamVertices, seamIndcies, true);
-        node.seamVertArray = seamVertices.toArray(new Vertex[0]);
-        node.seamIndices = seamIndcies.stream().mapToInt(x -> x).toArray();
+        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(node.seamOctreeRoot, true);
+        Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
+        meshBuffer.getVertices().clear();
+        meshBuffer.getIndicates().clear();
+        renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
+        node.seamMesh = renderer;
     }
 
     private List<OctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
@@ -281,11 +326,13 @@ public class ChunkOctree {
         chunk.numSeamNodes = res.get(VoxelTypes.SEAMS).size();
         chunk.active = true;
 
-        List<MeshVertex> vertices = new ArrayList<>();
-        List<Integer> indcies = new ArrayList<>();
-        voxelOctree.GenerateMeshFromOctree(chunk.octreeRoot, vertices, indcies, false);
-        chunk.vertArray = vertices.toArray(new Vertex[0]);
-        chunk.indices = indcies.stream().mapToInt(x -> x).toArray();
+        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(chunk.octreeRoot,false);
+
+        Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
+        meshBuffer.getVertices().clear();
+        meshBuffer.getIndicates().clear();
+        renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
+        chunk.mainMesh = renderer;
         return chunk.active;
     }
 
