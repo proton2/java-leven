@@ -5,7 +5,6 @@ import core.configs.CW;
 import core.kernel.Camera;
 import core.math.Vec3f;
 import core.math.Vec3i;
-import core.math.Vec4f;
 import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.utils.Constants;
@@ -21,8 +20,8 @@ import java.util.*;
 
 public class ChunkOctree {
     static int LEAF_SIZE_LOG2 = 2;
-    static int LEAF_SIZE_SCALE = 1 << LEAF_SIZE_LOG2;
-    static int VOXELS_PER_CHUNK = 64;
+    public static int LEAF_SIZE_SCALE = 1 << LEAF_SIZE_LOG2;
+    public static int VOXELS_PER_CHUNK = 64;
     static int CLIPMAP_LEAF_SIZE = LEAF_SIZE_SCALE * VOXELS_PER_CHUNK;
 
     int NUM_LODS = 6;
@@ -90,18 +89,82 @@ public class ChunkOctree {
         }
     }
 
+    private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
+        if (node==null) {
+            return;
+        }
+        boolean nodeActive = false;
+        if (!parentActive && node.size <= LOD_MAX_NODE_SIZE) {
+            int size = node.size / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
+            int distanceIndex = log2(size);
+            float d = LOD_ACTIVE_DISTANCES[distanceIndex];
+            float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
+            if (nodeDistance >= d) {
+                selectedNodes.add(node);
+                nodeActive = true;
+            }
+        }
+        if (node.active && !nodeActive) {
+            node.invalidated = true;
+        }
+        for (int i = 0; i < 8; i++) {
+            selectActiveChunkNodes(node.children[i], parentActive || nodeActive, camPos, selectedNodes);
+        }
+    }
+
+    private void ReleaseInvalidatedNodes(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
+        if (node==null)
+            return;
+
+        if(node.invalidated){
+            ReleaseClipmapNodeData(node, invalidatedMeshes);
+            node.invalidated=false;
+        }
+
+        for (int i = 0; i < 8; i++) {
+            ReleaseInvalidatedNodes(node.children[i], invalidatedMeshes);
+        }
+    }
+
+    void ReleaseClipmapNodeData(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
+        node.active = false;
+        /*
+        if (node.renderMesh !=null) {
+            // collect the invalidated mesh indices so the meshes can be removed after
+            // the replacement mesh(es) have been generated, which prevents flickering
+            invalidatedMeshes.add(node.renderMesh);
+            node.renderMesh.cleanMesh();
+        }
+        */
+        if (node.seamMesh!=null) {
+            invalidatedMeshes.add(node.seamMesh);
+            node.seamMesh.cleanMesh();
+            node.seamMesh = null;
+        }
+        /*
+        for (int i = 0; i < node.numSeamNodes; i++) {
+            OctreeNode n = node.seamNodes.get(i);
+            n.drawInfo = null;
+        }
+        node.seamNodes.clear();
+        node.seamNodes = null;
+        node.numSeamNodes = 0;
+         */
+    }
+
     public ArrayList<ChunkNode> update(ChunkNode root, Camera camera, RenderDebugCmdBuffer renderCmds) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
-//        ArrayList<Renderer> invalidatedMeshes = new ArrayList<>();
-//        ReleaseInvalidatedNodes(root, invalidatedMeshes);
+
+        ArrayList<Renderer> invalidatedMeshes = new ArrayList<>();
+        ReleaseInvalidatedNodes(root, invalidatedMeshes);
+
         ArrayList<ChunkNode> filteredNodes = new ArrayList<>();
         ArrayList<ChunkNode> reserveNodes = new ArrayList<>();
         ArrayList<ChunkNode> activeNodes = new ArrayList<>();
         for (ChunkNode selectedNode : selectedNodes) {
-            if (!selectedNode.active && !selectedNode.empty) {
-                if (Frustum.cubeInFrustum(camera.getFrustumPlanes(),
-                        selectedNode.min.x, selectedNode.min.y, selectedNode.min.z, selectedNode.size)) {
+            if (selectedNode.active==false && selectedNode.empty==false) {
+                if (Frustum.cubeIntoFrustum(camera.getFrustumPlanes(), selectedNode.min, selectedNode.size)) {
                     filteredNodes.add(selectedNode);
                 } else {
                     reserveNodes.add(selectedNode);
@@ -114,7 +177,7 @@ public class ChunkOctree {
             if (!reserveNodes.isEmpty()) {          // no nodes in the frustum need updated so update outside nodes
                 filteredNodes = reserveNodes;
             } else {
-                return null; // no nodes to update so no work to do
+                return activeNodes; // no nodes to update so no work to do
             }
         }
 
@@ -122,17 +185,14 @@ public class ChunkOctree {
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
             boolean result = //filterNodesForDebug(filteredNode) &&
-                    ConstructChunkNodeData(filteredNode, camera.getFrustumPlanes());
-            if (!result){
-                continue;
-            }
-            if (filteredNode.mainMesh!=null || filteredNode.seamNodes.size()> 0) {
+                    ConstructChunkNodeData(filteredNode);
+            if (filteredNode.renderMesh !=null || (filteredNode.seamNodes!=null && filteredNode.seamNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
                 Vec3f colour = filteredNode.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green;
                 renderCmds.addCube(colour, 0.2f, filteredNode.min, filteredNode.size);
             } else {
-                filteredNode.empty = true;
+                filteredNode.empty = true; // no meshes in chunk - empty chunk
                 emptyNodes.add(filteredNode);
             }
         }
@@ -155,57 +215,14 @@ public class ChunkOctree {
         }
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
             if (seamUpdateNode.seamMesh!=null){
-                //invalidatedMeshes.push_back(seamUpdateNode.seamMesh);
+                invalidatedMeshes.add(seamUpdateNode.seamMesh);
+                seamUpdateNode.seamMesh.cleanMesh();
                 seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
         }
         // construct seams end
-        return constructedNodes;
-    }
-/*
-    private void ReleaseInvalidatedNodes(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
-        if (node==null)
-            return;
-
-        if(node.invalidated){
-            ReleaseClipmapNodeData(node, invalidatedMeshes);
-            node.invalidated=false;
-        }
-
-        for (int i = 0; i < 8; i++) {
-            ReleaseInvalidatedNodes(node.children[i], invalidatedMeshes);
-        }
-    }
-
-    void ReleaseClipmapNodeData(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
-        node.active = false;
-        meshGen->freeChunkOctree(node->min_, node->size_);
-        if (node.mainMesh!=null) {
-            // collect the invalidated mesh indices so the meshes can be removed after
-            // the replacement mesh(es) have been generated, which prevents flickering
-            invalidatedMeshes.push_back(node.mainMesh);
-            node.mainMesh = null;
-        }
-        if (node.seamMesh!=null) {
-            invalidatedMeshes.push_back(node.seamMesh);
-            node.seamMesh = null;
-        }
-        for (int i = 0; i < node.numSeamNodes; i++) {
-            OctreeNode n = node.seamNodes.get(i);
-            n.drawInfo = null;
-        }
-        node.seamNodes.clear();
-        node.seamNodes = null;
-        node.numSeamNodes = 0;
-    }
- */
-
-    private boolean filterNodesForDebug(ChunkNode filteredNode){
-        boolean res =
-                filteredNode.min.equals(new Vec3i(512,0,-512)) ||
-                filteredNode.min.equals(new Vec3i(1024,0,-1024));
-        return res;
+        return activeNodes;
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){
@@ -225,8 +242,8 @@ public class ChunkOctree {
         }
         if(seamNodes.isEmpty())
             return;
-        node.seamOctreeRoot = voxelOctree.constructTreeUpwards(new ArrayList<>(seamNodes), node.min, node.size * 2);
-        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(node.seamOctreeRoot, true);
+        OctreeNode seamOctreeRoot = voxelOctree.constructTreeUpwards(new ArrayList<>(seamNodes), node.min, node.size * 2);
+        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(seamOctreeRoot, true);
         Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
         meshBuffer.getVertices().clear();
         meshBuffer.getIndicates().clear();
@@ -251,11 +268,6 @@ public class ChunkOctree {
             selectedSeamNodes.add(octreeSeamNode);
         }
         return selectedSeamNodes;
-    }
-
-    private int getOctreeSizeByChunkSize(int chunkSize){
-        int chunkScaleSize = chunkSize / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
-        return chunkScaleSize * LEAF_SIZE_SCALE;
     }
 
     private boolean filterSeamNode(int childIndex, Vec3i seamBounds, Vec3i min, Vec3i max) {
@@ -315,24 +327,35 @@ public class ChunkOctree {
         return new Vec3i(p.min.x & mask, p.min.y & mask, p.min.z & mask);
     }
 
-    private boolean ConstructChunkNodeData(ChunkNode chunk, Vec4f[] frustumPlanes) {
-        EnumMap<VoxelTypes, List<OctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk, frustumPlanes,
+    private boolean filterNodesForDebug(ChunkNode filteredNode){
+        boolean res =
+                filteredNode.min.equals(new Vec3i(512,0,-512)) ||
+                        filteredNode.min.equals(new Vec3i(1024,0,-1024));
+        return res;
+    }
+
+    private boolean ConstructChunkNodeData(ChunkNode chunk) {
+        if (chunk.renderMesh !=null || (chunk.seamNodes!=null && chunk.seamNodes.size()> 0)){
+            chunk.active = true;
+            return chunk.active;
+        }
+        EnumMap<VoxelTypes, List<OctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
                 VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE);
+        chunk.seamNodes = res.get(VoxelTypes.SEAMS);
+        chunk.numSeamNodes = chunk.seamNodes.size();
         if (res.get(VoxelTypes.NODES).isEmpty() || res.get(VoxelTypes.SEAMS).isEmpty()) {
             return false;
         }
-        chunk.octreeRoot = voxelOctree.constructTreeUpwards(res.get(VoxelTypes.NODES), chunk.min, chunk.size);
-        chunk.seamNodes = res.get(VoxelTypes.SEAMS);
-        chunk.numSeamNodes = res.get(VoxelTypes.SEAMS).size();
+        OctreeNode octreeRoot = voxelOctree.constructTreeUpwards(res.get(VoxelTypes.NODES), chunk.min, chunk.size);
         chunk.active = true;
 
-        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(chunk.octreeRoot,false);
+        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(octreeRoot,false);
 
         Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
         meshBuffer.getVertices().clear();
         meshBuffer.getIndicates().clear();
         renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
-        chunk.mainMesh = renderer;
+        chunk.renderMesh = renderer;
         return chunk.active;
     }
 
@@ -343,29 +366,6 @@ public class ChunkOctree {
         node.empty = true;
         for (int i = 0; i < 8; i++) {
             propagateEmptyStateDownward(node.children[i]);
-        }
-    }
-
-    private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
-        if (node==null) {
-            return;
-        }
-        boolean nodeActive = false;
-        if (!parentActive && node.size <= LOD_MAX_NODE_SIZE) {
-            int size = node.size / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
-		    int distanceIndex = log2(size);
-		    float d = LOD_ACTIVE_DISTANCES[distanceIndex];
-		    float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
-            if (nodeDistance >= d) {
-                selectedNodes.add(node);
-                nodeActive = true;
-            }
-        }
-        if (node.active && !nodeActive) {
-            node.invalidated = true;
-        }
-        for (int i = 0; i < 8; i++) {
-            selectActiveChunkNodes(node.children[i], parentActive || nodeActive, camPos, selectedNodes);
         }
     }
 }

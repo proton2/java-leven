@@ -8,11 +8,13 @@ import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
-import dc.shaders.RenderDebugShader;
 import dc.entities.DebugDrawBuffer;
+import dc.shaders.RenderDebugShader;
+import dc.utils.Frustum;
 import dc.utils.RenderDebugCmdBuffer;
 
-import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F1;
 import static org.lwjgl.glfw.GLFW.GLFW_KEY_F3;
@@ -21,17 +23,17 @@ import static org.lwjgl.opengl.GL11.*;
 public class ChunkOctreeWrapper extends GameObject {
     private ChunkOctree chunkOctree;
     protected boolean drawVoxelsBounds = false;
-    ArrayList<ChunkNode> constructedNodes;
+    private ChunkNode rootChunk;
 
     public ChunkOctreeWrapper() {
         DualContouring dc = new DualContouringImpl();
         VoxelOctree octree = new VoxelOctreeImpl(dc);
         chunkOctree = new ChunkOctree(octree);
+        rootChunk = chunkOctree.buildChunkOctree();
     }
 
     public void update() {
         if (refreshMesh) {
-            refreshMesh = false;
             renderMesh();
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F1)) {
@@ -40,7 +42,7 @@ public class ChunkOctreeWrapper extends GameObject {
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F3)) {
             sleep(200);
-            refreshMesh = true;
+            refreshMesh = !refreshMesh;
         }
         glPolygonMode(GL_FRONT_AND_BACK, drawWireframe ? GL_LINE : GL_FILL);
         if(!drawWireframe){
@@ -49,17 +51,19 @@ public class ChunkOctreeWrapper extends GameObject {
     }
 
     private void renderMesh() {
+        getComponents().clear();
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
-        ChunkNode rootChunk = chunkOctree.buildChunkOctree();
-        constructedNodes = chunkOctree.update(rootChunk, Camera.getInstance(), renderCmds);
-
-        for (ChunkNode node : constructedNodes) {
-            addComponent("chunks "+node.min, node.mainMesh);
-            if(node.seamMesh!=null) {
-                addComponent("seams " + node.min, node.seamMesh);
-            }
-            if(drawVoxelsBounds) {
-                renderDebugVoxelsBounds(node);
+        List<ChunkNode> renderNodes = chunkOctree.update(rootChunk, Camera.getInstance(), renderCmds)
+                .stream().filter(e->!e.empty).collect(Collectors.toList());
+        for (ChunkNode node : renderNodes) {
+            if(Frustum.cubeIntoFrustum(Camera.getInstance().getFrustumPlanes(), node.min, node.size)) {//!node.empty &&
+                addComponent("chunks " + node.min, node.renderMesh);
+                if (node.seamMesh != null) {
+                    addComponent("seams " + node.min, node.seamMesh);
+                }
+                if (drawVoxelsBounds) {
+                    renderDebugVoxelsBounds(node);
+                }
             }
         }
         DebugDrawBuffer buf = renderCmds.UpdateDebugDrawBuffer();

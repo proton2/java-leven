@@ -1,7 +1,7 @@
 package dc.utils;
 
 import core.math.Matrix4f;
-import core.math.Vec3f;
+import core.math.Vec3i;
 import core.math.Vec4f;
 
 public class Frustum {
@@ -203,7 +203,7 @@ public class Frustum {
         return true;
     }
 
-    public static boolean cubeInFrustum(Vec4f[] frustumPlanes, float x, float y, float z, int size) {
+    public static boolean cubeInFrustum(Vec4f[] frustumPlanes, int x, int y, int z, int size) {
         for(int i = 0; i < 6; i++ ) {
             Vec4f plane = frustumPlanes[i];
             if(plane.x * (x - size) + plane.y * (y - size) + plane.z * (z - size) + plane.w > 0)
@@ -269,7 +269,7 @@ public class Frustum {
         return true;
     }
 
-    public static boolean cubeIntoFrustum(Vec4f[] frustumPlanes, Vec3f min, int size){
-        return cubeIntoFrustum(frustumPlanes, min.X,min.Y,min.Z,min.X+size,min.Y+size,min.Z+size);
+    public static boolean cubeIntoFrustum(Vec4f[] frustumPlanes, Vec3i min, int size){
+        return cubeInFrustum(frustumPlanes, min.x, min.y, min.z, size);
     }
 }

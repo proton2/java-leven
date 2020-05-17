@@ -14,11 +14,7 @@ public class ChunkNode {
     boolean	empty = false;
     int	numSeamNodes = 0;
     List<OctreeNode> seamNodes;
-    OctreeNode octreeRoot, seamOctreeRoot;
-
-//    Vertex[] seamVertArray;
-//    int[] seamIndices;
-    Renderer mainMesh, seamMesh;
+    Renderer renderMesh, seamMesh;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);

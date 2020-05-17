@@ -6,6 +6,9 @@ import dc.ChunkNode;
 import dc.OctreeNode;
 import dc.OctreeNodeType;
 
+import static dc.ChunkOctree.LEAF_SIZE_SCALE;
+import static dc.ChunkOctree.VOXELS_PER_CHUNK;
+
 public class VoxelHelperUtils {
     static public int countLeafNodes(OctreeNode node){
         if (node.Type== OctreeNodeType.Node_Leaf){
@@ -37,5 +40,10 @@ public class VoxelHelperUtils {
         Vec3f center = node.min.add(new Vec3i(node.size/2, node.size/2, node.size/2)).toVec3f();
         Vec3f p = center.sub(cameraPos);
         return (float) Math.sqrt(p.X * p.X + p.Y * p.Y + p.Z * p.Z);
+    }
+
+    private int getOctreeSizeByChunkSize(int chunkSize){
+        int chunkScaleSize = chunkSize / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
+        return chunkScaleSize * LEAF_SIZE_SCALE;
     }
 }

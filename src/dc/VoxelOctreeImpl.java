@@ -2,19 +2,19 @@ package dc;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
-import core.math.Vec4f;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.entities.MeshBuffer;
+import dc.entities.MeshVertex;
 import dc.entities.VoxelTypes;
 import dc.svd.QefSolver;
 import dc.utils.Density;
-import dc.utils.Frustum;
-import dc.entities.MeshVertex;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
+import java.util.concurrent.*;
 
+import static dc.ChunkOctree.log2;
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
 
@@ -32,7 +32,13 @@ public class VoxelOctreeImpl implements VoxelOctree{
     }
 
     @Override
-    public EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(ChunkNode chunk, Vec4f[] frustumPlanes,
+    public EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) {
+        //return simpleDebugCreateLeafVoxelNodes(chunk.size, chunk.min, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
+        return multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
+    }
+
+    public EnumMap<VoxelTypes, List<OctreeNode>> simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                                       int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) {
         List<OctreeNode> voxels = new ArrayList<>();
         List<OctreeNode> seamNodes = new ArrayList<>();
@@ -40,7 +46,6 @@ public class VoxelOctreeImpl implements VoxelOctree{
         for (int zi = 0; zi < voxelsPerChunk; zi++) {
             for (int yi = 0; yi < voxelsPerChunk; yi++) {
                 for (int xi = 0; xi < voxelsPerChunk; xi++) {
-
                     faces.set(0, 0, 0);
                     // checks which side this node is facing
                     if (xi == 0)
@@ -58,15 +63,15 @@ public class VoxelOctreeImpl implements VoxelOctree{
                     else if (zi == voxelsPerChunk-1)
                         faces.z = 1;
 
-                    int leafSize = (chunk.size / clipmapLeafSize) * leafSizeScale;
-                    Vec3i leafMin = new Vec3i(xi, yi, zi).mul(leafSize).add(chunk.min);
-                    if (Frustum.cubeInFrustum(frustumPlanes, leafMin.x, leafMin.y, leafMin.z, leafSize)) {
-                        OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunk.min, chunk.size), faces, leafSizeScale);
-                        if (leaf != null) {
+                    int leafSize = (chunkSize / clipmapLeafSize) * leafSizeScale;
+                    Vec3i leafMin = new Vec3i(xi, yi, zi).mul(leafSize).add(chunkMin);
+                    OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunkMin, chunkSize), faces, leafSizeScale);
+                    if (leaf != null) {
+                        if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                             voxels.add(leaf);
-                            if(nodeIsSeam(zi, yi, xi, leafMin, voxelsPerChunk)) {
-                                seamNodes.add(leaf);
-                            }
+                        }
+                        if(nodeIsSeam(zi, yi, xi, leafMin, voxelsPerChunk)) {
+                            seamNodes.add(leaf);
                         }
                     }
                 }
@@ -78,7 +83,115 @@ public class VoxelOctreeImpl implements VoxelOctree{
         return res;
     }
 
-    private OctreeNode ConstructLeaf(OctreeNode leaf, Vec3i boundCheck, int leafSizeScale) {
+    public EnumMap<VoxelTypes, List<OctreeNode>> createPathLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                          int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale,
+                                                                          int from, int to) {
+        List<OctreeNode> voxels = new ArrayList<>();
+        List<OctreeNode> seamNodes = new ArrayList<>();
+        Vec3i chunkBorders = new Vec3i();
+        for (int i=from; i < to; i++){
+            int indexShift = log2(voxelsPerChunk);
+            int x = (i >> (indexShift * 0)) & voxelsPerChunk-1;
+            int y = (i >> (indexShift * 1)) & voxelsPerChunk-1;
+            int z = (i >> (indexShift * 2)) & voxelsPerChunk-1;
+
+            // checks which side this node is facing
+            chunkBorders.x = (x == 0) ? -1 : (x == voxelsPerChunk-1 ? 1 : 0);
+            chunkBorders.y = (y == 0) ? -1 : (y == voxelsPerChunk-1 ? 1 : 0);
+            chunkBorders.z = (z == 0) ? -1 : (z == voxelsPerChunk-1 ? 1 : 0);
+
+            int leafSize = (chunkSize / clipmapLeafSize) * leafSizeScale;
+            Vec3i leafMin = new Vec3i(x, y, z).mul(leafSize).add(chunkMin);
+            OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunkMin, chunkSize), chunkBorders, leafSizeScale);
+            if (leaf != null) {
+                if(!leaf.drawInfo.color.equals(Constants.Blue)) {
+                    voxels.add(leaf);
+                }
+                if(nodeIsSeam(z, y, x, leafMin, voxelsPerChunk)) {
+                    seamNodes.add(leaf);
+                }
+            }
+        }
+        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
+        res.put(VoxelTypes.NODES, voxels);
+        res.put(VoxelTypes.SEAMS, seamNodes);
+        return res;
+    }
+
+    static class EnumMapsResultHolder{
+        public int num;
+        public EnumMap<VoxelTypes, List<OctreeNode>> path;
+        public EnumMapsResultHolder(int num, EnumMap<VoxelTypes, List<OctreeNode>> path) {
+            this.num = num;
+            this.path = path;
+        }
+    }
+
+    private EnumMap<VoxelTypes, List<OctreeNode>> debugSingleThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                                  int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale){
+        int threadBound = (voxelsPerChunk*voxelsPerChunk*voxelsPerChunk) / Runtime.getRuntime().availableProcessors();
+        List<EnumMapsResultHolder> holders = new ArrayList<>();
+        for (int i=0; i<Runtime.getRuntime().availableProcessors(); i++){
+            int from = i * threadBound;
+            int to = from + threadBound;
+            EnumMap<VoxelTypes, List<OctreeNode>> path = createPathLeafVoxelNodes(chunkSize, chunkMin,
+                    voxelsPerChunk, clipmapLeafSize, leafSizeScale, from, to);
+            holders.add(new EnumMapsResultHolder(i, path));
+        }
+        holders.sort(Comparator.comparingInt((EnumMapsResultHolder h) -> h.num));
+        List<OctreeNode> voxels = new ArrayList<>();
+        List<OctreeNode> seamNodes = new ArrayList<>();
+        for (EnumMapsResultHolder holder : holders){
+            voxels.addAll(holder.path.get(VoxelTypes.NODES));
+            seamNodes.addAll(holder.path.get(VoxelTypes.SEAMS));
+        }
+        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
+        res.put(VoxelTypes.NODES, voxels);
+        res.put(VoxelTypes.SEAMS, seamNodes);
+        return res;
+    }
+
+
+    private EnumMap<VoxelTypes, List<OctreeNode>> multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                                  int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale){
+        int availableProcessors = Runtime.getRuntime().availableProcessors() * 4;
+        int threadBound = (voxelsPerChunk*voxelsPerChunk*voxelsPerChunk) / availableProcessors;
+        List<EnumMapsResultHolder> holders = new ArrayList<>();
+        ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
+        List<Future<EnumMap<VoxelTypes, List<OctreeNode>>>> futures = new ArrayList<>();
+        for (int i=0; i<availableProcessors; i++){
+            int finalI = i;
+            Callable<EnumMap<VoxelTypes, List<OctreeNode>>> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                return createPathLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, from, to);
+            };
+            Future<EnumMap<VoxelTypes, List<OctreeNode>>> result = service.submit(task);
+            futures.add(result);
+        }
+        service.shutdown();
+
+        for (int i=0; i<availableProcessors; i++) {
+            try {
+                holders.add(new EnumMapsResultHolder(i, futures.get(i).get()));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        holders.sort(Comparator.comparingInt((EnumMapsResultHolder h) -> h.num));
+        List<OctreeNode> voxels = new ArrayList<>();
+        List<OctreeNode> seamNodes = new ArrayList<>();
+        for (EnumMapsResultHolder holder : holders){
+            voxels.addAll(holder.path.get(VoxelTypes.NODES));
+            seamNodes.addAll(holder.path.get(VoxelTypes.SEAMS));
+        }
+        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
+        res.put(VoxelTypes.NODES, voxels);
+        res.put(VoxelTypes.SEAMS, seamNodes);
+        return res;
+    }
+
+    private OctreeNode ConstructLeaf(OctreeNode leaf, Vec3i chunkBorders, int leafSizeScale) {
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
@@ -87,9 +200,9 @@ public class VoxelOctreeImpl implements VoxelOctree{
             corners |= (material << i);
         }
         if (corners == 0 || corners == 255) {
-            // to avoid holes in seams between chunks with different resolution
+            // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            return tryToCreateBoundSeamPseudoNode(leaf, boundCheck, corners, leafSizeScale);
+            return tryToCreateBoundSeamPseudoNode(leaf, chunkBorders, corners, leafSizeScale);
         }
 
         // otherwise the voxel contains the surface, so find the edge intersections
@@ -137,13 +250,13 @@ public class VoxelOctreeImpl implements VoxelOctree{
             new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
             new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2) };
 
-    private OctreeNode tryToCreateBoundSeamPseudoNode(OctreeNode leaf, Vec3i boundCheck, int corners, int nodeMinSize) {
+    private OctreeNode tryToCreateBoundSeamPseudoNode(OctreeNode leaf, Vec3i chunkBorders, int corners, int nodeMinSize) {
         // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
-        if ((boundCheck.x != 0 || boundCheck.y != 0 || boundCheck.z != 0) && leaf.size != nodeMinSize) {
+        if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leaf.size != nodeMinSize) {
             for (int i = 0; i < 12; i++) {
-                if (!(  (boundCheck.x != 0 && boundCheck.x + 1 == EDGE_OFFSETS[i].x) ||
-                        (boundCheck.y != 0 && boundCheck.y + 1 == EDGE_OFFSETS[i].y) ||
-                        (boundCheck.z != 0 && boundCheck.z + 1 == EDGE_OFFSETS[i].z))) {
+                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == EDGE_OFFSETS[i].x) ||
+                        (chunkBorders.y != 0 && chunkBorders.y + 1 == EDGE_OFFSETS[i].y) ||
+                        (chunkBorders.z != 0 && chunkBorders.z + 1 == EDGE_OFFSETS[i].z))) {
                     continue;
                 }
                 // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8

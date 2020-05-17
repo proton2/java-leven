@@ -1,7 +1,6 @@
 package dc;
 
 import core.math.Vec3i;
-import core.math.Vec4f;
 import dc.entities.MeshBuffer;
 import dc.entities.VoxelTypes;
 
@@ -31,7 +30,7 @@ public interface VoxelOctree {
     float QEF_ERROR = 1e-6f;
     int QEF_SWEEPS = 4;
 
-    EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(ChunkNode chunk, Vec4f[] frustumPlanes, int voxelsPerChunk,
+    EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
                                                                int clipmapLeafSize, int leafSizeScale);
     MeshBuffer GenerateMeshFromOctree(OctreeNode node, boolean isSeam);
 
