@@ -16,13 +16,14 @@ import dc.utils.RenderDebugCmdBuffer;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_F1;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_F3;
+import static dc.ChunkOctree.CLIPMAP_LEAF_SIZE;
+import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
     private ChunkOctree chunkOctree;
-    protected boolean drawVoxelsBounds = false;
+    protected boolean drawSeamBounds = false;
+    protected boolean drawNodeBounds = false;
     private ChunkNode rootChunk;
 
     public ChunkOctreeWrapper() {
@@ -40,9 +41,17 @@ public class ChunkOctreeWrapper extends GameObject {
             sleep(200);
             drawWireframe = !drawWireframe;
         }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_F2)) {
+            sleep(200);
+            drawNodeBounds = !drawNodeBounds;
+        }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F3)) {
             sleep(200);
             refreshMesh = !refreshMesh;
+        }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_F4)) {
+            sleep(200);
+            drawSeamBounds = !drawSeamBounds;
         }
         glPolygonMode(GL_FRONT_AND_BACK, drawWireframe ? GL_LINE : GL_FILL);
         if(!drawWireframe){
@@ -53,25 +62,27 @@ public class ChunkOctreeWrapper extends GameObject {
     private void renderMesh() {
         getComponents().clear();
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
-        List<ChunkNode> renderNodes = chunkOctree.update(rootChunk, Camera.getInstance(), renderCmds)
-                .stream().filter(e->!e.empty).collect(Collectors.toList());
+        List<ChunkNode> renderNodes = chunkOctree.update(rootChunk, Camera.getInstance()).stream().filter(e->!e.empty).collect(Collectors.toList());
         for (ChunkNode node : renderNodes) {
             if(Frustum.cubeIntoFrustum(Camera.getInstance().getFrustumPlanes(), node.min, node.size)) {//!node.empty &&
+                renderCmds.addCube(node.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green, 0.2f, node.min, node.size);
                 addComponent("chunks " + node.min, node.renderMesh);
                 if (node.seamMesh != null) {
                     addComponent("seams " + node.min, node.seamMesh);
                 }
-                if (drawVoxelsBounds) {
+                if (drawSeamBounds) {
                     renderDebugVoxelsBounds(node);
                 }
             }
         }
-        DebugDrawBuffer buf = renderCmds.UpdateDebugDrawBuffer();
-        DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();
-        debugMeshBuffer.addData(buf);
-        Renderer debugRenderer = new Renderer(debugMeshBuffer);
-        debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
-        addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
+        if(drawNodeBounds) {
+            DebugDrawBuffer buf = renderCmds.UpdateDebugDrawBuffer();
+            DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();
+            debugMeshBuffer.addData(buf);
+            Renderer debugRenderer = new Renderer(debugMeshBuffer);
+            debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
+            addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
+        }
     }
 
     private void renderDebugVoxelsBounds(ChunkNode node){

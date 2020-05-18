@@ -35,7 +35,12 @@ public class VoxelOctreeImpl implements VoxelOctree{
     public EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                                       int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) {
         //return simpleDebugCreateLeafVoxelNodes(chunk.size, chunk.min, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
-        return multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
+        try {
+            return multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public EnumMap<VoxelTypes, List<OctreeNode>> simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
@@ -118,47 +123,13 @@ public class VoxelOctreeImpl implements VoxelOctree{
         return res;
     }
 
-    static class EnumMapsResultHolder{
-        public int num;
-        public EnumMap<VoxelTypes, List<OctreeNode>> path;
-        public EnumMapsResultHolder(int num, EnumMap<VoxelTypes, List<OctreeNode>> path) {
-            this.num = num;
-            this.path = path;
-        }
-    }
-
-    private EnumMap<VoxelTypes, List<OctreeNode>> debugSingleThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                                  int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale){
-        int threadBound = (voxelsPerChunk*voxelsPerChunk*voxelsPerChunk) / Runtime.getRuntime().availableProcessors();
-        List<EnumMapsResultHolder> holders = new ArrayList<>();
-        for (int i=0; i<Runtime.getRuntime().availableProcessors(); i++){
-            int from = i * threadBound;
-            int to = from + threadBound;
-            EnumMap<VoxelTypes, List<OctreeNode>> path = createPathLeafVoxelNodes(chunkSize, chunkMin,
-                    voxelsPerChunk, clipmapLeafSize, leafSizeScale, from, to);
-            holders.add(new EnumMapsResultHolder(i, path));
-        }
-        holders.sort(Comparator.comparingInt((EnumMapsResultHolder h) -> h.num));
-        List<OctreeNode> voxels = new ArrayList<>();
-        List<OctreeNode> seamNodes = new ArrayList<>();
-        for (EnumMapsResultHolder holder : holders){
-            voxels.addAll(holder.path.get(VoxelTypes.NODES));
-            seamNodes.addAll(holder.path.get(VoxelTypes.SEAMS));
-        }
-        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
-        res.put(VoxelTypes.NODES, voxels);
-        res.put(VoxelTypes.SEAMS, seamNodes);
-        return res;
-    }
-
-
     private EnumMap<VoxelTypes, List<OctreeNode>> multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                                  int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale){
+                                                                                  int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) throws Exception {
         int availableProcessors = Runtime.getRuntime().availableProcessors() * 4;
         int threadBound = (voxelsPerChunk*voxelsPerChunk*voxelsPerChunk) / availableProcessors;
-        List<EnumMapsResultHolder> holders = new ArrayList<>();
+
         ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
-        List<Future<EnumMap<VoxelTypes, List<OctreeNode>>>> futures = new ArrayList<>();
+        List<Callable<EnumMap<VoxelTypes, List<OctreeNode>>>> tasks = new ArrayList<>();
         for (int i=0; i<availableProcessors; i++){
             int finalI = i;
             Callable<EnumMap<VoxelTypes, List<OctreeNode>>> task = () -> {
@@ -166,24 +137,17 @@ public class VoxelOctreeImpl implements VoxelOctree{
                 int to = from + threadBound;
                 return createPathLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, from, to);
             };
-            Future<EnumMap<VoxelTypes, List<OctreeNode>>> result = service.submit(task);
-            futures.add(result);
+            tasks.add(task);
         }
+        List<Future<EnumMap<VoxelTypes, List<OctreeNode>>>> futures = service.invokeAll(tasks);
         service.shutdown();
 
-        for (int i=0; i<availableProcessors; i++) {
-            try {
-                holders.add(new EnumMapsResultHolder(i, futures.get(i).get()));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        holders.sort(Comparator.comparingInt((EnumMapsResultHolder h) -> h.num));
         List<OctreeNode> voxels = new ArrayList<>();
         List<OctreeNode> seamNodes = new ArrayList<>();
-        for (EnumMapsResultHolder holder : holders){
-            voxels.addAll(holder.path.get(VoxelTypes.NODES));
-            seamNodes.addAll(holder.path.get(VoxelTypes.SEAMS));
+        for (Future<EnumMap<VoxelTypes, List<OctreeNode>>> future : futures){
+                EnumMap<VoxelTypes, List<OctreeNode>> map = future.get();
+                voxels.addAll(map.get(VoxelTypes.NODES));
+                seamNodes.addAll(map.get(VoxelTypes.SEAMS));
         }
         EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
         res.put(VoxelTypes.NODES, voxels);

@@ -13,7 +13,6 @@ import dc.entities.VoxelTypes;
 import dc.shaders.DcSimpleShader;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
-import dc.utils.RenderDebugCmdBuffer;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
@@ -22,7 +21,7 @@ public class ChunkOctree {
     static int LEAF_SIZE_LOG2 = 2;
     public static int LEAF_SIZE_SCALE = 1 << LEAF_SIZE_LOG2;
     public static int VOXELS_PER_CHUNK = 64;
-    static int CLIPMAP_LEAF_SIZE = LEAF_SIZE_SCALE * VOXELS_PER_CHUNK;
+    public static int CLIPMAP_LEAF_SIZE = LEAF_SIZE_SCALE * VOXELS_PER_CHUNK;
 
     int NUM_LODS = 6;
     int LOD_MAX_NODE_SIZE = CLIPMAP_LEAF_SIZE * (1 << (NUM_LODS - 1));
@@ -128,6 +127,12 @@ public class ChunkOctree {
 
     void ReleaseClipmapNodeData(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
         node.active = false;
+        if (node.seamMesh!=null) {
+            invalidatedMeshes.add(node.seamMesh);
+            node.seamMesh.cleanMesh();
+            node.seamMesh = null;
+        }
+
         /*
         if (node.renderMesh !=null) {
             // collect the invalidated mesh indices so the meshes can be removed after
@@ -135,13 +140,7 @@ public class ChunkOctree {
             invalidatedMeshes.add(node.renderMesh);
             node.renderMesh.cleanMesh();
         }
-        */
-        if (node.seamMesh!=null) {
-            invalidatedMeshes.add(node.seamMesh);
-            node.seamMesh.cleanMesh();
-            node.seamMesh = null;
-        }
-        /*
+
         for (int i = 0; i < node.numSeamNodes; i++) {
             OctreeNode n = node.seamNodes.get(i);
             n.drawInfo = null;
@@ -152,7 +151,7 @@ public class ChunkOctree {
          */
     }
 
-    public ArrayList<ChunkNode> update(ChunkNode root, Camera camera, RenderDebugCmdBuffer renderCmds) {
+    public ArrayList<ChunkNode> update(ChunkNode root, Camera camera) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
 
@@ -163,7 +162,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> reserveNodes = new ArrayList<>();
         ArrayList<ChunkNode> activeNodes = new ArrayList<>();
         for (ChunkNode selectedNode : selectedNodes) {
-            if (selectedNode.active==false && selectedNode.empty==false) {
+            if (!selectedNode.active && !selectedNode.empty) {
                 if (Frustum.cubeIntoFrustum(camera.getFrustumPlanes(), selectedNode.min, selectedNode.size)) {
                     filteredNodes.add(selectedNode);
                 } else {
@@ -189,8 +188,6 @@ public class ChunkOctree {
             if (filteredNode.renderMesh !=null || (filteredNode.seamNodes!=null && filteredNode.seamNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
-                Vec3f colour = filteredNode.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green;
-                renderCmds.addCube(colour, 0.2f, filteredNode.min, filteredNode.size);
             } else {
                 filteredNode.empty = true; // no meshes in chunk - empty chunk
                 emptyNodes.add(filteredNode);
