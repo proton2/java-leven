@@ -2,6 +2,7 @@
 
 Nick Gildea Dual Contouring implementation in Java LWJGL
 https://github.com/nickgildea/leven
+Chunking LODs with seams
 
 The work has just begun and the project is still raw. Only the CPU implementation.
 
