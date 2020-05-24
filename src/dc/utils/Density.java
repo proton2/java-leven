@@ -42,11 +42,33 @@ public class Density {
         return 0.5f + (0.5f * noise);
     }
 
+    static private float getHeight (float xc, float zc, float[][] image){
+        int x = ((int)xc + 4096) & 8191;
+        int z = ((int)zc + 4096) & 8191;
+        return image[x][z];
+    }
 
-    public static float Density_Func(Vec3f pos)
+    private static final float MAX_HEIGHT = 40;
+    private static final float MAX_PIXEL_COLOUR = 256*256*256;
+
+    private static float getHeight (float xc, float zc, float[] image){
+        int x = ((int)xc + 4096) & 8191;
+        int z = ((int)zc + 4096) & 8191;
+
+        float height = image[z + x * 8192];
+        height += MAX_PIXEL_COLOUR/2f;
+        height /= MAX_PIXEL_COLOUR/2f;
+        height *= MAX_HEIGHT;
+        return height;
+    }
+
+    public static float Density_Func(Vec3f pos, float[][] densityField, float[] image)
     {
         float MAX_HEIGHT = 20.0f;
-        float noise = FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
+        float noise = getHeight(pos.X, pos.Z, densityField);
+        //float noise = getHeight(pos.X, pos.Z, image);
+        //float noise = FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
+
         //float noise = worldPosition.getY() - Noise(worldPosition) * 8.0f -8;
         //float terrain = worldPosition.getY() - 2;
 

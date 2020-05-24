@@ -161,9 +161,10 @@ public class Camera {
 		cameraMoved = false;
 		cameraRotated = false;
 		
-		//movAmt += (0.04f * Input.getInstance().getScrollOffset());
-		//movAmt = Math.max(0.02f, movAmt);
-		movAmt = 1;
+
+		movAmt += (0.04f * Input.getInstance().getScrollOffset());
+		movAmt = Math.max(0.02f, movAmt);
+		//movAmt = 1;
 		
 		if(Input.getInstance().isKeyHold(GLFW_KEY_W))
 			move(getForward(), movAmt);

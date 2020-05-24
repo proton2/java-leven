@@ -9,10 +9,12 @@ import dc.entities.MeshVertex;
 import dc.entities.VoxelTypes;
 import dc.svd.QefSolver;
 import dc.utils.Density;
-import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static dc.ChunkOctree.log2;
 import static dc.OctreeNodeType.Node_Internal;
@@ -21,6 +23,8 @@ import static dc.OctreeNodeType.Node_Leaf;
 public class VoxelOctreeImpl implements VoxelOctree{
 
     DualContouring dualContouring;
+    private float[][] densityField;
+    private float[] image;
 
     public VoxelOctreeImpl(DualContouring dualContouring) {
         this.dualContouring = dualContouring;
@@ -33,8 +37,10 @@ public class VoxelOctreeImpl implements VoxelOctree{
 
     @Override
     public EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) {
-        //return simpleDebugCreateLeafVoxelNodes(chunk.size, chunk.min, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
+                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale, float[][] densityField, float[] image) {
+        this.densityField = densityField;
+        this.image = image;
+        //return simpleDebugCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
         try {
             return multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
         } catch (Exception e) {
@@ -125,7 +131,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
 
     private EnumMap<VoxelTypes, List<OctreeNode>> multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                                                   int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) throws Exception {
-        int availableProcessors = Runtime.getRuntime().availableProcessors() * 4;
+        int availableProcessors = Runtime.getRuntime().availableProcessors();
         int threadBound = (voxelsPerChunk*voxelsPerChunk*voxelsPerChunk) / availableProcessors;
 
         ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
@@ -159,7 +165,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
-            float density = Density.Density_Func(cornerPos);
+            float density = Density.Density_Func(cornerPos, densityField, image);
 		    int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
             corners |= (material << i);
         }
@@ -229,7 +235,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
                 int z = leaf.min.z + (EDGE_OFFSETS[i].z) * leaf.size / 2;
 
                 Vec3f nodePos = new Vec3f(x,y,z);
-                float density = Density.Density_Func(nodePos);
+                float density = Density.Density_Func(nodePos, densityField, image);
                 if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
                     leaf.drawInfo = new OctreeDrawInfo();
                     leaf.drawInfo.position = nodePos;
@@ -313,10 +319,10 @@ public class VoxelOctreeImpl implements VoxelOctree{
         if (!(rootMin.x==sortedNodes.get(0).min.x) || !(rootMin.y==sortedNodes.get(0).min.y)|| !(rootMin.z==sortedNodes.get(0).min.z)){
             throw new IllegalStateException("returned root not equal to input root!");
         }
-        int octreeCounts = VoxelHelperUtils.countLeafNodes(sortedNodes.get(0));
-        if (octreeCounts!=inputNodes.size()){
-            throw new IllegalStateException("Octree leafs is not equal to octree counts!");
-        }
+//        int octreeCounts = VoxelHelperUtils.countLeafNodes(sortedNodes.get(0));
+//        if (octreeCounts!=inputNodes.size()){
+//            throw new IllegalStateException("Octree leafs is not equal to octree counts!");
+//        }
         return sortedNodes.get(0);
     }
 
@@ -329,7 +335,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
         float increment = 1.f / (float)steps;
         while (currentT <= 1.f) {
             Vec3f p = p0.add(p1.sub(p0).mul(currentT)); // p = p0 + ((p1 - p0) * currentT);
-            float density = Math.abs(Density.Density_Func(p));
+            float density = Math.abs(Density.Density_Func(p, densityField, image));
             if (density < minValue) {
                 minValue = density;
                 t = currentT;
@@ -341,9 +347,9 @@ public class VoxelOctreeImpl implements VoxelOctree{
 
     private Vec3f CalculateSurfaceNormal(Vec3f p) {
 	    float H = 0.001f;
-	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f))) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)));
-	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f))) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)));
-	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H))) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)));
+	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField, image) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField, image);
+	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f)), densityField, image) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)), densityField, image);
+	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H)), densityField, image) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)), densityField, image);
         Vec3f v = new Vec3f(dx, dy, dz);
         v.normalize();
         return v;

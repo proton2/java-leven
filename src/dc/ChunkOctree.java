@@ -3,6 +3,7 @@ package dc;
 import core.buffers.MeshDcVBO;
 import core.configs.CW;
 import core.kernel.Camera;
+import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.renderer.RenderInfo;
@@ -12,6 +13,7 @@ import dc.entities.MeshBuffer;
 import dc.entities.VoxelTypes;
 import dc.shaders.DcSimpleShader;
 import dc.utils.Aabb;
+import dc.utils.Density;
 import dc.utils.Frustum;
 import dc.utils.VoxelHelperUtils;
 
@@ -44,6 +46,8 @@ public class ChunkOctree {
     };
 
     VoxelOctree voxelOctree;
+    private float[][] densityField;
+    private float[] image;
 
     public ChunkOctree(VoxelOctree voxelOctree) {
         this.voxelOctree = voxelOctree;
@@ -69,6 +73,16 @@ public class ChunkOctree {
         //root.min.set(root.min.x & ~(factor - 1), root.min.y & ~(factor - 1), root.min.z & ~(factor - 1));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
 
+        densityField = new float[root.size][root.size];
+
+        for(int z=0; z<root.size; z++){
+            for(int x=0; x<root.size; x++){
+                densityField[x][z] = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f,
+                        new Vec2f(x-(root.size/2), z-(root.size/2)));
+            }
+        }
+
+        //image = ImageLoader.loadImageToFloatArray("./res/textures/heightmap-01.png", root.size, root.size);
         constructChildrens(root);
         return root;
     }
@@ -128,7 +142,7 @@ public class ChunkOctree {
     void ReleaseClipmapNodeData(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
         node.active = false;
         if (node.seamMesh!=null) {
-            invalidatedMeshes.add(node.seamMesh);
+            //invalidatedMeshes.add(node.seamMesh);
             node.seamMesh.cleanMesh();
             node.seamMesh = null;
         }
@@ -212,7 +226,7 @@ public class ChunkOctree {
         }
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
             if (seamUpdateNode.seamMesh!=null){
-                invalidatedMeshes.add(seamUpdateNode.seamMesh);
+                //invalidatedMeshes.add(seamUpdateNode.seamMesh);
                 seamUpdateNode.seamMesh.cleanMesh();
                 seamUpdateNode.seamMesh = null;
             }
@@ -337,7 +351,7 @@ public class ChunkOctree {
             return chunk.active;
         }
         EnumMap<VoxelTypes, List<OctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
-                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE);
+                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE, densityField, image);
         chunk.seamNodes = res.get(VoxelTypes.SEAMS);
         chunk.numSeamNodes = chunk.seamNodes.size();
         if (res.get(VoxelTypes.NODES).isEmpty() || res.get(VoxelTypes.SEAMS).isEmpty()) {
