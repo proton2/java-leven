@@ -1,8 +1,8 @@
 # java-leven
 
-Nick Gildea Dual Contouring implementation in Java LWJGL
-https://github.com/nickgildea/leven
-Chunking LODs with seams
+Dual Contouring Chunking LODs with seams
+
+Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation in Java LWJGL
 
 The work has just begun and the project is still raw. Only the CPU implementation.
 
@@ -10,7 +10,17 @@ The work has just begun and the project is still raw. Only the CPU implementatio
 <img src="res/logo/screens/screen-02.png" width="800" />
 
 W/S/A/D - forward, backward, left, right
+
+F1 - solid / wireframe
+
+F2 - Show chunks octree bounds
+
+F3 - enable / disable frustum culling
+
+F4 - show bounds of the seam octree nodes 
+
 middle mouse - camera walking
 
-Use Oreon Engine (Java - OpenGL/Vulkan)
-https://github.com/fynnfluegge/oreon-engine
+Use:
+
+Oreon Engine (Java - OpenGL/Vulkan) https://github.com/fynnfluegge/oreon-engine

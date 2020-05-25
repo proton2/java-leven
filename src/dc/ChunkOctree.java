@@ -28,9 +28,9 @@ public class ChunkOctree {
     int NUM_LODS = 6;
     int LOD_MAX_NODE_SIZE = CLIPMAP_LEAF_SIZE * (1 << (NUM_LODS - 1));
 
-    int worldBrickCountXZ = 4;//2
-    int BRICK_SIZE = 8;
-    int worldSizeXZ = worldBrickCountXZ * BRICK_SIZE * CLIPMAP_LEAF_SIZE;
+    static int worldBrickCountXZ = 4;//2
+    static int BRICK_SIZE = 8;
+    public static int worldSizeXZ = worldBrickCountXZ * BRICK_SIZE * CLIPMAP_LEAF_SIZE;
     int worldSizeY = 4 * BRICK_SIZE * CLIPMAP_LEAF_SIZE;
     Vec3i worldSize = new Vec3i(worldSizeXZ, worldSizeY, worldSizeXZ);
     Vec3i worldOrigin = new Vec3i(0);
@@ -47,7 +47,6 @@ public class ChunkOctree {
 
     VoxelOctree voxelOctree;
     private float[][] densityField;
-    private float[] image;
 
     public ChunkOctree(VoxelOctree voxelOctree) {
         this.voxelOctree = voxelOctree;
@@ -270,7 +269,7 @@ public class ChunkOctree {
         for (OctreeNode octreeSeamNode : neighbour.seamNodes) {
             Vec3i max = octreeSeamNode.min.add(neighbourScaleSize * LEAF_SIZE_SCALE);
             if (octreeSeamNode.size!=neighbourScaleSize * LEAF_SIZE_SCALE){
-                int t=4;
+                int t=4; // for breakpoint during debugging
             }
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
                 continue;
@@ -351,7 +350,7 @@ public class ChunkOctree {
             return chunk.active;
         }
         EnumMap<VoxelTypes, List<OctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
-                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE, densityField, image);
+                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE, densityField);
         chunk.seamNodes = res.get(VoxelTypes.SEAMS);
         chunk.numSeamNodes = chunk.seamNodes.size();
         if (res.get(VoxelTypes.NODES).isEmpty() || res.get(VoxelTypes.SEAMS).isEmpty()) {

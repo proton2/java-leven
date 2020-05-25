@@ -31,7 +31,7 @@ public interface VoxelOctree {
     int QEF_SWEEPS = 4;
 
     EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                               int clipmapLeafSize, int leafSizeScale, float[][] densityField, float[] image);
+                                                               int clipmapLeafSize, int leafSizeScale, float[][] densityField);
     MeshBuffer GenerateMeshFromOctree(OctreeNode node, boolean isSeam);
 
     OctreeNode constructTreeUpwards(List<OctreeNode> inputNodes, Vec3i rootMin, int rootNodeSize);
