@@ -28,7 +28,7 @@ public class ChunkOctreeWrapper extends GameObject {
 
     public ChunkOctreeWrapper() {
         DualContouring dc = new DualContouringImpl();
-        VoxelOctree octree = new VoxelOctreeImpl(dc);
+        VoxelOctree octree = new VoxelOctreeImpl(dc, false);
         chunkOctree = new ChunkOctree(octree);
         rootChunk = chunkOctree.buildChunkOctree();
     }

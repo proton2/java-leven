@@ -1,7 +1,6 @@
 package dc;
 
 import core.math.Vec3f;
-import dc.svd.QefData;
 
 public class OctreeDrawInfo {
     public int index;
@@ -9,7 +8,6 @@ public class OctreeDrawInfo {
     public Vec3f position;
     public Vec3f color;
     public Vec3f averageNormal;
-    public QefData qef;
 
     public int getIndex() {
         return index;
@@ -41,14 +39,6 @@ public class OctreeDrawInfo {
 
     public void setAverageNormal(Vec3f averageNormal) {
         this.averageNormal = averageNormal;
-    }
-
-    public QefData getQef() {
-        return qef;
-    }
-
-    public void setQef(QefData qef) {
-        this.qef = qef;
     }
 
     public Vec3f getColor() {

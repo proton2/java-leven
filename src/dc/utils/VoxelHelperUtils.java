@@ -46,4 +46,48 @@ public class VoxelHelperUtils {
         int chunkScaleSize = chunkSize / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
         return chunkScaleSize * LEAF_SIZE_SCALE;
     }
+
+    public static Vec3f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1, float[][] densityField) {
+        // approximate the zero crossing by finding the min value along the edge
+        float minValue = 100000.f;
+        float t = 0.f;
+        float currentT = 0.f;
+        int steps = 8;
+        float increment = 1.f / (float)steps;
+        while (currentT <= 1.f) {
+            Vec3f p = p0.add(p1.sub(p0).mul(currentT)); // p = p0 + ((p1 - p0) * currentT);
+            float density = Math.abs(Density.getNoise(p, densityField));
+            if (density < minValue) {
+                minValue = density;
+                t = currentT;
+            }
+            currentT += increment;
+        }
+        return p0.add((p1.sub(p0)).mul(t)); // p0 + ((p1 - p0) * t);
+    }
+
+    public static Vec3f CalculateSurfaceNormal(Vec3f p, float[][] densityField) {
+//	    float H = 0.001f;
+//	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField);
+//	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)), densityField);
+//	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)), densityField);
+
+        float H = 1f;
+        Vec3f xOffcet = new Vec3f(H, 0.f, 0.f);
+        Vec3f yOffcet = new Vec3f(0.f, H, 0.f);
+        Vec3f zOffcet = new Vec3f(0.f, 0.f, H);
+        float dx = Density.getNoise(p.add(xOffcet), densityField) - Density.getNoise(p.sub(xOffcet), densityField);
+        float dy = Density.getNoise(p.add(yOffcet), densityField) - Density.getNoise(p.sub(yOffcet), densityField);
+        float dz = Density.getNoise(p.add(zOffcet), densityField) - Density.getNoise(p.sub(zOffcet), densityField);
+
+        Vec3f v = new Vec3f(dx, dy, dz);
+        v.normalize();
+        return v;
+    }
+
+    public static boolean isOutFromBounds(Vec3f p, Vec3f min, int size) {
+        return  p.X < min.X || p.X > (min.X + size) ||
+                p.Y < min.Y || p.Y > (min.Y + size) ||
+                p.Z < min.Z || p.Z > (min.Z + size);
+    }
 }

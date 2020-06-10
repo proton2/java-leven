@@ -9,6 +9,7 @@ import dc.entities.MeshVertex;
 import dc.entities.VoxelTypes;
 import dc.svd.QefSolver;
 import dc.utils.Density;
+import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -23,10 +24,12 @@ import static dc.OctreeNodeType.Node_Leaf;
 public class VoxelOctreeImpl implements VoxelOctree{
 
     DualContouring dualContouring;
+    private boolean multiThreadCalculation;
     private float[][] densityField;
 
-    public VoxelOctreeImpl(DualContouring dualContouring) {
+    public VoxelOctreeImpl(DualContouring dualContouring, boolean multiThreadCalculation) {
         this.dualContouring = dualContouring;
+        this.multiThreadCalculation = multiThreadCalculation;
     }
 
     private boolean nodeIsSeam(int zi, int yi, int xi, Vec3i leafMin, int voxelPerChunk) {
@@ -38,13 +41,16 @@ public class VoxelOctreeImpl implements VoxelOctree{
     public EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                                       int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale, float[][] densityField) {
         this.densityField = densityField;
-        //return simpleDebugCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
-        try {
-            return multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
-        } catch (Exception e) {
-            e.printStackTrace();
+        if (multiThreadCalculation) {
+            try {
+                return multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            return null;
+        } else {
+            return simpleDebugCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale);
         }
-        return null;
     }
 
     public EnumMap<VoxelTypes, List<OctreeNode>> simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
@@ -72,7 +78,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
                     else if (zi == voxelsPerChunk-1)
                         faces.z = 1;
 
-                    int leafSize = (chunkSize / clipmapLeafSize) * leafSizeScale;
+                    int leafSize = (chunkSize / voxelsPerChunk);
                     Vec3i leafMin = new Vec3i(xi, yi, zi).mul(leafSize).add(chunkMin);
                     OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunkMin, chunkSize), faces, leafSizeScale);
                     if (leaf != null) {
@@ -99,7 +105,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
         List<OctreeNode> seamNodes = new ArrayList<>();
         Vec3i chunkBorders = new Vec3i();
         for (int i=from; i < to; i++){
-            int indexShift = log2(voxelsPerChunk);
+            int indexShift = log2(voxelsPerChunk); // max octree depth
             int x = (i >> (indexShift * 0)) & voxelsPerChunk-1;
             int y = (i >> (indexShift * 1)) & voxelsPerChunk-1;
             int z = (i >> (indexShift * 2)) & voxelsPerChunk-1;
@@ -188,8 +194,8 @@ public class VoxelOctreeImpl implements VoxelOctree{
             }
             Vec3f p1 = leaf.min.add(CHILD_MIN_OFFSETS[c1].mul(leaf.size)).toVec3f();
             Vec3f p2 = leaf.min.add(CHILD_MIN_OFFSETS[c2].mul(leaf.size)).toVec3f();
-            Vec3f p = ApproximateZeroCrossingPosition(p1, p2);
-            Vec3f n = CalculateSurfaceNormal(p);
+            Vec3f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
+            Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
             qef.add(p, n);
             averageNormal = averageNormal.add(n);
             edgeCount++;
@@ -199,9 +205,8 @@ public class VoxelOctreeImpl implements VoxelOctree{
         qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-        drawInfo.position = isOutFromBounds(qefPosition, leaf.min.toVec3f(), leaf.size) ? qef.getMassPoint(): qefPosition;
+        drawInfo.position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.min.toVec3f(), leaf.size) ? qef.getMassPoint(): qefPosition;
         drawInfo.color = Constants.Red;//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize, leaf.min, leaf.size);
-        drawInfo.qef = qef.getData();
         drawInfo.averageNormal = averageNormal.div((float)edgeCount);
         drawInfo.averageNormal.normalize();
         drawInfo.corners = corners;
@@ -237,7 +242,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
                 if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
                     leaf.drawInfo = new OctreeDrawInfo();
                     leaf.drawInfo.position = nodePos;
-                    leaf.drawInfo.averageNormal = CalculateSurfaceNormal(nodePos);
+                    leaf.drawInfo.averageNormal = VoxelHelperUtils.CalculateSurfaceNormal(nodePos, densityField);
                     leaf.drawInfo.corners = corners;
                     leaf.drawInfo.color = Constants.Blue;
                     leaf.Type = Node_Leaf;
@@ -254,12 +259,6 @@ public class VoxelOctreeImpl implements VoxelOctree{
             return new Vec3f(0.f, 0.7f, 0.f);
         else
             return new Vec3f(0.7f, 0.f, 0.f);
-    }
-
-    private boolean isOutFromBounds(Vec3f p, Vec3f min, int size) {
-        return  p.X < min.X || p.X > (min.X + size) ||
-                p.Y < min.Y || p.Y > (min.Y + size) ||
-                p.Z < min.Z || p.Z > (min.Z + size);
     }
 
     private List<OctreeNode> constructParents(List<OctreeNode> nodes, Vec3i rootMin, int parentSize, int chunkSize) {
@@ -322,44 +321,6 @@ public class VoxelOctreeImpl implements VoxelOctree{
 //            throw new IllegalStateException("Octree leafs is not equal to octree counts!");
 //        }
         return sortedNodes.get(0);
-    }
-
-    private Vec3f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1) {
-        // approximate the zero crossing by finding the min value along the edge
-        float minValue = 100000.f;
-        float t = 0.f;
-        float currentT = 0.f;
-        int steps = 8;
-        float increment = 1.f / (float)steps;
-        while (currentT <= 1.f) {
-            Vec3f p = p0.add(p1.sub(p0).mul(currentT)); // p = p0 + ((p1 - p0) * currentT);
-            float density = Math.abs(Density.getNoise(p, densityField));
-            if (density < minValue) {
-                minValue = density;
-                t = currentT;
-            }
-            currentT += increment;
-        }
-        return p0.add((p1.sub(p0)).mul(t)); // p0 + ((p1 - p0) * t);
-    }
-
-    private Vec3f CalculateSurfaceNormal(Vec3f p) {
-//	    float H = 0.001f;
-//	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField);
-//	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)), densityField);
-//	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)), densityField);
-
-        float H = 1f;
-        Vec3f xOffcet = new Vec3f(H, 0.f, 0.f);
-        Vec3f yOffcet = new Vec3f(0.f, H, 0.f);
-        Vec3f zOffcet = new Vec3f(0.f, 0.f, H);
-        float dx = Density.getNoise(p.add(xOffcet), densityField) - Density.getNoise(p.sub(xOffcet), densityField);
-        float dy = Density.getNoise(p.add(yOffcet), densityField) - Density.getNoise(p.sub(yOffcet), densityField);
-        float dz = Density.getNoise(p.add(zOffcet), densityField) - Density.getNoise(p.sub(zOffcet), densityField);
-
-        Vec3f v = new Vec3f(dx, dy, dz);
-        v.normalize();
-        return v;
     }
 
     private void GenerateVertexIndices(OctreeNode node, List<MeshVertex> vertexBuffer) {
