@@ -236,7 +236,7 @@ public class ChunkOctree {
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){
-        Set<OctreeNode> seamNodes = new HashSet<>(2048);
+        Set<PointerBasedOctreeNode> seamNodes = new HashSet<>(2048);
         for (int i = 0; i < 8; i++) {
             Vec3i neighbourMin = node.min.add(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(node.size));
             ChunkNode candidateNeighbour = findNode(root, node.size, neighbourMin);
@@ -252,7 +252,7 @@ public class ChunkOctree {
         }
         if(seamNodes.isEmpty())
             return;
-        OctreeNode seamOctreeRoot = voxelOctree.constructTreeUpwards(new ArrayList<>(seamNodes), node.min, node.size * 2);
+        PointerBasedOctreeNode seamOctreeRoot = voxelOctree.constructTreeUpwards(new ArrayList<>(seamNodes), node.min, node.size * 2);
         MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(seamOctreeRoot, true);
         Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
         meshBuffer.getVertices().clear();
@@ -261,12 +261,12 @@ public class ChunkOctree {
         node.seamMesh = renderer;
     }
 
-    private List<OctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
+    private List<PointerBasedOctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
         Vec3i chunkMax = node.min.add(node.size);
         Aabb aabb = new Aabb(node.min, node.size * 2);
         int neighbourScaleSize = neighbour.size / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
-        List<OctreeNode> selectedSeamNodes = new ArrayList<>();
-        for (OctreeNode octreeSeamNode : neighbour.seamNodes) {
+        List<PointerBasedOctreeNode> selectedSeamNodes = new ArrayList<>();
+        for (PointerBasedOctreeNode octreeSeamNode : neighbour.seamNodes) {
             Vec3i max = octreeSeamNode.min.add(neighbourScaleSize * LEAF_SIZE_SCALE);
             if (octreeSeamNode.size!=neighbourScaleSize * LEAF_SIZE_SCALE){
                 int t=4; // for breakpoint during debugging
@@ -331,7 +331,7 @@ public class ChunkOctree {
         }
     }
 
-    static Vec3i chunkMinForPosition(OctreeNode p) {
+    static Vec3i chunkMinForPosition(PointerBasedOctreeNode p) {
         //int mask = ~(p.chunkSize-1);
 	    int mask = ~(CLIPMAP_LEAF_SIZE-1);
         return new Vec3i(p.min.x & mask, p.min.y & mask, p.min.z & mask);
@@ -349,14 +349,14 @@ public class ChunkOctree {
             chunk.active = true;
             return chunk.active;
         }
-        EnumMap<VoxelTypes, List<OctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
+        EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
                 VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE, densityField);
         chunk.seamNodes = res.get(VoxelTypes.SEAMS);
         chunk.numSeamNodes = chunk.seamNodes.size();
         if (res.get(VoxelTypes.NODES).isEmpty() || res.get(VoxelTypes.SEAMS).isEmpty()) {
             return false;
         }
-        OctreeNode octreeRoot = voxelOctree.constructTreeUpwards(res.get(VoxelTypes.NODES), chunk.min, chunk.size);
+        PointerBasedOctreeNode octreeRoot = voxelOctree.constructTreeUpwards(res.get(VoxelTypes.NODES), chunk.min, chunk.size);
         chunk.active = true;
 
         MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(octreeRoot,false);

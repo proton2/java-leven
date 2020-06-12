@@ -21,13 +21,13 @@ import static dc.ChunkOctree.log2;
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
 
-public class VoxelOctreeImpl implements VoxelOctree{
+public class PointerBasedOctreeImpl implements VoxelOctree{
 
     DualContouring dualContouring;
     private boolean multiThreadCalculation;
     private float[][] densityField;
 
-    public VoxelOctreeImpl(DualContouring dualContouring, boolean multiThreadCalculation) {
+    public PointerBasedOctreeImpl(DualContouring dualContouring, boolean multiThreadCalculation) {
         this.dualContouring = dualContouring;
         this.multiThreadCalculation = multiThreadCalculation;
     }
@@ -38,8 +38,8 @@ public class VoxelOctreeImpl implements VoxelOctree{
     }
 
     @Override
-    public EnumMap<VoxelTypes, List<OctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale, float[][] densityField) {
+    public EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                                  int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale, float[][] densityField) {
         this.densityField = densityField;
         if (multiThreadCalculation) {
             try {
@@ -53,10 +53,10 @@ public class VoxelOctreeImpl implements VoxelOctree{
         }
     }
 
-    public EnumMap<VoxelTypes, List<OctreeNode>> simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) {
-        List<OctreeNode> voxels = new ArrayList<>();
-        List<OctreeNode> seamNodes = new ArrayList<>();
+    public EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                                             int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) {
+        List<PointerBasedOctreeNode> voxels = new ArrayList<>();
+        List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
         Vec3i faces = new Vec3i();
         for (int zi = 0; zi < voxelsPerChunk; zi++) {
             for (int yi = 0; yi < voxelsPerChunk; yi++) {
@@ -80,7 +80,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
 
                     int leafSize = (chunkSize / voxelsPerChunk);
                     Vec3i leafMin = new Vec3i(xi, yi, zi).mul(leafSize).add(chunkMin);
-                    OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunkMin, chunkSize), faces, leafSizeScale);
+                    PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), faces, leafSizeScale);
                     if (leaf != null) {
                         if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                             voxels.add(leaf);
@@ -92,17 +92,17 @@ public class VoxelOctreeImpl implements VoxelOctree{
                 }
             }
         }
-        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
+        EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> res = new EnumMap<>(VoxelTypes.class);
         res.put(VoxelTypes.NODES, voxels);
         res.put(VoxelTypes.SEAMS, seamNodes);
         return res;
     }
 
-    public EnumMap<VoxelTypes, List<OctreeNode>> createPathLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                          int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale,
-                                                                          int from, int to) {
-        List<OctreeNode> voxels = new ArrayList<>();
-        List<OctreeNode> seamNodes = new ArrayList<>();
+    public EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> createPathLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale,
+                                                                                      int from, int to) {
+        List<PointerBasedOctreeNode> voxels = new ArrayList<>();
+        List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
         Vec3i chunkBorders = new Vec3i();
         for (int i=from; i < to; i++){
             int indexShift = log2(voxelsPerChunk); // max octree depth
@@ -117,7 +117,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
 
             int leafSize = (chunkSize / clipmapLeafSize) * leafSizeScale;
             Vec3i leafMin = new Vec3i(x, y, z).mul(leafSize).add(chunkMin);
-            OctreeNode leaf = ConstructLeaf(new OctreeNode(leafMin, leafSize, chunkMin, chunkSize), chunkBorders, leafSizeScale);
+            PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), chunkBorders, leafSizeScale);
             if (leaf != null) {
                 if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                     voxels.add(leaf);
@@ -127,45 +127,45 @@ public class VoxelOctreeImpl implements VoxelOctree{
                 }
             }
         }
-        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
+        EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> res = new EnumMap<>(VoxelTypes.class);
         res.put(VoxelTypes.NODES, voxels);
         res.put(VoxelTypes.SEAMS, seamNodes);
         return res;
     }
 
-    private EnumMap<VoxelTypes, List<OctreeNode>> multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                                  int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) throws Exception {
+    private EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+                                                                                              int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale) throws Exception {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int threadBound = (voxelsPerChunk*voxelsPerChunk*voxelsPerChunk) / availableProcessors;
 
         ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
-        List<Callable<EnumMap<VoxelTypes, List<OctreeNode>>>> tasks = new ArrayList<>();
+        List<Callable<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>>> tasks = new ArrayList<>();
         for (int i=0; i<availableProcessors; i++){
             int finalI = i;
-            Callable<EnumMap<VoxelTypes, List<OctreeNode>>> task = () -> {
+            Callable<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>> task = () -> {
                 int from = finalI * threadBound;
                 int to = from + threadBound;
                 return createPathLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, from, to);
             };
             tasks.add(task);
         }
-        List<Future<EnumMap<VoxelTypes, List<OctreeNode>>>> futures = service.invokeAll(tasks);
+        List<Future<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>>> futures = service.invokeAll(tasks);
         service.shutdown();
 
-        List<OctreeNode> voxels = new ArrayList<>();
-        List<OctreeNode> seamNodes = new ArrayList<>();
-        for (Future<EnumMap<VoxelTypes, List<OctreeNode>>> future : futures){
-                EnumMap<VoxelTypes, List<OctreeNode>> map = future.get();
+        List<PointerBasedOctreeNode> voxels = new ArrayList<>();
+        List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
+        for (Future<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>> future : futures){
+                EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> map = future.get();
                 voxels.addAll(map.get(VoxelTypes.NODES));
                 seamNodes.addAll(map.get(VoxelTypes.SEAMS));
         }
-        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
+        EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> res = new EnumMap<>(VoxelTypes.class);
         res.put(VoxelTypes.NODES, voxels);
         res.put(VoxelTypes.SEAMS, seamNodes);
         return res;
     }
 
-    private OctreeNode ConstructLeaf(OctreeNode leaf, Vec3i chunkBorders, int leafSizeScale) {
+    private PointerBasedOctreeNode ConstructLeaf(PointerBasedOctreeNode leaf, Vec3i chunkBorders, int leafSizeScale) {
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
@@ -223,7 +223,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
             new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
             new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2) };
 
-    private OctreeNode tryToCreateBoundSeamPseudoNode(OctreeNode leaf, Vec3i chunkBorders, int corners, int nodeMinSize) {
+    private PointerBasedOctreeNode tryToCreateBoundSeamPseudoNode(PointerBasedOctreeNode leaf, Vec3i chunkBorders, int corners, int nodeMinSize) {
         // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
         if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leaf.size != nodeMinSize) {
             for (int i = 0; i < 12; i++) {
@@ -261,14 +261,14 @@ public class VoxelOctreeImpl implements VoxelOctree{
             return new Vec3f(0.7f, 0.f, 0.f);
     }
 
-    private List<OctreeNode> constructParents(List<OctreeNode> nodes, Vec3i rootMin, int parentSize, int chunkSize) {
-        Map<Vec3i, OctreeNode> parentsHash = new HashMap<>();
-        for (OctreeNode node : nodes) {
+    private List<PointerBasedOctreeNode> constructParents(List<PointerBasedOctreeNode> nodes, Vec3i rootMin, int parentSize, int chunkSize) {
+        Map<Vec3i, PointerBasedOctreeNode> parentsHash = new HashMap<>();
+        for (PointerBasedOctreeNode node : nodes) {
             Vec3i localPos = node.min.sub(rootMin);
             Vec3i parentPos = node.min.sub(new Vec3i(localPos.x % parentSize, localPos.y % parentSize, localPos.z % parentSize));
-            OctreeNode parent = parentsHash.get(parentPos);
+            PointerBasedOctreeNode parent = parentsHash.get(parentPos);
             if (parent == null) {
-                parent = new OctreeNode();
+                parent = new PointerBasedOctreeNode();
                 parent.min = parentPos;
                 parent.size = parentSize;
                 parent.Type = OctreeNodeType.Node_Internal;
@@ -288,9 +288,9 @@ public class VoxelOctreeImpl implements VoxelOctree{
     }
 
     @Override
-    public OctreeNode constructTreeUpwards(List<OctreeNode> inputNodes, Vec3i rootMin, int rootNodeSize) {
-        List<OctreeNode> sortedNodes = new ArrayList<>(inputNodes);
-        sortedNodes.sort(Comparator.comparingInt((OctreeNode lhs) -> lhs.size));
+    public PointerBasedOctreeNode constructTreeUpwards(List<PointerBasedOctreeNode> inputNodes, Vec3i rootMin, int rootNodeSize) {
+        List<PointerBasedOctreeNode> sortedNodes = new ArrayList<>(inputNodes);
+        sortedNodes.sort(Comparator.comparingInt((PointerBasedOctreeNode lhs) -> lhs.size));
         while (sortedNodes.get(0).size != sortedNodes.get(sortedNodes.size() - 1).size) {
             int iter = 0;
             int size = sortedNodes.get(iter).size;
@@ -298,7 +298,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
                 ++iter;
             } while (sortedNodes.get(iter).size == size);
 
-            List<OctreeNode> newNodes = constructParents(sortedNodes.subList(0, iter), rootMin, size * 2, rootNodeSize);
+            List<PointerBasedOctreeNode> newNodes = constructParents(sortedNodes.subList(0, iter), rootMin, size * 2, rootNodeSize);
             newNodes.addAll(sortedNodes.subList(iter, sortedNodes.size()));
             sortedNodes.clear();
             sortedNodes.addAll(newNodes);
@@ -323,7 +323,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
         return sortedNodes.get(0);
     }
 
-    private void GenerateVertexIndices(OctreeNode node, List<MeshVertex> vertexBuffer) {
+    private void GenerateVertexIndices(PointerBasedOctreeNode node, List<MeshVertex> vertexBuffer) {
         if (node == null) {
             return;
         }
@@ -339,7 +339,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
     }
 
     @Override
-    public MeshBuffer GenerateMeshFromOctree(OctreeNode node, boolean isSeam) {
+    public MeshBuffer GenerateMeshFromOctree(PointerBasedOctreeNode node, boolean isSeam) {
         if (node == null) {
             return null;
         }
@@ -354,7 +354,7 @@ public class VoxelOctreeImpl implements VoxelOctree{
         return buffer;
     }
 
-    public void DestroyOctree(OctreeNode node) {
+    public void DestroyOctree(PointerBasedOctreeNode node) {
         if (node == null) {
             return;
         }

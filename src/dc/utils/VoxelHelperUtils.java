@@ -3,19 +3,19 @@ package dc.utils;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import dc.ChunkNode;
-import dc.OctreeNode;
+import dc.PointerBasedOctreeNode;
 import dc.OctreeNodeType;
 
 import static dc.ChunkOctree.LEAF_SIZE_SCALE;
 import static dc.ChunkOctree.VOXELS_PER_CHUNK;
 
 public class VoxelHelperUtils {
-    static public int countLeafNodes(OctreeNode node){
+    static public int countLeafNodes(PointerBasedOctreeNode node){
         if (node.Type== OctreeNodeType.Node_Leaf){
             return 1;
         }
         int result = 0;
-        for (OctreeNode n : node.children){
+        for (PointerBasedOctreeNode n : node.children){
             if(n!=null) result += countLeafNodes(n);
         }
         return result;

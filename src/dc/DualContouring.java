@@ -26,5 +26,5 @@ public interface DualContouring {
 
     int[][] processEdgeMask = {{3,2,1,0},{7,5,6,4},{11,10,9,8}};
 
-    void ContourCellProc(OctreeNode node, List<Integer> buffer, boolean isSeam);
+    void ContourCellProc(PointerBasedOctreeNode node, List<Integer> buffer, boolean isSeam);
 }

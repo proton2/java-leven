@@ -13,7 +13,7 @@ public class ChunkNode {
     boolean	invalidated = false;
     boolean	empty = false;
     int	numSeamNodes = 0;
-    List<OctreeNode> seamNodes;
+    List<PointerBasedOctreeNode> seamNodes;
     Renderer renderMesh, seamMesh;
 
     public ChunkNode(){

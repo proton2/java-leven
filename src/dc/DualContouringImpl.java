@@ -12,7 +12,7 @@ import static dc.VoxelOctree.edgevmap;
 
 public class DualContouringImpl implements DualContouring{
 
-    private void ContourProcessEdge(OctreeNode[] node, int dir, List<Integer> indexBuffer)
+    private void ContourProcessEdge(PointerBasedOctreeNode[] node, int dir, List<Integer> indexBuffer)
     {
         int minSize = 1000000;		// arbitrary big number
         int minIndex = 0;
@@ -69,7 +69,7 @@ public class DualContouringImpl implements DualContouring{
         }
     }
 
-    private void ContourEdgeProc(OctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam) {
+    private void ContourEdgeProc(PointerBasedOctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam) {
         if (node[0] == null || node[1] == null || node[2] == null || node[3] == null) {
             return;
         }
@@ -96,7 +96,7 @@ public class DualContouringImpl implements DualContouring{
         }
         else {
             for (int i = 0; i < 2; i++) {
-                OctreeNode[] edgeNodes = new OctreeNode[4];
+                PointerBasedOctreeNode[] edgeNodes = new PointerBasedOctreeNode[4];
 			    int[] c = {
 			            edgeProcEdgeMask[dir][i][0],
                         edgeProcEdgeMask[dir][i][1],
@@ -118,7 +118,7 @@ public class DualContouringImpl implements DualContouring{
         }
     }
 
-    private void ContourFaceProc(OctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam) {
+    private void ContourFaceProc(PointerBasedOctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam) {
         if (node[0] == null || node[1] == null) {
             return;
         }
@@ -135,7 +135,7 @@ public class DualContouringImpl implements DualContouring{
 
         if (isBranch[0] || isBranch[1]) {
             for (int i = 0; i < 4; i++) {
-                OctreeNode[] faceNodes = new OctreeNode[2];
+                PointerBasedOctreeNode[] faceNodes = new PointerBasedOctreeNode[2];
 			    int[] c = {
                     faceProcFaceMask[dir][i][0], faceProcFaceMask[dir][i][1],
                 };
@@ -157,7 +157,7 @@ public class DualContouringImpl implements DualContouring{
             };
 
             for (int i = 0; i < 4; i++) {
-                OctreeNode[] edgeNodes = new OctreeNode[4];
+                PointerBasedOctreeNode[] edgeNodes = new PointerBasedOctreeNode[4];
 			    int[] c = {
                         faceProcEdgeMask[dir][i][1],
                         faceProcEdgeMask[dir][i][2],
@@ -181,7 +181,7 @@ public class DualContouringImpl implements DualContouring{
     }
 
     @Override
-    public void ContourCellProc(OctreeNode node, List<Integer> buffer, boolean isSeam) {
+    public void ContourCellProc(PointerBasedOctreeNode node, List<Integer> buffer, boolean isSeam) {
         if (node == null || node.Type == Node_Leaf) {
             return;
         }
@@ -191,7 +191,7 @@ public class DualContouringImpl implements DualContouring{
         }
 
         for (int i = 0; i < 12; i++) {
-            OctreeNode[] faceNodes = new OctreeNode[2];
+            PointerBasedOctreeNode[] faceNodes = new PointerBasedOctreeNode[2];
 		    int[] c = { cellProcFaceMask[i][0], cellProcFaceMask[i][1] };
 
             faceNodes[0] = node.children[c[0]];
@@ -201,7 +201,7 @@ public class DualContouringImpl implements DualContouring{
         }
 
         for (int i = 0; i < 6; i++) {
-            OctreeNode[] edgeNodes = new OctreeNode[4];
+            PointerBasedOctreeNode[] edgeNodes = new PointerBasedOctreeNode[4];
             int[] c = {cellProcEdgeMask[i][0], cellProcEdgeMask[i][1], cellProcEdgeMask[i][2], cellProcEdgeMask[i][3]};
 
             for (int j = 0; j < 4; j++) {

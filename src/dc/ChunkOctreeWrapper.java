@@ -28,7 +28,7 @@ public class ChunkOctreeWrapper extends GameObject {
 
     public ChunkOctreeWrapper() {
         DualContouring dc = new DualContouringImpl();
-        VoxelOctree octree = new VoxelOctreeImpl(dc, false);
+        VoxelOctree octree = new PointerBasedOctreeImpl(dc, false);
         chunkOctree = new ChunkOctree(octree);
         rootChunk = chunkOctree.buildChunkOctree();
     }
@@ -87,7 +87,7 @@ public class ChunkOctreeWrapper extends GameObject {
 
     private void renderDebugVoxelsBounds(ChunkNode node){
         RenderDebugCmdBuffer renderDebugVoxelsBounds = new RenderDebugCmdBuffer();
-        for(OctreeNode n : node.seamNodes){
+        for(PointerBasedOctreeNode n : node.seamNodes){
             renderDebugVoxelsBounds.addCube(Constants.White, 0.2f, n.min, n.size);
         }
         DebugDrawBuffer buf = renderDebugVoxelsBounds.UpdateDebugDrawBuffer();
