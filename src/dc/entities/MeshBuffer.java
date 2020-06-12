@@ -9,6 +9,8 @@ public class MeshBuffer {
     int numVertices;
     int numIndicates;
 
+    public MeshBuffer(){}
+
     public MeshBuffer(FloatBuffer vertices, IntBuffer indicates, int numVertices, int numIndicates) {
         this.vertices = vertices;
         this.indicates = indicates;

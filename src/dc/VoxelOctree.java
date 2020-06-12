@@ -2,9 +2,7 @@ package dc;
 
 import core.math.Vec3i;
 import dc.entities.MeshBuffer;
-import dc.entities.VoxelTypes;
 
-import java.util.EnumMap;
 import java.util.List;
 
 public interface VoxelOctree {
@@ -30,9 +28,9 @@ public interface VoxelOctree {
     float QEF_ERROR = 1e-6f;
     int QEF_SWEEPS = 4;
 
-    EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                                           int clipmapLeafSize, int leafSizeScale, float[][] densityField);
-    MeshBuffer GenerateMeshFromOctree(PointerBasedOctreeNode node, boolean isSeam);
+    boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
+                                                                           int clipmapLeafSize, int leafSizeScale, float[][] densityField,
+                                                                           List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer);
 
-    PointerBasedOctreeNode constructTreeUpwards(List<PointerBasedOctreeNode> inputNodes, Vec3i rootMin, int rootNodeSize);
+    void processNodesToMesh(List<PointerBasedOctreeNode> seamNodes, Vec3i min, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer);
 }

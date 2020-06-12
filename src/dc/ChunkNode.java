@@ -12,7 +12,6 @@ public class ChunkNode {
     boolean	active = false;
     boolean	invalidated = false;
     boolean	empty = false;
-    int	numSeamNodes = 0;
     List<PointerBasedOctreeNode> seamNodes;
     Renderer renderMesh, seamMesh;
 

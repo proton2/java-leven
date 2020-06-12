@@ -10,14 +10,16 @@ import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.utils.Constants;
 import dc.entities.MeshBuffer;
-import dc.entities.VoxelTypes;
 import dc.shaders.DcSimpleShader;
 import dc.utils.Aabb;
 import dc.utils.Density;
 import dc.utils.Frustum;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class ChunkOctree {
     static int LEAF_SIZE_LOG2 = 2;
@@ -252,8 +254,10 @@ public class ChunkOctree {
         }
         if(seamNodes.isEmpty())
             return;
-        PointerBasedOctreeNode seamOctreeRoot = voxelOctree.constructTreeUpwards(new ArrayList<>(seamNodes), node.min, node.size * 2);
-        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(seamOctreeRoot, true);
+
+        MeshBuffer meshBuffer = new MeshBuffer();
+        voxelOctree.processNodesToMesh(new ArrayList<>(seamNodes), node.min, node.size * 2, true, meshBuffer);
+
         Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
         meshBuffer.getVertices().clear();
         meshBuffer.getIndicates().clear();
@@ -349,17 +353,14 @@ public class ChunkOctree {
             chunk.active = true;
             return chunk.active;
         }
-        EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> res = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
-                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE, densityField);
-        chunk.seamNodes = res.get(VoxelTypes.SEAMS);
-        chunk.numSeamNodes = chunk.seamNodes.size();
-        if (res.get(VoxelTypes.NODES).isEmpty() || res.get(VoxelTypes.SEAMS).isEmpty()) {
+        List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
+        MeshBuffer meshBuffer = new MeshBuffer();
+        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
+                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE, densityField, seamNodes, meshBuffer);
+        chunk.seamNodes = seamNodes;
+        if(!chunk.active){
             return false;
         }
-        PointerBasedOctreeNode octreeRoot = voxelOctree.constructTreeUpwards(res.get(VoxelTypes.NODES), chunk.min, chunk.size);
-        chunk.active = true;
-
-        MeshBuffer meshBuffer = voxelOctree.GenerateMeshFromOctree(octreeRoot,false);
 
         Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
         meshBuffer.getVertices().clear();

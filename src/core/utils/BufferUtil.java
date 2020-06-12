@@ -99,6 +99,23 @@ public class BufferUtil {
 		return buffer;
 	}
 
+	public static FloatBuffer createDcFlippedBufferAOS(MeshVertex[] vertices) {
+		FloatBuffer buffer = createFloatBuffer(vertices.length * 9);
+		for (Vertex vertice : vertices) {
+			buffer.put(vertice.getPos().getX());
+			buffer.put(vertice.getPos().getY());
+			buffer.put(vertice.getPos().getZ());
+			buffer.put(vertice.getNormal().getX());
+			buffer.put(vertice.getNormal().getY());
+			buffer.put(vertice.getNormal().getZ());
+			buffer.put(vertice.getColor().getX());
+			buffer.put(vertice.getColor().getY());
+			buffer.put(vertice.getColor().getZ());
+		}
+		buffer.flip();
+		return buffer;
+	}
+
 	public static FloatBuffer createDebugFlippedBufferAOS(DebugDrawBuffer buf) {
 		FloatBuffer buffer = createFloatBuffer(buf.getVertexBuffer().length * 8);
 		for (int i=0; i<buf.getVertexBuffer().length; i++) {
