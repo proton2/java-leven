@@ -48,7 +48,7 @@ public class ChunkOctree {
     };
 
     VoxelOctree voxelOctree;
-    private float[][] densityField;
+    private float[] densityField;
 
     public ChunkOctree(VoxelOctree voxelOctree) {
         this.voxelOctree = voxelOctree;
@@ -74,12 +74,11 @@ public class ChunkOctree {
         //root.min.set(root.min.x & ~(factor - 1), root.min.y & ~(factor - 1), root.min.z & ~(factor - 1));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
 
-        densityField = new float[root.size][root.size];
+        densityField = new float[root.size * root.size];
 
         for(int z=0; z<root.size; z++){
             for(int x=0; x<root.size; x++){
-                densityField[x][z] = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f,
-                        new Vec2f(x-(root.size/2), z-(root.size/2)));
+                densityField[x + z * root.size] = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x-(root.size/2), z-(root.size/2)));
             }
         }
 

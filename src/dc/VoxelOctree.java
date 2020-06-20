@@ -29,7 +29,7 @@ public interface VoxelOctree {
     int QEF_SWEEPS = 4;
 
     boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                                           int clipmapLeafSize, int leafSizeScale, float[][] densityField,
+                                                                           int clipmapLeafSize, int leafSizeScale, float[] densityField,
                                                                            List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer);
 
     void processNodesToMesh(List<PointerBasedOctreeNode> seamNodes, Vec3i min, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer);

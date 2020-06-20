@@ -22,7 +22,7 @@ import static dc.OctreeNodeType.Node_Leaf;
 
 public class PointerBasedOctreeImpl extends AbstractDualContouring implements VoxelOctree{
     private boolean multiThreadCalculation;
-    private float[][] densityField;
+    private float[] densityField;
 
     public PointerBasedOctreeImpl(){
     }
@@ -39,7 +39,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
                                         int clipmapLeafSize, int leafSizeScale,
-                                        float[][] densityField,
+                                        float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer) {
         this.densityField = densityField;
         boolean result;

@@ -2,6 +2,7 @@ package dc.utils;
 
 import core.math.Vec2f;
 import core.math.Vec3f;
+import core.math.Vec4f;
 import dc.ChunkOctree;
 import org.joml.Vector3f;
 
@@ -57,9 +58,9 @@ public class Density {
         int z = ((int)zc + ChunkOctree.worldSizeXZ/2) & ChunkOctree.worldSizeXZ-1;
 
         float height = image[z + x * ChunkOctree.worldSizeXZ];
-        height += MAX_PIXEL_COLOUR/2f;
-        height /= MAX_PIXEL_COLOUR/2f;
-        height *= MAX_HEIGHT;
+//        height += MAX_PIXEL_COLOUR/2f;
+//        height /= MAX_PIXEL_COLOUR/2f;
+//        height *= MAX_HEIGHT;
         return height;
     }
 
@@ -85,7 +86,11 @@ public class Density {
 //        return density;
     }
 
-    public static float getNoise(Vec3f pos, float[][] densityField) {
+    public static float getNoise(Vec4f pos, float[] densityField) {
+        return getNoise(new Vec3f(pos.x, pos.y, pos.z), densityField);
+    }
+
+    public static float getNoise(Vec3f pos, float[] densityField) {
         float MAX_HEIGHT = 20.0f;
         float noise = getHeight(pos.X, pos.Z, densityField);
         //float noise = FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));

@@ -18,4 +18,8 @@ public class Vec4i extends Vec3i {
         this.y = from.y;
         this.z = from.z;
     }
+
+    public Vec4i add(Vec4i r) {
+        return new Vec4i(this.x + r.x, this.y + r.y, this.z + r.z, this.w + r.w);
+    }
 }

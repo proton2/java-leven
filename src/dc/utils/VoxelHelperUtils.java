@@ -2,9 +2,10 @@ package dc.utils;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4f;
 import dc.ChunkNode;
-import dc.PointerBasedOctreeNode;
 import dc.OctreeNodeType;
+import dc.PointerBasedOctreeNode;
 
 import static dc.ChunkOctree.LEAF_SIZE_SCALE;
 import static dc.ChunkOctree.VOXELS_PER_CHUNK;
@@ -47,7 +48,7 @@ public class VoxelHelperUtils {
         return chunkScaleSize * LEAF_SIZE_SCALE;
     }
 
-    public static Vec3f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1, float[][] densityField) {
+    public static Vec3f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1, float[] densityField) {
         // approximate the zero crossing by finding the min value along the edge
         float minValue = 100000.f;
         float t = 0.f;
@@ -55,7 +56,7 @@ public class VoxelHelperUtils {
         int steps = 8;
         float increment = 1.f / (float)steps;
         while (currentT <= 1.f) {
-            Vec3f p = p0.add(p1.sub(p0).mul(currentT)); // p = p0 + ((p1 - p0) * currentT);
+            Vec3f p = mix(p0, p1, currentT);
             float density = Math.abs(Density.getNoise(p, densityField));
             if (density < minValue) {
                 minValue = density;
@@ -63,10 +64,18 @@ public class VoxelHelperUtils {
             }
             currentT += increment;
         }
+        return mix(p0, p1, t);
+    }
+
+    public static Vec3f mix(Vec3f p0, Vec3f p1, float t) {
         return p0.add((p1.sub(p0)).mul(t)); // p0 + ((p1 - p0) * t);
     }
 
-    public static Vec3f CalculateSurfaceNormal(Vec3f p, float[][] densityField) {
+    public static Vec4f mix(Vec4f p0, Vec4f p1, float t) {
+        return p0.add((p1.sub(p0)).mul(t)); // p0 + ((p1 - p0) * t);
+    }
+
+    public static Vec3f CalculateSurfaceNormal(Vec3f p, float[] densityField) {
 //	    float H = 0.001f;
 //	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField);
 //	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)), densityField);
