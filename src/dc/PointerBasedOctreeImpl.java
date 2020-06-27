@@ -156,7 +156,18 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            return tryToCreateBoundSeamPseudoNode(leaf, pos, corners, leafSizeScale);
+            PosNormHolder holder = tryToCreateBoundSeamPseudoNode(leaf.min, leaf.size, pos, corners, leafSizeScale, densityField);
+            if(holder==null){
+                return null;
+            } else {
+                leaf.drawInfo = new OctreeDrawInfo();
+                leaf.drawInfo.position = holder.position;
+                leaf.drawInfo.averageNormal = holder.averageNormal;
+                leaf.drawInfo.corners = corners;
+                leaf.drawInfo.color = Constants.Blue;
+                leaf.Type = Node_Leaf;
+                return leaf;
+            }
         }
 
         // otherwise the voxel contains the surface, so find the edge intersections
@@ -194,65 +205,6 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         leaf.Type = Node_Leaf;
         leaf.drawInfo = drawInfo;
         return leaf;
-    }
-
-    private Vec3i[] EDGE_OFFSETS = {
-            new Vec3i(1, 2, 0), new Vec3i(1, 0, 2),
-            new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
-            new Vec3i(2, 0, 1), new Vec3i(0, 2, 1),
-            new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
-            new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2)
-    };
-
-    protected Vec3i getChunkBorder(Vec3i pos){
-        Vec3i faces = new Vec3i(0,0,0);
-        // checks which side this node is facing
-        if (pos.x == 0)
-            faces.x = -1;
-        else if (pos.x == VOXELS_PER_CHUNK-1)
-            faces.x = 1;
-
-        if (pos.y == 0)
-            faces.y = -1;
-        else if (pos.y == VOXELS_PER_CHUNK-1)
-            faces.y = 1;
-
-        if (pos.z == 0)
-            faces.z = -1;
-        else if (pos.z == VOXELS_PER_CHUNK-1)
-            faces.z = 1;
-        return faces;
-    }
-
-    private PointerBasedOctreeNode tryToCreateBoundSeamPseudoNode(PointerBasedOctreeNode leaf, Vec3i pos, int corners, int nodeMinSize) {
-        Vec3i chunkBorders = getChunkBorder(pos);
-        // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
-        if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leaf.size != nodeMinSize) {
-            for (int i = 0; i < 12; i++) {
-                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == EDGE_OFFSETS[i].x) ||
-                        (chunkBorders.y != 0 && chunkBorders.y + 1 == EDGE_OFFSETS[i].y) ||
-                        (chunkBorders.z != 0 && chunkBorders.z + 1 == EDGE_OFFSETS[i].z))) {
-                    continue;
-                }
-                // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
-                int x = leaf.min.x + (EDGE_OFFSETS[i].x) * leaf.size / 2;
-                int y = leaf.min.y + (EDGE_OFFSETS[i].y) * leaf.size / 2;
-                int z = leaf.min.z + (EDGE_OFFSETS[i].z) * leaf.size / 2;
-
-                Vec3f nodePos = new Vec3f(x,y,z);
-                float density = Density.getNoise(nodePos, densityField);
-                if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
-                    leaf.drawInfo = new OctreeDrawInfo();
-                    leaf.drawInfo.position = nodePos;
-                    leaf.drawInfo.averageNormal = VoxelHelperUtils.CalculateSurfaceNormal(nodePos, densityField);
-                    leaf.drawInfo.corners = corners;
-                    leaf.drawInfo.color = Constants.Blue;
-                    leaf.Type = Node_Leaf;
-                    return leaf;
-                }
-            }
-        }
-        return null;    // voxel is full inside or outside the volume
     }
 
     private Vec3f isSeamNode(Vec3f pos, Vec3i chunkMin, int chunkSize){

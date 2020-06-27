@@ -1,10 +1,13 @@
 package dc;
 
+import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
+import dc.utils.Density;
+import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
 
@@ -377,5 +380,67 @@ public abstract class AbstractDualContouring implements DualContouring{
             maxMaterial = current;
         }
         return maxMaterial;
+    }
+
+    private Vec3i[] EDGE_OFFSETS = {
+            new Vec3i(1, 2, 0), new Vec3i(1, 0, 2),
+            new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
+            new Vec3i(2, 0, 1), new Vec3i(0, 2, 1),
+            new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
+            new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2)
+    };
+
+    private Vec3i getChunkBorder(Vec3i pos){
+        Vec3i faces = new Vec3i(0,0,0);
+        // checks which side this node is facing
+        if (pos.x == 0)
+            faces.x = -1;
+        else if (pos.x == VOXELS_PER_CHUNK-1)
+            faces.x = 1;
+
+        if (pos.y == 0)
+            faces.y = -1;
+        else if (pos.y == VOXELS_PER_CHUNK-1)
+            faces.y = 1;
+
+        if (pos.z == 0)
+            faces.z = -1;
+        else if (pos.z == VOXELS_PER_CHUNK-1)
+            faces.z = 1;
+        return faces;
+    }
+
+    protected class PosNormHolder{
+        public Vec3f position;
+        public Vec3f averageNormal;
+    }
+
+    protected PosNormHolder tryToCreateBoundSeamPseudoNode(Vec3i leafMin, int leafSize, Vec3i pos, int corners,
+                                                                    int nodeMinSize, float[] densityField) {
+        Vec3i chunkBorders = getChunkBorder(pos);
+        // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
+        if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leafSize != nodeMinSize) {
+            for (int i = 0; i < 12; i++) {
+                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == EDGE_OFFSETS[i].x) ||
+                        (chunkBorders.y != 0 && chunkBorders.y + 1 == EDGE_OFFSETS[i].y) ||
+                        (chunkBorders.z != 0 && chunkBorders.z + 1 == EDGE_OFFSETS[i].z))) {
+                    continue;
+                }
+                // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
+                int x = leafMin.x + (EDGE_OFFSETS[i].x) * leafSize / 2;
+                int y = leafMin.y + (EDGE_OFFSETS[i].y) * leafSize / 2;
+                int z = leafMin.z + (EDGE_OFFSETS[i].z) * leafSize / 2;
+
+                Vec3f nodePos = new Vec3f(x,y,z);
+                float density = Density.getNoise(nodePos, densityField);
+                if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
+                    PosNormHolder holder = new PosNormHolder();
+                    holder.position = nodePos;
+                    holder.averageNormal = VoxelHelperUtils.CalculateSurfaceNormal(nodePos, densityField);
+                    return holder;
+                }
+            }
+        }
+        return null;    // voxel is full inside or outside the volume
     }
 }

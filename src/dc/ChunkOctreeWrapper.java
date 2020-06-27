@@ -26,10 +26,10 @@ public class ChunkOctreeWrapper extends GameObject {
     protected boolean drawNodeBounds = false;
     private ChunkNode rootChunk;
 
+    // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
-        //chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
-        chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
-
+        chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
+        //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
         rootChunk = chunkOctree.buildChunkOctree();
     }
 

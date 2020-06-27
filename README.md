@@ -8,7 +8,22 @@ The work has just begun and the project is still raw. Only the CPU implementatio
 
 Features:
 - Pointer based octree dual contouring;
-- Linear octree dual contouring (a simplified experimental non-final implementation);
+- Linear octree dual contouring (Simple implementation, in series steps to calculate leafs data);
+
+## Usage
+
+```java
+public class ChunkOctreeWrapper extends GameObject {
+ 
+    // Uncomment necessary implementation in constructor
+    public ChunkOctreeWrapper() {
+        chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
+        //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
+
+        rootChunk = chunkOctree.buildChunkOctree();
+    }
+}
+```
 
 <img src="res/logo/screens/screen-01.png" width="800" />
 <img src="res/logo/screens/screen-02.png" width="800" />
