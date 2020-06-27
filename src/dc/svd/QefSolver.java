@@ -5,7 +5,27 @@ import core.math.Vec3f;
 public class QefSolver {
     private QefData data;
     private SMat3 ata;
-    private Vec3f atb, massPoint, x;
+    private Vec3f atb;
+    private Vec3f massPoint;
+
+    public void setX(Vec3f x) {
+        this.x = x;
+    }
+
+    public Vec3f getX() {
+        return x;
+    }
+
+    private Vec3f x;
+
+    public boolean isHasSolution() {
+        return hasSolution;
+    }
+
+    public void setHasSolution(boolean hasSolution) {
+        this.hasSolution = hasSolution;
+    }
+
     private boolean hasSolution;
     private GlslSvd glslSvdSolver = new GlslSvd();
 

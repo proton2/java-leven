@@ -17,6 +17,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
+import static dc.ChunkOctree.VOXELS_PER_CHUNK;
 import static dc.ChunkOctree.log2;
 import static dc.OctreeNodeType.Node_Leaf;
 
@@ -31,9 +32,9 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         this.multiThreadCalculation = multiThreadCalculation;
     }
 
-    private boolean nodeIsSeam(int zi, int yi, int xi, Vec3i leafMin, int voxelPerChunk) {
+    private boolean nodeIsSeam(int zi, int yi, int xi) {
         //return (leafMin.x==1016 || leafMin.x==1024) && (leafMin.z < -395 && leafMin.z >-433); //show path of seams to debug
-        return xi==0||xi==voxelPerChunk-1 || yi==0||yi==voxelPerChunk-1 || zi==0||zi==voxelPerChunk-1;
+        return xi==0||xi==VOXELS_PER_CHUNK-1 || yi==0||yi==VOXELS_PER_CHUNK-1 || zi==0||zi==VOXELS_PER_CHUNK-1;
     }
 
     @Override
@@ -63,35 +64,18 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
 
     private boolean simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale,
                                                    List<PointerBasedOctreeNode> chunkNodes, List<PointerBasedOctreeNode> seamNodes) {
-        Vec3i faces = new Vec3i();
         for (int zi = 0; zi < voxelsPerChunk; zi++) {
             for (int yi = 0; yi < voxelsPerChunk; yi++) {
                 for (int xi = 0; xi < voxelsPerChunk; xi++) {
-                    faces.set(0, 0, 0);
-                    // checks which side this node is facing
-                    if (xi == 0)
-                        faces.x = -1;
-                    else if (xi == voxelsPerChunk-1)
-                        faces.x = 1;
-
-                    if (yi == 0)
-                        faces.y = -1;
-                    else if (yi == voxelsPerChunk-1)
-                        faces.y = 1;
-
-                    if (zi == 0)
-                        faces.z = -1;
-                    else if (zi == voxelsPerChunk-1)
-                        faces.z = 1;
-
+                    Vec3i pos = new Vec3i(xi, yi, zi);
                     int leafSize = (chunkSize / voxelsPerChunk);
-                    Vec3i leafMin = new Vec3i(xi, yi, zi).mul(leafSize).add(chunkMin);
-                    PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), faces, leafSizeScale);
+                    Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
+                    PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, leafSizeScale);
                     if (leaf != null) {
                         if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                             chunkNodes.add(leaf);
                         }
-                        if(nodeIsSeam(zi, yi, xi, leafMin, voxelsPerChunk)) {
+                        if(nodeIsSeam(zi, yi, xi)) {
                             seamNodes.add(leaf);
                         }
                     }
@@ -106,26 +90,22 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                                                                                       int from, int to) {
         List<PointerBasedOctreeNode> voxels = new ArrayList<>();
         List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
-        Vec3i chunkBorders = new Vec3i();
+
         for (int i=from; i < to; i++){
             int indexShift = log2(voxelsPerChunk); // max octree depth
             int x = (i >> (indexShift * 0)) & voxelsPerChunk-1;
             int y = (i >> (indexShift * 1)) & voxelsPerChunk-1;
             int z = (i >> (indexShift * 2)) & voxelsPerChunk-1;
 
-            // checks which side this node is facing
-            chunkBorders.x = (x == 0) ? -1 : (x == voxelsPerChunk-1 ? 1 : 0);
-            chunkBorders.y = (y == 0) ? -1 : (y == voxelsPerChunk-1 ? 1 : 0);
-            chunkBorders.z = (z == 0) ? -1 : (z == voxelsPerChunk-1 ? 1 : 0);
-
+            Vec3i pos = new Vec3i(x,y,z);
             int leafSize = (chunkSize / clipmapLeafSize) * leafSizeScale;
-            Vec3i leafMin = new Vec3i(x, y, z).mul(leafSize).add(chunkMin);
-            PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), chunkBorders, leafSizeScale);
+            Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
+            PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, leafSizeScale);
             if (leaf != null) {
                 if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                     voxels.add(leaf);
                 }
-                if(nodeIsSeam(z, y, x, leafMin, voxelsPerChunk)) {
+                if(nodeIsSeam(z, y, x)) {
                     seamNodes.add(leaf);
                 }
             }
@@ -165,7 +145,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         return !chunkNodes.isEmpty() && !seamNodes.isEmpty();
     }
 
-    private PointerBasedOctreeNode ConstructLeaf(PointerBasedOctreeNode leaf, Vec3i chunkBorders, int leafSizeScale) {
+    private PointerBasedOctreeNode ConstructLeaf(PointerBasedOctreeNode leaf, Vec3i pos, int leafSizeScale) {
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
@@ -176,7 +156,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            return tryToCreateBoundSeamPseudoNode(leaf, chunkBorders, corners, leafSizeScale);
+            return tryToCreateBoundSeamPseudoNode(leaf, pos, corners, leafSizeScale);
         }
 
         // otherwise the voxel contains the surface, so find the edge intersections
@@ -194,7 +174,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             }
             Vec3f p1 = leaf.min.add(CHILD_MIN_OFFSETS[c1].mul(leaf.size)).toVec3f();
             Vec3f p2 = leaf.min.add(CHILD_MIN_OFFSETS[c2].mul(leaf.size)).toVec3f();
-            Vec3f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
+            Vec3f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField).getVec3f();
             Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
             qef.add(p, n);
             averageNormal = averageNormal.add(n);
@@ -221,9 +201,31 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
             new Vec3i(2, 0, 1), new Vec3i(0, 2, 1),
             new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
-            new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2) };
+            new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2)
+    };
 
-    private PointerBasedOctreeNode tryToCreateBoundSeamPseudoNode(PointerBasedOctreeNode leaf, Vec3i chunkBorders, int corners, int nodeMinSize) {
+    protected Vec3i getChunkBorder(Vec3i pos){
+        Vec3i faces = new Vec3i(0,0,0);
+        // checks which side this node is facing
+        if (pos.x == 0)
+            faces.x = -1;
+        else if (pos.x == VOXELS_PER_CHUNK-1)
+            faces.x = 1;
+
+        if (pos.y == 0)
+            faces.y = -1;
+        else if (pos.y == VOXELS_PER_CHUNK-1)
+            faces.y = 1;
+
+        if (pos.z == 0)
+            faces.z = -1;
+        else if (pos.z == VOXELS_PER_CHUNK-1)
+            faces.z = 1;
+        return faces;
+    }
+
+    private PointerBasedOctreeNode tryToCreateBoundSeamPseudoNode(PointerBasedOctreeNode leaf, Vec3i pos, int corners, int nodeMinSize) {
+        Vec3i chunkBorders = getChunkBorder(pos);
         // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
         if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leaf.size != nodeMinSize) {
             for (int i = 0; i < 12; i++) {

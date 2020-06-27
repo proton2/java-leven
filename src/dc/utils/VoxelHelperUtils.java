@@ -48,7 +48,7 @@ public class VoxelHelperUtils {
         return chunkScaleSize * LEAF_SIZE_SCALE;
     }
 
-    public static Vec3f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1, float[] densityField) {
+    public static Vec4f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1, float[] densityField) {
         // approximate the zero crossing by finding the min value along the edge
         float minValue = 100000.f;
         float t = 0.f;
@@ -64,7 +64,25 @@ public class VoxelHelperUtils {
             }
             currentT += increment;
         }
-        return mix(p0, p1, t);
+        return new Vec4f(mix(p0, p1, t), t);
+    }
+
+    public static Vec4f ApproximateLevenCrossingPosition(Vec3f p0, Vec3f p1, float[] densityField) {
+        float FIND_EDGE_INFO_INCREMENT = 1.f / 16.f;
+        int FIND_EDGE_INFO_STEPS = 16;
+        float minValue = 100000.f;;
+        float currentT = 0.f;
+        float t = 0.f;
+        for (int i = 0; i <= FIND_EDGE_INFO_STEPS; i++) {
+            Vec3f p = mix(p0, p1, currentT);
+            float d = Math.abs(Density.getNoise(p, densityField));
+            if (d < minValue) {
+                t = currentT;
+                minValue = d;
+            }
+            currentT += FIND_EDGE_INFO_INCREMENT;
+        }
+        return new Vec4f(mix(p0, p1, t), t);
     }
 
     public static Vec3f mix(Vec3f p0, Vec3f p1, float t) {

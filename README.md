@@ -1,10 +1,14 @@
-# java-leven
+# Java-leven
 
 Dual Contouring Chunking LODs with seams
 
 Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation in Java LWJGL
 
 The work has just begun and the project is still raw. Only the CPU implementation.
+
+Features:
+- Pointer based octree dual contouring;
+- Linear octree dual contouring (a simplified experimental non-final implementation);
 
 <img src="res/logo/screens/screen-01.png" width="800" />
 <img src="res/logo/screens/screen-02.png" width="800" />

@@ -8,7 +8,7 @@ import java.util.Map;
 import static dc.ChunkOctree.VOXELS_PER_CHUNK;
 import static dc.ChunkOctree.log2;
 
-public class LinearOctree {
+public class LinearOctreeTest {
     static int MAX_OCTREE_DEPTH = log2(VOXELS_PER_CHUNK);
     static class LinearOctreeNode {
         private int nodeCode;
@@ -33,7 +33,7 @@ public class LinearOctree {
 
     private Map<Integer, LinearOctreeNode> nodes;
 
-    public LinearOctree() {
+    public LinearOctreeTest() {
         nodes = new HashMap<>();
     }
 

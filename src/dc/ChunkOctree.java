@@ -342,7 +342,7 @@ public class ChunkOctree {
 
     private boolean filterNodesForDebug(ChunkNode filteredNode){
         boolean res =
-                filteredNode.min.equals(new Vec3i(512,0,-512)) ||
+                //filteredNode.min.equals(new Vec3i(512,0,-512)) ||
                         filteredNode.min.equals(new Vec3i(1024,0,-1024));
         return res;
     }

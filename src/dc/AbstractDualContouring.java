@@ -1,12 +1,15 @@
 package dc;
 
 import core.math.Vec3i;
+import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 
 import java.util.*;
 
+import static dc.ChunkOctree.VOXELS_PER_CHUNK;
+import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
 import static dc.VoxelOctree.MATERIAL_AIR;
@@ -310,5 +313,69 @@ public abstract class AbstractDualContouring implements DualContouring{
     public void processNodesToMesh(List<PointerBasedOctreeNode> seamNodes, Vec3i currNodeMin, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer){
         PointerBasedOctreeNode seamOctreeRoot = constructTreeUpwards(new ArrayList<>(seamNodes), currNodeMin, rootNodeSize);
         GenerateMeshFromOctree(seamOctreeRoot, isSeam, meshBuffer);
+    }
+
+    protected Vec3i decodeVoxelIndex(int index) {
+        Vec3i p = new Vec4i(0);
+        p.x = (index >> (MAX_OCTREE_DEPTH * 0)) & VOXELS_PER_CHUNK-1;
+        p.y = (index >> (MAX_OCTREE_DEPTH * 1)) & VOXELS_PER_CHUNK-1;
+        p.z = (index >> (MAX_OCTREE_DEPTH * 2)) & VOXELS_PER_CHUNK-1;
+        return p;
+    }
+
+    protected int encodeVoxelIndex(Vec3i pos) {
+        int encoded = 0;
+        encoded |= pos.x << (MAX_OCTREE_DEPTH * 0);
+        encoded |= pos.y << (MAX_OCTREE_DEPTH * 1);
+        encoded |= pos.z << (MAX_OCTREE_DEPTH * 2);
+        return encoded;
+    }
+
+    protected void inlineInsertionSwap8(int[] data) {
+        int i, j;
+        for (i = 1; i < 8; i++) {
+            int tmp = data[i];
+            for (j = i; j >= 1 && tmp < data[j-1]; j--) {
+                data[j] = data[j-1];
+            }
+            data[j] = tmp;
+        }
+    }
+
+    protected int findDominantMaterial(int[] mv) {
+        int MATERIAL_NONE = 200;
+        int MATERIAL_AIR  = 201;
+
+        int[] data = { mv[0], mv[1], mv[2], mv[3], mv[4], mv[5], mv[6], mv[7] };
+        inlineInsertionSwap8(data);
+
+        int current = data[0];
+        int count = 1;
+        int maxCount = 0;
+        int maxMaterial = 0;
+
+        for (int i = 1; i < 8; i++) {
+            int m = data[i];
+            if (m == MATERIAL_AIR || m == MATERIAL_NONE) {
+                continue;
+            }
+
+            if (current != m) {
+                if (count > maxCount) {
+                    maxCount = count;
+                    maxMaterial = current;
+                }
+                current = m;
+                count = 1;
+            }
+            else {
+                count++;
+            }
+        }
+
+        if (count > maxCount) {
+            maxMaterial = current;
+        }
+        return maxMaterial;
     }
 }
