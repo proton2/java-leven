@@ -30,6 +30,7 @@ public class ChunkOctreeWrapper extends GameObject {
     public ChunkOctreeWrapper() {
         chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
         //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
+        //chunkOctree = new ChunkOctree(new LinearOctreeImpl());
         rootChunk = chunkOctree.buildChunkOctree();
     }
 

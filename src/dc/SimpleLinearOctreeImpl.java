@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.concurrent.*;
 
 import static dc.ChunkOctree.*;
+import static dc.LinearOctreeImpl.fieldSize;
 import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
 
 /*
@@ -24,7 +25,6 @@ import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
  */
 
 public class SimpleLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-    boolean tryStandartDC;
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
@@ -32,8 +32,11 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                                         float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer) {
 
-        //return createLeafVoxelNodesExperimental(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, densityField, seamNodes, buffer);
+        // usyal in serial calculating leaf nodes data. More slowly.
         return createLeafVoxelNodesTraditional(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, densityField, seamNodes, buffer);
+
+        // experimental transitional branch. It worked successfull but seams have some holes. More faster
+        //return createLeafVoxelNodesExperimental(chunkSize, chunkMin, voxelsPerChunk, densityField, seamNodes, buffer);
     }
 
     public boolean createLeafVoxelNodesTraditional(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
@@ -106,12 +109,34 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
     }
 
+    int GenerateDefaultField(float[] densityField, Vec3i offset, int sampleScale, int defaultMaterialIndex,
+                             int[] field_materials)
+    {
+        int size = 0;
+        for (int z = 0; z < fieldSize; z++) {
+            for (int y = 0; y < fieldSize; y++) {
+                for (int x = 0; x < fieldSize; x++) {
+                    Vec3i local_pos = new Vec3i(x, y, z);
+                    Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
+                    float density = Density.getNoise(world_pos, densityField);
+                    int index = field_index(local_pos);
+                    int material = density < 0.f ? defaultMaterialIndex : MATERIAL_AIR;
+                    field_materials[index] = material;
+                    if(material==defaultMaterialIndex) size++;
+                }
+            }
+        }
+        return size;
+    }
+
     private boolean createLeafVoxelNodesExperimental(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                     int clipmapLeafSize, int leafSizeScale,
                                                      float[] densityField,
                                                      List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int threadBound = (voxelsPerChunk * voxelsPerChunk * voxelsPerChunk) / availableProcessors;
+
+        int[] materials = new int[fieldSize*fieldSize*fieldSize];
+        GenerateDefaultField(densityField, chunkMin, chunkSize / voxelsPerChunk, MATERIAL_SOLID, materials);
 
         boolean[] d_leafOccupancy = new boolean[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
         int[] d_leafEdgeInfo = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
@@ -126,8 +151,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             Callable<Integer> task = () -> {
                 int from = finalI * threadBound;
                 int to = from + threadBound;
-                return findActiveLeafs(chunkSize, chunkMin, voxelsPerChunk, from, to,
-                        densityField, d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
+                return FindActiveVoxels(from, to, materials,
+                        d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
             };
             tasks.add(task);
         }
@@ -156,7 +181,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int numVertices = activeLeafsSize;
         QefSolver[] qefs = new QefSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
-        createLeafNodes(chunkSize, voxelsPerChunk, chunkMin, 0, numVertices, densityField,
+        createLeafNodes(chunkSize, chunkMin, 0, numVertices, densityField,
                 d_nodeCodes, d_compactLeafEdgeInfo,
                 d_vertexNormals, qefs);
 
@@ -244,32 +269,60 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         return leafHolder;
     }
 
-    private Integer findActiveLeafs(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, int from, int to, float[] densityField,
-                                    boolean[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials) {
-
+    int FindActiveVoxels(int from, int to, int[] materials,
+                         boolean[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials) {
         int size = 0;
-        for (int index = from; index < to; index++) {
-            int indexShift = log2(voxelsPerChunk); // max octree depth
-            int x = (index >> (indexShift * 0)) & voxelsPerChunk - 1;
-            int y = (index >> (indexShift * 1)) & voxelsPerChunk - 1;
-            int z = (index >> (indexShift * 2)) & voxelsPerChunk - 1;
+        for (int k = from; k < to; k++) {
+            int indexShift = log2(VOXELS_PER_CHUNK); // max octree depth
+            int x = (k >> (indexShift * 0)) & VOXELS_PER_CHUNK - 1;
+            int y = (k >> (indexShift * 1)) & VOXELS_PER_CHUNK - 1;
+            int z = (k >> (indexShift * 2)) & VOXELS_PER_CHUNK - 1;
 
-            int leafSize = (chunkSize / voxelsPerChunk);
-            Vec3i leaf = new Vec3i(x, y, z).mul(leafSize).add(chunkMin);
-            int corners = 0;
-            for (int i = 0; i < 8; i++) {
-                Vec3f cornerPos = leaf.add(CHILD_MIN_OFFSETS[i].mul(leafSize)).toVec3f();
-                float density = Density.getNoise(cornerPos, densityField);
-                int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
-                corners |= (material << i);
+            int index = x + (y * VOXELS_PER_CHUNK) + (z * VOXELS_PER_CHUNK * VOXELS_PER_CHUNK);
+            Vec3i pos = new Vec3i(x, y, z);
+
+            int[] cornerMaterials = {
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[0]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[1]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[2]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[3]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[4]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[5]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[6]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[7]))],
+            };
+
+            // record the on/off values at the corner of each voxel
+            int cornerValues = 0;
+            cornerValues |= (((cornerMaterials[0]) == MATERIAL_AIR ? 0 : 1) << 0);
+            cornerValues |= (((cornerMaterials[1]) == MATERIAL_AIR ? 0 : 1) << 1);
+            cornerValues |= (((cornerMaterials[2]) == MATERIAL_AIR ? 0 : 1) << 2);
+            cornerValues |= (((cornerMaterials[3]) == MATERIAL_AIR ? 0 : 1) << 3);
+            cornerValues |= (((cornerMaterials[4]) == MATERIAL_AIR ? 0 : 1) << 4);
+            cornerValues |= (((cornerMaterials[5]) == MATERIAL_AIR ? 0 : 1) << 5);
+            cornerValues |= (((cornerMaterials[6]) == MATERIAL_AIR ? 0 : 1) << 6);
+            cornerValues |= (((cornerMaterials[7]) == MATERIAL_AIR ? 0 : 1) << 7);
+
+            if (cornerValues != 0 && cornerValues != 255) {
+                ++size;
             }
-            if (corners != 0 && corners != 255) {
-                size++;
+            // record which of the 12 voxel edges are on/off
+            int edgeList = 0;
+            for (int i = 0; i < 12; i++) {
+                int i0 = edgevmap[i][0];
+                int i1 = edgevmap[i][1];
+                int edgeStart = (cornerValues >> i0) & 1;
+                int edgeEnd = (cornerValues >> i1) & 1;
+                int signChange = edgeStart != edgeEnd ? 1 : 0;
+                edgeList |= (signChange << i);
             }
-            voxelOccupancy[index] = corners != 0 && corners != 255;
-            voxelPositions[index] = LinearOctreeTest.codeForPosition(new Vec3i(x, y, z), MAX_OCTREE_DEPTH);
-            voxelEdgeInfo[index] = corners;
-            voxelMaterials[index] = corners;
+            voxelOccupancy[index] = cornerValues != 0 && cornerValues != 255;
+            voxelPositions[index] = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);
+            voxelEdgeInfo[index] = edgeList;
+
+            // store cornerValues here too as its needed by the CPU side and edgeInfo isn't exported
+            int materialIndex = findDominantMaterial(cornerMaterials);
+            voxelMaterials[index] = (materialIndex << 8) | cornerValues;
         }
         return size;
     }
@@ -290,7 +343,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         return octreeNodes;
     }
 
-    private Integer createLeafNodes(int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to, float[] densityField,
+    private Integer createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, float[] densityField,
                                     int[] voxelPositions,
                                     int[] voxelEdgeInfo,
                                     Vec3f[] vertexNormals, QefSolver[] qefs) {
@@ -304,20 +357,19 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             Vec3f averageNormal = new Vec3f(0.f);
             QefSolver qef = new QefSolver();
 
-            int leafSize = (chunkSize / voxelsPerChunk);
+            int leafSize = (chunkSize / VOXELS_PER_CHUNK);
             Vec3i leafMin = position.mul(leafSize).add(chunkMin);
 
             for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
+                int active = (corners >> i) & 1;
+                if (active==0) {
+                    continue;
+                }
                 int c1 = edgevmap[i][0];
                 int c2 = edgevmap[i][1];
-                int m1 = (corners >> c1) & 1;
-                int m2 = (corners >> c2) & 1;
-                if ((m1 == MATERIAL_AIR && m2 == MATERIAL_AIR) || (m1 == MATERIAL_SOLID && m2 == MATERIAL_SOLID)) {
-                    continue; // no zero crossing on this edge
-                }
                 Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
                 Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
-                Vec3f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField).getVec3f();
+                Vec3f p = VoxelHelperUtils.ApproximateLevenCrossingPosition(p1, p2, densityField).getVec3f();
                 Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
                 qef.add(p, n);
                 averageNormal = averageNormal.add(n);
@@ -341,6 +393,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
             Vec3f qefPosition = new Vec3f(qef.getMassPoint());
             qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
+            //qefPosition = qefPosition.mul(leafSize).add(chunkMin.toVec3f());
             Vec3f position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.toVec3f(), leafSize) ? qef.getMassPoint() : qefPosition;
             solvedPositions[index] = position;
         }
@@ -363,12 +416,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         }
         return res;
     }
-
-    private int[][] EDGE_VERTEX_MAP = {
-            {0, 4}, {1, 5}, {2, 6}, {3, 7},    // x-axis
-            {0, 2}, {1, 3}, {4, 6}, {5, 7},    // y-axis
-            {0, 1}, {2, 3}, {4, 5}, {6, 7}        // z-axis
-    };
 
     private Vec3i[][] EDGE_NODE_OFFSETS = {
             {new Vec3i(0, 0, 0), new Vec3i(0, 0, 1), new Vec3i(0, 1, 0), new Vec3i(0, 1, 1)},
@@ -421,8 +468,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
     private int processEdge(Integer[] nodeIndices, int nodeMaterial, int axis, int[] indexBuffer, int bufferOffset) {
         int edge = (axis * 4) + 3;
-        int c1 = EDGE_VERTEX_MAP[edge][0];
-        int c2 = EDGE_VERTEX_MAP[edge][1];
+        int c1 = edgevmap[edge][0];
+        int c2 = edgevmap[edge][1];
 
         int corners = nodeMaterial & 0xff;
         int m1 = (corners >> c1) & 1;

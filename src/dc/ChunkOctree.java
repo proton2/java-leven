@@ -26,6 +26,8 @@ public class ChunkOctree {
     public static int LEAF_SIZE_SCALE = 1 << LEAF_SIZE_LOG2;
     public static int VOXELS_PER_CHUNK = 64;
     public static int CLIPMAP_LEAF_SIZE = LEAF_SIZE_SCALE * VOXELS_PER_CHUNK;
+    public static int VOXEL_INDEX_SHIFT = log2(VOXELS_PER_CHUNK) + 1;
+    public static int VOXEL_INDEX_MASK = (1 << VOXEL_INDEX_SHIFT) - 1;
 
     int NUM_LODS = 6;
     int LOD_MAX_NODE_SIZE = CLIPMAP_LEAF_SIZE * (1 << (NUM_LODS - 1));

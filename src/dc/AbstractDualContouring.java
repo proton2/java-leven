@@ -11,8 +11,8 @@ import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
 
-import static dc.ChunkOctree.VOXELS_PER_CHUNK;
-import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
+import static dc.ChunkOctree.*;
+import static dc.LinearOctreeImpl.fieldSize;
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
 import static dc.VoxelOctree.MATERIAL_AIR;
@@ -320,17 +320,17 @@ public abstract class AbstractDualContouring implements DualContouring{
 
     protected Vec3i decodeVoxelIndex(int index) {
         Vec3i p = new Vec4i(0);
-        p.x = (index >> (MAX_OCTREE_DEPTH * 0)) & VOXELS_PER_CHUNK-1;
-        p.y = (index >> (MAX_OCTREE_DEPTH * 1)) & VOXELS_PER_CHUNK-1;
-        p.z = (index >> (MAX_OCTREE_DEPTH * 2)) & VOXELS_PER_CHUNK-1;
+        p.x = (index >> (VOXEL_INDEX_SHIFT * 0)) & VOXEL_INDEX_MASK;
+        p.y = (index >> (VOXEL_INDEX_SHIFT * 1)) & VOXEL_INDEX_MASK;
+        p.z = (index >> (VOXEL_INDEX_SHIFT * 2)) & VOXEL_INDEX_MASK;
         return p;
     }
 
     protected int encodeVoxelIndex(Vec3i pos) {
         int encoded = 0;
-        encoded |= pos.x << (MAX_OCTREE_DEPTH * 0);
-        encoded |= pos.y << (MAX_OCTREE_DEPTH * 1);
-        encoded |= pos.z << (MAX_OCTREE_DEPTH * 2);
+        encoded |= pos.x << (VOXEL_INDEX_SHIFT * 0);
+        encoded |= pos.y << (VOXEL_INDEX_SHIFT * 1);
+        encoded |= pos.z << (VOXEL_INDEX_SHIFT * 2);
         return encoded;
     }
 
@@ -442,5 +442,9 @@ public abstract class AbstractDualContouring implements DualContouring{
             }
         }
         return null;    // voxel is full inside or outside the volume
+    }
+
+    protected int field_index(Vec3i pos) {
+        return pos.x + (pos.y * fieldSize) + (pos.z * fieldSize * fieldSize);
     }
 }
