@@ -9,7 +9,7 @@ import static dc.ChunkOctree.VOXELS_PER_CHUNK;
 import static dc.ChunkOctree.log2;
 
 public class LinearOctreeTest {
-    static int MAX_OCTREE_DEPTH = log2(VOXELS_PER_CHUNK);
+    public static int MAX_OCTREE_DEPTH = log2(VOXELS_PER_CHUNK);
     static class LinearOctreeNode {
         private int nodeCode;
         private boolean childExists;

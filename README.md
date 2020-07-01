@@ -7,8 +7,14 @@ Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation i
 The work has just begun and the project is still raw. Only the CPU implementation.
 
 Features:
-- Pointer based octree dual contouring;
-- Linear octree dual contouring (Simple implementation, in series steps to calculate leafs data);
+- Pointer based octree Dual contouring implementation;
+- Linear octree Dual contouring implementations: <br>
+  - Simple implementation, in series steps to calculate leafs data;
+  - Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation.
+      Some holes in seams is not fixed.
+  - Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to Java. Some holes in seams is not fixed. The first raw version will still improve;
+
+ 
 
 ## Usage
 
@@ -17,8 +23,10 @@ public class ChunkOctreeWrapper extends GameObject {
  
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
-        chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
         //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
+        chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
+        //chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl());
+        //chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
 
         rootChunk = chunkOctree.buildChunkOctree();
     }

@@ -1,8 +1,12 @@
-package dc;
+package dc.impl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.utils.Constants;
+import dc.AbstractDualContouring;
+import dc.OctreeDrawInfo;
+import dc.PointerBasedOctreeNode;
+import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
 import dc.entities.VoxelTypes;
 import dc.svd.QefSolver;
@@ -21,7 +25,7 @@ import static dc.ChunkOctree.VOXELS_PER_CHUNK;
 import static dc.ChunkOctree.log2;
 import static dc.OctreeNodeType.Node_Leaf;
 
-public class PointerBasedOctreeImpl extends AbstractDualContouring implements VoxelOctree{
+public class PointerBasedOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     private boolean multiThreadCalculation;
     private float[] densityField;
 

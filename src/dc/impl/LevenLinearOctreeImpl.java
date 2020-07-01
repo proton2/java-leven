@@ -1,100 +1,121 @@
-package dc;
+package dc.impl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4f;
+import core.math.Vec4i;
 import core.utils.BufferUtil;
 import core.utils.Constants;
+import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.svd.QefSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
 
 import static dc.ChunkOctree.*;
-import static dc.LinearOctreeImpl.fieldSize;
 import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
 
 /*
-    Simple Linear octree dual contouring implementation, in series steps to calculate leafs data
+    Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java
+    Some holes in seams is not fixed.
+    The first raw version will still improve.
  */
 
-public class SimpleLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
+public class LevenLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
+
+//    int MATERIAL_NONE = 200;
+//    int MATERIAL_AIR  = 201;
+    public static int hermiteIndexSize = VOXELS_PER_CHUNK + 1;
+    public static int fieldSize = hermiteIndexSize + 1;
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
                                         int clipmapLeafSize, int leafSizeScale,
                                         float[] densityField,
-                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer) {
-
-        // usyal in serial calculating leaf nodes data. More slowly.
-        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, densityField, seamNodes, buffer);
-
-        // experimental transitional branch. It worked successfull but seams have some holes. More faster
-        //return createLeafVoxelNodesExperimental(chunkSize, chunkMin, voxelsPerChunk, densityField, seamNodes, buffer);
-    }
-
-    public boolean createLeafVoxelNodesTraditional(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                   int clipmapLeafSize, int leafSizeScale,
-                                                   float[] densityField,
-                                                   List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer)
+                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer)
     {
-        ArrayList<LinearLeafHolder> listHolder = new ArrayList<>();
-        Map<Integer, Integer> octreeNodes = new HashMap<>();
-
-        int current = 0;
-        for (int i = 0; i < voxelsPerChunk*voxelsPerChunk*voxelsPerChunk; i++) {
-            int indexShift = log2(voxelsPerChunk); // max octree depth
-            int x = (i >> (indexShift * 0)) & voxelsPerChunk - 1;
-            int y = (i >> (indexShift * 1)) & voxelsPerChunk - 1;
-            int z = (i >> (indexShift * 2)) & voxelsPerChunk - 1;
-            Vec3i pos = new Vec3i(x, y, z);
-            LinearLeafHolder linearLeafHolder = constructLeaf(pos, chunkMin, chunkSize, densityField);
-            if(linearLeafHolder!=null){
-                listHolder.add(linearLeafHolder);
-                octreeNodes.put(linearLeafHolder.encodedVoxelPosition, current);
-                ++current;
-            }
-        }
-        if(listHolder.size()==0){
+        int[] materials = new int[fieldSize*fieldSize*fieldSize];
+        //////////////////////////////
+        int materialSize = GenerateDefaultField(densityField, chunkMin, 0, fieldSize*fieldSize*fieldSize, chunkSize / voxelsPerChunk, MATERIAL_SOLID,
+                materials);
+        if (materialSize==0){
             return false;
         }
 
-        int[] d_nodeCodes = listHolder.stream().mapToInt(e->e.encodedVoxelPosition).toArray();
-        int[] d_nodeMaterials = listHolder.stream().mapToInt(e->e.materialIndex).toArray();
-        Vec3f[] d_vertexPositions = listHolder.stream().map(e->e.solvedPosition).toArray(Vec3f[]::new);
-        Vec3f[] d_vertexNormals = listHolder.stream().map(e->e.averageNormal).toArray(Vec3f[]::new);
+        int edgeBufferSize = hermiteIndexSize * hermiteIndexSize * hermiteIndexSize * 3;
+        boolean[] edgeOccupancy = new boolean[edgeBufferSize];
+        int[] edgeIndicesNonCompact = new int[edgeBufferSize];
+        //////////////////////////////
+        int compactEdgesSize = FindFieldEdges(materials,
+                edgeOccupancy, edgeIndicesNonCompact);
+        if(compactEdgesSize==0){
+            return false;
+        }
 
-        processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes,
-                d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
-        return true;
-    }
+        int[] edgeIndicesCompact = new int [compactEdgesSize];
+        //////////////////////////////
+        Map<Integer, Integer> edgeIndicatesMap = compactEdges(edgeOccupancy, edgeIndicesNonCompact, compactEdgesSize,
+                edgeIndicesCompact);
 
-    private void processDc(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, List<PointerBasedOctreeNode> seamNodes,
-                           MeshBuffer buffer, Map<Integer, Integer> octreeNodes, int[] d_nodeCodes, int[] d_nodeMaterials,
-                           Vec3f[] d_vertexPositions, Vec3f[] d_vertexNormals) {
-        int numVertices = octreeNodes.size();
+        Vec4f[] normals = new Vec4f[compactEdgesSize];
+        //////////////////////////////
+        FindEdgeIntersectionInfo(chunkMin, chunkSize / VOXELS_PER_CHUNK, 0, compactEdgesSize, densityField,
+                edgeIndicesCompact,
+                normals);
+
+        boolean[] d_leafOccupancy = new boolean [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
+        int[] d_leafEdgeInfo = new int [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
+        int[] d_leafCodes = new int [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
+        int[] d_leafMaterials = new int [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
+        //////////////////////////////
+        int activeLeafsSize = FindActiveVoxels(0, voxelsPerChunk*voxelsPerChunk*voxelsPerChunk, voxelsPerChunk, materials,
+                d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
+        if (activeLeafsSize==0){
+            return false;
+        }
+
+        int[] d_nodeCodes = new int[activeLeafsSize];
+        int[] d_compactLeafEdgeInfo = new int[activeLeafsSize];
+        int[] d_nodeMaterials = new int[activeLeafsSize];
+        //////////////////////////////
+        Map<Integer, Integer> octreeNodes = compactVoxels(d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials,
+                d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
+
+        int numVertices = d_nodeCodes.length;
+        QefSolver[] qefs = new QefSolver[numVertices];
+        Vec3f[] d_vertexNormals = new Vec3f[numVertices];
+        //////////////////////////////
+        createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / voxelsPerChunk, d_nodeCodes,
+                d_compactLeafEdgeInfo, normals,
+                qefs, edgeIndicatesMap,
+                d_vertexNormals);
+
+        Vec3f[] d_vertexPositions = new Vec3f[numVertices];
+        //////////////////////////////
+        solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, 0, numVertices, qefs,
+                d_vertexPositions);
+
         int indexBufferSize = numVertices * 6 * 3;
         int[] d_indexBuffer = new int[indexBufferSize];
         int trianglesValidSize = numVertices * 3;
         int[] d_trianglesValid = new int[trianglesValidSize];
-
+        //////////////////////////////
         int trianglesValidCount = generateMesh(octreeNodes, d_nodeCodes, d_nodeMaterials,
                 d_indexBuffer, d_trianglesValid);
 
         int numTriangles = trianglesValidCount * 2;
         int[] d_compactIndexBuffer = new int[numTriangles * 3];
-        compactMeshTriangles(d_trianglesValid, d_indexBuffer,
-                d_compactIndexBuffer);
+        //////////////////////////////
+        compactMeshTriangles(d_trianglesValid, d_indexBuffer, d_compactIndexBuffer);
 
         MeshVertex[] d_vertexBuffer = new MeshVertex[numVertices];
+        //////////////////////////////
         GenerateMeshVertexBuffer(d_vertexPositions, d_vertexNormals, d_nodeMaterials, Constants.Red, d_vertexBuffer);
-
         buffer.setVertices(BufferUtil.createDcFlippedBufferAOS(d_vertexBuffer));
         buffer.setNumVertices(numVertices);
         buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
@@ -107,10 +128,12 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         extractNodeInfo(isSeamNode, Constants.Yellow,
                 chunkSize / voxelsPerChunk, chunkMin, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
+
+        return true;
     }
 
-    int GenerateDefaultField(float[] densityField, Vec3i offset, int sampleScale, int defaultMaterialIndex,
-                             int[] field_materials)
+    int GenerateDefaultField(float[] densityField, Vec3i offset, int from, int to, int sampleScale, int defaultMaterialIndex,
+                              int[] field_materials)
     {
         int size = 0;
         for (int z = 0; z < fieldSize; z++) {
@@ -129,148 +152,88 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         return size;
     }
 
-    private boolean createLeafVoxelNodesExperimental(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                     float[] densityField,
-                                                     List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer) {
-        int availableProcessors = Runtime.getRuntime().availableProcessors();
-        int threadBound = (voxelsPerChunk * voxelsPerChunk * voxelsPerChunk) / availableProcessors;
+    int FindFieldEdges(int[] materials,
+                        boolean[] edgeOccupancy, int[] edgeIndices) {
+        int size = 0;
+        for (int z = 0; z < hermiteIndexSize; z++) {
+            for (int y = 0; y < hermiteIndexSize; y++) {
+                for (int x = 0; x < hermiteIndexSize; x++)
+                {
+                    Vec4i pos = new Vec4i(x, y, z, 0);
+                    int index = (x + (y * hermiteIndexSize) + (z * hermiteIndexSize * hermiteIndexSize));
+                    int edgeIndex = index * 3;
 
-        int[] materials = new int[fieldSize*fieldSize*fieldSize];
-        GenerateDefaultField(densityField, chunkMin, chunkSize / voxelsPerChunk, MATERIAL_SOLID, materials);
+                    int[] CORNER_MATERIALS = {
+                            materials[field_index(pos.add(new Vec4i(0, 0, 0, 0)))],
+                            materials[field_index(pos.add(new Vec4i(1, 0, 0, 0)))],
+                            materials[field_index(pos.add(new Vec4i(0, 1, 0, 0)))],
+                            materials[field_index(pos.add(new Vec4i(0, 0, 1, 0)))],
+                    };
 
-        boolean[] d_leafOccupancy = new boolean[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
-        int[] d_leafEdgeInfo = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
-        int[] d_leafCodes = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
-        int[] d_leafMaterials = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
+                    int voxelIndex = pos.x | (pos.y << VOXEL_INDEX_SHIFT) | (pos.z << (VOXEL_INDEX_SHIFT * 2));
 
-        ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
-        int activeLeafsSize = 0;
-        List<Callable<Integer>> tasks = new ArrayList<>();
-        for (int i = 0; i < availableProcessors; i++) {
-            int finalI = i;
-            Callable<Integer> task = () -> {
-                int from = finalI * threadBound;
-                int to = from + threadBound;
-                return FindActiveVoxels(from, to, materials,
-                        d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
-            };
-            tasks.add(task);
-        }
-        try {
-            List<Future<Integer>> futures = service.invokeAll(tasks);
-            for (Future<Integer> size : futures) {
-                activeLeafsSize += size.get();
-            }
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-            return false;
-        }
-        service.shutdown();
-
-        if (activeLeafsSize == 0) {
-            return false;
-        }
-
-        int[] d_nodeCodes = new int[activeLeafsSize];
-        int[] d_compactLeafEdgeInfo = new int[activeLeafsSize];
-        int[] d_nodeMaterials = new int[activeLeafsSize];
-
-        Map<Integer, Integer> octreeNodes = compactVoxels(d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials,
-                d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
-
-        int numVertices = activeLeafsSize;
-        QefSolver[] qefs = new QefSolver[numVertices];
-        Vec3f[] d_vertexNormals = new Vec3f[numVertices];
-        createLeafNodes(chunkSize, chunkMin, 0, numVertices, densityField,
-                d_nodeCodes, d_compactLeafEdgeInfo,
-                d_vertexNormals, qefs);
-
-        Vec3f[] d_vertexPositions = new Vec3f[numVertices];
-        solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, 0, numVertices,
-                qefs, d_vertexPositions);
-
-        processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes, d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
-        return true;
-    }
-
-    private static class LinearLeafHolder{
-        int materialIndex;
-        int voxelEdgeInfo;
-        int encodedVoxelPosition;
-        Vec3f solvedPosition;
-        Vec3f averageNormal;
-    }
-
-    private LinearLeafHolder constructLeaf(Vec3i pos, Vec3i chunkMin, int chunkSize, float[] densityField) {
-        int leafSize = (chunkSize / VOXELS_PER_CHUNK);
-        Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
-        int[] cornerMaterials = new int[8];
-        int corners = 0;
-        for (int i = 0; i < 8; i++) {
-            Vec3f cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize)).toVec3f();
-            float density = Density.getNoise(cornerPos, densityField);
-            int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
-            cornerMaterials[i] = material;
-            corners |= (material << i);
-        }
-        if (corners == 0 || corners == 255) {
-            // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
-            //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            PosNormHolder holder = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, LEAF_SIZE_SCALE, densityField);
-            if(holder==null){
-                return null;
-            } else {
-                LinearLeafHolder leafHolder = new LinearLeafHolder();
-                leafHolder.solvedPosition = holder.position;
-                int materialIndex = findDominantMaterial(cornerMaterials);
-                leafHolder.materialIndex = (materialIndex << 8) | corners;
-                leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);
-                leafHolder.voxelEdgeInfo = corners;//edgeList;
-                leafHolder.averageNormal = holder.averageNormal;
-                return leafHolder;
+                    for (int i = 0; i < 3; i++) {
+                        int e = 1 + i;
+                        boolean signChange =(CORNER_MATERIALS[0] != MATERIAL_AIR && CORNER_MATERIALS[e] == MATERIAL_AIR) ||
+                                            (CORNER_MATERIALS[0] == MATERIAL_AIR && CORNER_MATERIALS[e] != MATERIAL_AIR);
+                        edgeOccupancy[edgeIndex + i] = signChange;
+                        edgeIndices[edgeIndex + i] = signChange ? ((voxelIndex << 2) | i) : -1;
+                        if (signChange)
+                            ++size;
+                    }
+                }
             }
         }
-        int edgeList = 0;
-
-        // otherwise the voxel contains the surface, so find the edge intersections
-        int MAX_CROSSINGS = 6;
-        int edgeCount = 0;
-        Vec3f averageNormal = new Vec3f(0.f);
-        QefSolver qef = new QefSolver();
-        for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
-            int c1 = edgevmap[i][0];
-            int c2 = edgevmap[i][1];
-            int m1 = (corners >> c1) & 1;
-            int m2 = (corners >> c2) & 1;
-            int signChange = m1 != m2 ? 1 : 0;
-            edgeList |= (signChange << i);
-            if ((m1 == MATERIAL_AIR && m2 == MATERIAL_AIR) || (m1 == MATERIAL_SOLID && m2 == MATERIAL_SOLID)) {
-                continue; // no zero crossing on this edge
-            }
-            Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
-            Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
-            Vec3f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField).getVec3f();
-            Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-            qef.add(p, n);
-            averageNormal = averageNormal.add(n);
-            edgeCount++;
-        }
-
-        Vec3f qefPosition = new Vec3f(qef.getMassPoint());
-        qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
-
-        LinearLeafHolder leafHolder = new LinearLeafHolder();
-        leafHolder.solvedPosition = VoxelHelperUtils.isOutFromBounds(qefPosition, leafMin.toVec3f(), leafSize) ? qef.getMassPoint(): qefPosition;
-        int materialIndex = findDominantMaterial(cornerMaterials);
-        leafHolder.materialIndex = (materialIndex << 8) | corners;
-        leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);
-        leafHolder.voxelEdgeInfo = edgeList;
-        leafHolder.averageNormal = averageNormal.div((float)edgeCount).normalize();
-        return leafHolder;
+        return size;
     }
 
-    int FindActiveVoxels(int from, int to, int[] materials,
-                         boolean[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials) {
+    Map<Integer, Integer> compactEdges(boolean[] edgeValid, int[] edges, int compactEdgesSize, int[] compactActiveEdges) {
+        int current = 0;
+        Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(compactEdgesSize);
+        for (int index = 0; index < edges.length; index++) {
+            if (edgeValid[index]) {
+                edgeIndicatesMap.put(edges[index], current);
+                compactActiveEdges[current] = edges[index];
+                ++current;
+            }
+        }
+        return edgeIndicatesMap;
+    }
+
+    Vec3i[] EDGE_END_OFFSETS = {
+            new Vec3i(1,0,0),
+            new Vec3i(0,1,0),
+            new Vec3i(0,0,1)
+    };
+
+    void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, float[] densityField,
+                                  int[] encodedEdges,
+                                  Vec4f[] edgeInfo)
+    {
+        for (int index = from; index < to; index++) {
+            int edge = encodedEdges[index];
+            int axisIndex = edge & 3;
+            int hermiteIndex = edge >> 2;
+
+            int x = (hermiteIndex >> (VOXEL_INDEX_SHIFT * 0)) & VOXEL_INDEX_MASK;
+            int y = (hermiteIndex >> (VOXEL_INDEX_SHIFT * 1)) & VOXEL_INDEX_MASK;
+            int z = (hermiteIndex >> (VOXEL_INDEX_SHIFT * 2)) & VOXEL_INDEX_MASK;
+
+            Vec3f p0 = new Vec3i(x, y, z).mul(sampleScale).add(chunkMin).toVec3f();
+            Vec3f p1 = p0.add(EDGE_END_OFFSETS[axisIndex].mul(sampleScale).toVec3f());
+
+            Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p0, p1, densityField);
+            Vec3f normal = VoxelHelperUtils.CalculateSurfaceNormal(p.getVec3f(), densityField);
+
+            edgeInfo[index] = new Vec4f(normal, p.w);
+        }
+    }
+
+    int FindActiveVoxels(int from, int to, int voxelsPerChunk, int[] materials,
+                         boolean[] voxelOccupancy,
+                         int[] voxelEdgeInfo,
+                         int[] voxelPositions,
+                         int[] voxelMaterials) {
         int size = 0;
         for (int k = from; k < to; k++) {
             int indexShift = log2(VOXELS_PER_CHUNK); // max octree depth
@@ -328,7 +291,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     private Map<Integer, Integer> compactVoxels(boolean[] voxelValid, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials,
-                               int[] compactPositions, int[] compactEdgeInfo, int[] compactMaterials, int numVertices) {
+                                       int[] compactPositions, int[] compactEdgeInfo, int[] compactMaterials, int numVertices){
         int current = 0;
         Map<Integer, Integer> octreeNodes = new HashMap<>(numVertices);
         for (int i = 0; i < voxelPositions.length; i++) {
@@ -343,46 +306,70 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         return octreeNodes;
     }
 
-    private Integer createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, float[] densityField,
-                                    int[] voxelPositions,
-                                    int[] voxelEdgeInfo,
-                                    Vec3f[] vertexNormals, QefSolver[] qefs) {
+    void createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, int sampleScale, int[] voxelPositions,
+                         int[] voxelEdgeInfo, Vec4f[] edgeDataTable,
+                         QefSolver[] leafQEFs, Map<Integer, Integer> nodes,
+                         Vec3f[] vertexNormals)
+    {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
             Vec3i position = LinearOctreeTest.positionForCode(encodedPosition);
-            int corners = voxelEdgeInfo[index];
 
-            int MAX_CROSSINGS = 6;
+            int edgeList = voxelEdgeInfo[index];
+
+            Vec3f[] edgePositions = new Vec3f[12];
+            Vec4f[] edgeNormals = new Vec4f[12];
             int edgeCount = 0;
-            Vec3f averageNormal = new Vec3f(0.f);
             QefSolver qef = new QefSolver();
 
-            int leafSize = (chunkSize / VOXELS_PER_CHUNK);
-            Vec3i leafMin = position.mul(leafSize).add(chunkMin);
+            Vec3i leafMin = position.mul(sampleScale).add(chunkMin);
 
-            for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
-                int active = (corners >> i) & 1;
+            for (int i = 0; i < 12; i++) {
+                int active = (edgeList >> i) & 1;
                 if (active==0) {
                     continue;
                 }
-                int c1 = edgevmap[i][0];
-                int c2 = edgevmap[i][1];
-                Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
-                Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
-                Vec3f p = VoxelHelperUtils.ApproximateLevenCrossingPosition(p1, p2, densityField).getVec3f();
-                Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-                qef.add(p, n);
-                averageNormal = averageNormal.add(n);
-                edgeCount++;
+                int e0 = edgevmap[i][0];
+                int e1 = edgevmap[i][1];
+//                Vec3f p0 = position.add(CHILD_MIN_OFFSETS[e0]).toVec3f();
+//                Vec3f p1 = position.add(CHILD_MIN_OFFSETS[e1]).toVec3f();
+                Vec3f p0 = leafMin.add(CHILD_MIN_OFFSETS[e0].mul(sampleScale)).toVec3f();
+                Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[e1].mul(sampleScale)).toVec3f();
+
+                // this works due to the layout EDGE_VERTEX_MAP, the first 4 elements are the X axis
+                // the next 4 are the Y axis and the last 4 are the Z axis
+                int axis = i / 4;
+                Vec3i hermiteIndexPosition = position.add(CHILD_MIN_OFFSETS[e0]);
+                int edgeIndex = (encodeVoxelIndex(hermiteIndexPosition) << 2) | axis;
+
+                Integer dataIndex = nodes.get(edgeIndex);
+                if (dataIndex!=null && dataIndex != ~0) {
+                    Vec4f edgeData = edgeDataTable[dataIndex];
+                    edgePositions[edgeCount] = VoxelHelperUtils.mix(p0, p1, edgeData.w);//.mul(sampleScale);
+                    edgeNormals[edgeCount] = new Vec4f(edgeData.x, edgeData.y, edgeData.z, 0);
+                    qef.add(edgePositions[edgeCount], edgeNormals[edgeCount].getVec3f());
+                    edgeCount++;
+                }
             }
-            qefs[index] = qef;
-            vertexNormals[index] = averageNormal.div((float) edgeCount).normalize();
+            //qef_create_from_points(edgePositions, edgeNormals, edgeCount, qef);
+            leafQEFs[index] = qef;
+
+            Vec4f normal = new Vec4f(0.f, 0.f, 0.f, 0.f);
+            for (int i = 0; i < edgeCount; i++) {
+                normal = normal.add(edgeNormals[i]);
+                normal.w += 1.f;
+            }
+
+            Vec3f nor = normal.div(normal.w).getVec3f().normalize();
+            normal.w = 0.f;
+
+            vertexNormals[index] = nor;
         }
-        return 1;
     }
 
     private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                          QefSolver[] qefs, Vec3f[] solvedPositions) {
+                                QefSolver[] qefs, Vec3f[] solvedPositions){
+
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];
             Vec3i pos = LinearOctreeTest.positionForCode(encodedPosition);
@@ -390,10 +377,11 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             Vec3i leaf = pos.mul(leafSize).add(chunkMin);
 
             QefSolver qef = qefs[index];
-
             Vec3f qefPosition = new Vec3f(qef.getMassPoint());
             qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
+
             //qefPosition = qefPosition.mul(leafSize).add(chunkMin.toVec3f());
+
             Vec3f position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.toVec3f(), leafSize) ? qef.getMassPoint() : qefPosition;
             solvedPositions[index] = position;
         }
@@ -409,7 +397,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             boolean ySeam = position.y == 0 || position.y == (VOXELS_PER_CHUNK - 1);
             boolean zSeam = position.z == 0 || position.z == (VOXELS_PER_CHUNK - 1);
             boolean isSeam = xSeam | ySeam | zSeam;
-            if (isSeam) {
+            if(isSeam) {
                 ++res;
             }
             isSeamNode[index] = xSeam | ySeam | zSeam;
@@ -418,9 +406,9 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     private Vec3i[][] EDGE_NODE_OFFSETS = {
-            {new Vec3i(0, 0, 0), new Vec3i(0, 0, 1), new Vec3i(0, 1, 0), new Vec3i(0, 1, 1)},
-            {new Vec3i(0, 0, 0), new Vec3i(1, 0, 0), new Vec3i(0, 0, 1), new Vec3i(1, 0, 1)},
-            {new Vec3i(0, 0, 0), new Vec3i(0, 1, 0), new Vec3i(1, 0, 0), new Vec3i(1, 1, 0)},
+            { new Vec3i(0, 0, 0), new Vec3i(0, 0, 1), new Vec3i(0, 1, 0), new Vec3i(0, 1, 1) },
+            { new Vec3i(0, 0, 0), new Vec3i(1, 0, 0), new Vec3i(0, 0, 1), new Vec3i(1, 0, 1) },
+            { new Vec3i(0, 0, 0), new Vec3i(0, 1, 0), new Vec3i(1, 0, 0), new Vec3i(1, 1, 0) },
     };
 
     private int generateMesh(Map<Integer, Integer> nodes, int[] octreeNodeCodes, int[] octreeMaterials,
@@ -524,9 +512,9 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     private void extractNodeInfo(boolean[] isSeamNode, Vec3f color,
-                                     int leafSize, Vec3i chunkMin, int from, int to,
-                                     int[] octreeCodes, int[] octreeMaterials, Vec3f[] octreePositions, Vec3f[] octreeNormals,
-                                     List<PointerBasedOctreeNode> seamNodes) {
+                                 int leafSize, Vec3i chunkMin, int from, int to,
+                                 int[] octreeCodes, int[] octreeMaterials, Vec3f[] octreePositions, Vec3f[] octreeNormals,
+                                 List<PointerBasedOctreeNode> seamNodes) {
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]) {
                 PointerBasedOctreeNode node = new PointerBasedOctreeNode();

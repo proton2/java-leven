@@ -12,7 +12,7 @@ import dc.utils.VoxelHelperUtils;
 import java.util.*;
 
 import static dc.ChunkOctree.*;
-import static dc.LinearOctreeImpl.fieldSize;
+import static dc.impl.LevenLinearOctreeImpl.fieldSize;
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
 import static dc.VoxelOctree.MATERIAL_AIR;
