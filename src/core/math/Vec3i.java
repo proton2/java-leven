@@ -23,6 +23,10 @@ public class Vec3i {
         return new Vec3f(this.x, this.y, this.z);
     }
 
+    public Vec4f toVec4f(){
+        return new Vec4f(this.x, this.y, this.z);
+    }
+
     public Vec3i sub(Vec3i r)
     {
         return new Vec3i(this.x - r.x, this.y - r.y, this.z - r.z);

@@ -18,6 +18,13 @@ public class Vec4f {
 		this.setW(w);
 	}
 
+	public Vec4f(float x, float y, float z){
+		this.setX(x);
+		this.setY(y);
+		this.setZ(z);
+		this.setW(w);
+	}
+
 	public Vec4f(Vec3i v){
 		this.setX(v.x);
 		this.setY(v.y);
@@ -112,6 +119,19 @@ public class Vec4f {
 		float z_ = z + r.getZ();
 		return new Vec4f(x_, y_, z_, w_);
 	}
+
+	public Vec4f add(Vec3i r)
+	{
+		float x_ = x + r.x;
+		float y_ = y + r.y;
+		float z_ = z + r.z;
+		return new Vec4f(x_, y_, z_, w);
+	}
+
+	public float dot(Vec4f r)
+	{
+		return x * r.getX() + y * r.getY() + z * r.getZ() + w * r.getW();
+	}
 	
 	public Vec3f xyz(){
 		return new Vec3f(x,y,z);
@@ -128,6 +148,13 @@ public class Vec4f {
 
 	public void setX(float x) {
 		this.x = x;
+	}
+
+	public void set(Vec4f that){
+		this.setX(that.x);
+		this.setY(that.y);
+		this.setZ(that.z);
+		this.setW(that.w);
 	}
 
 	public float getY() {
