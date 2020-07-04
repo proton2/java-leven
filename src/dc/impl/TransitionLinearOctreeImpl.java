@@ -2,12 +2,14 @@ package dc.impl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4f;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.svd.QefSolver;
+import dc.svd.SvdSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
@@ -17,9 +19,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
-import static dc.ChunkOctree.*;
-import static dc.impl.LevenLinearOctreeImpl.fieldSize;
+import static dc.ChunkOctree.VOXELS_PER_CHUNK;
+import static dc.ChunkOctree.log2;
 import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
+import static dc.impl.LevenLinearOctreeImpl.fieldSize;
 
 /*
     Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation
@@ -142,7 +145,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
 
         int numVertices = activeLeafsSize;
-        QefSolver[] qefs = new QefSolver[numVertices];
+        SvdSolver[] qefs = new SvdSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
         createLeafNodes(chunkSize, chunkMin, 0, numVertices, densityField,
                 d_nodeCodes, d_compactLeafEdgeInfo,
@@ -241,7 +244,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     private Integer createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, float[] densityField,
                                     int[] voxelPositions,
                                     int[] voxelEdgeInfo,
-                                    Vec3f[] vertexNormals, QefSolver[] qefs) {
+                                    Vec3f[] vertexNormals, SvdSolver[] qefs) {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
             Vec3i position = LinearOctreeTest.positionForCode(encodedPosition);
@@ -249,8 +252,8 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 
             int MAX_CROSSINGS = 6;
             int edgeCount = 0;
-            Vec3f averageNormal = new Vec3f(0.f);
-            QefSolver qef = new QefSolver();
+            Vec4f averageNormal = new Vec4f();
+            SvdSolver qef =  new QefSolver();
 
             int leafSize = (chunkSize / VOXELS_PER_CHUNK);
             Vec3i leafMin = position.mul(leafSize).add(chunkMin);
@@ -264,32 +267,29 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 int c2 = edgevmap[i][1];
                 Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
                 Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
-                Vec3f p = VoxelHelperUtils.ApproximateLevenCrossingPosition(p1, p2, densityField).getVec3f();
-                Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-                qef.add(p, n);
+                Vec4f p = VoxelHelperUtils.ApproximateLevenCrossingPosition(p1, p2, densityField);
+                Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
+                qef.qef_add_point(p, n);
                 averageNormal = averageNormal.add(n);
                 edgeCount++;
             }
             qefs[index] = qef;
-            vertexNormals[index] = averageNormal.div((float) edgeCount).normalize();
+            vertexNormals[index] = averageNormal.div((float) edgeCount).getVec3f().normalize();
         }
         return 1;
     }
 
     private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                          QefSolver[] qefs, Vec3f[] solvedPositions) {
+                          SvdSolver[] qefs, Vec3f[] solvedPositions) {
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];
             Vec3i pos = LinearOctreeTest.positionForCode(encodedPosition);
             int leafSize = (chunkSize / voxelsPerChunk);
             Vec3i leaf = pos.mul(leafSize).add(chunkMin);
 
-            QefSolver qef = qefs[index];
-
-            Vec3f qefPosition = new Vec3f(qef.getMassPoint());
-            qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
+            Vec3f qefPosition = qefs[index].solve().getVec3f();
             //qefPosition = qefPosition.mul(leafSize).add(chunkMin.toVec3f());
-            Vec3f position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.toVec3f(), leafSize) ? qef.getMassPoint() : qefPosition;
+            Vec3f position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.toVec3f(), leafSize) ? qefs[index].getMasspoint().getVec3f() : qefPosition;
             solvedPositions[index] = position;
         }
         return 1;

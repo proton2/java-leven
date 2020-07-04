@@ -9,7 +9,8 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.svd.QefSolver;
+import dc.svd.LevenQefSolver;
+import dc.svd.SvdSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
@@ -87,7 +88,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
                 d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
 
         int numVertices = d_nodeCodes.length;
-        QefSolver[] qefs = new QefSolver[numVertices];
+        SvdSolver[] qefs = new SvdSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
         //////////////////////////////
         createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / voxelsPerChunk, d_nodeCodes,
@@ -222,10 +223,10 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
             Vec3f p0 = new Vec3i(x, y, z).mul(sampleScale).add(chunkMin).toVec3f();
             Vec3f p1 = p0.add(EDGE_END_OFFSETS[axisIndex].mul(sampleScale).toVec3f());
 
-            Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p0, p1, densityField);
-            Vec3f normal = VoxelHelperUtils.CalculateSurfaceNormal(p.getVec3f(), densityField);
+            Vec4f p = VoxelHelperUtils.ApproximateLevenCrossingPosition(p0, p1, densityField);
+            Vec4f normal = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
 
-            edgeInfo[index] = new Vec4f(normal, p.w);
+            edgeInfo[index] = new Vec4f(normal.getVec3f(), p.w);
         }
     }
 
@@ -308,7 +309,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
 
     void createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, int sampleScale, int[] voxelPositions,
                          int[] voxelEdgeInfo, Vec4f[] edgeDataTable,
-                         QefSolver[] leafQEFs, Map<Integer, Integer> nodes,
+                         SvdSolver[] leafQEFs, Map<Integer, Integer> nodes,
                          Vec3f[] vertexNormals)
     {
         for (int index = from; index < to; index++) {
@@ -317,12 +318,10 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
 
             int edgeList = voxelEdgeInfo[index];
 
-            Vec3f[] edgePositions = new Vec3f[12];
+            Vec4f[] edgePositions = new Vec4f[12];
             Vec4f[] edgeNormals = new Vec4f[12];
             int edgeCount = 0;
-            QefSolver qef = new QefSolver();
-
-            Vec3i leafMin = position.mul(sampleScale).add(chunkMin);
+            SvdSolver qef = new LevenQefSolver(); //new QefSolver();
 
             for (int i = 0; i < 12; i++) {
                 int active = (edgeList >> i) & 1;
@@ -331,10 +330,8 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
                 }
                 int e0 = edgevmap[i][0];
                 int e1 = edgevmap[i][1];
-//                Vec3f p0 = position.add(CHILD_MIN_OFFSETS[e0]).toVec3f();
-//                Vec3f p1 = position.add(CHILD_MIN_OFFSETS[e1]).toVec3f();
-                Vec3f p0 = leafMin.add(CHILD_MIN_OFFSETS[e0].mul(sampleScale)).toVec3f();
-                Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[e1].mul(sampleScale)).toVec3f();
+                Vec4f p0 = position.add(CHILD_MIN_OFFSETS[e0]).toVec4f();
+                Vec4f p1 = position.add(CHILD_MIN_OFFSETS[e1]).toVec4f();
 
                 // this works due to the layout EDGE_VERTEX_MAP, the first 4 elements are the X axis
                 // the next 4 are the Y axis and the last 4 are the Z axis
@@ -347,11 +344,10 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
                     Vec4f edgeData = edgeDataTable[dataIndex];
                     edgePositions[edgeCount] = VoxelHelperUtils.mix(p0, p1, edgeData.w);//.mul(sampleScale);
                     edgeNormals[edgeCount] = new Vec4f(edgeData.x, edgeData.y, edgeData.z, 0);
-                    qef.add(edgePositions[edgeCount], edgeNormals[edgeCount].getVec3f());
                     edgeCount++;
                 }
             }
-            //qef_create_from_points(edgePositions, edgeNormals, edgeCount, qef);
+            qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
             leafQEFs[index] = qef;
 
             Vec4f normal = new Vec4f(0.f, 0.f, 0.f, 0.f);
@@ -368,7 +364,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
     }
 
     private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                                QefSolver[] qefs, Vec3f[] solvedPositions){
+                          SvdSolver[] qefs, Vec3f[] solvedPositions){
 
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];
@@ -376,14 +372,13 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
             int leafSize = (chunkSize / voxelsPerChunk);
             Vec3i leaf = pos.mul(leafSize).add(chunkMin);
 
-            QefSolver qef = qefs[index];
-            Vec3f qefPosition = new Vec3f(qef.getMassPoint());
-            qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
+            Vec4f solvedPos = qefs[index].solve();
 
-            //qefPosition = qefPosition.mul(leafSize).add(chunkMin.toVec3f());
+            solvedPos = solvedPos.mul(leafSize).add(chunkMin);
+            Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
 
-            Vec3f position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.toVec3f(), leafSize) ? qef.getMassPoint() : qefPosition;
-            solvedPositions[index] = position;
+            solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
+            solvedPositions[index] = solvedPos.getVec3f();
         }
         return 1;
     }

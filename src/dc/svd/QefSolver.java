@@ -1,12 +1,17 @@
 package dc.svd;
 
 import core.math.Vec3f;
+import core.math.Vec4f;
 
-public class QefSolver {
+public class QefSolver implements SvdSolver{
     private QefData data;
     private SMat3 ata;
     private Vec3f atb;
     private Vec3f massPoint;
+
+    public Vec4f getMasspoint() {
+        return new Vec4f(massPoint);
+    }
 
     public void setX(Vec3f x) {
         this.x = x;
@@ -42,24 +47,30 @@ public class QefSolver {
         return massPoint;
     }
 
-    public void add(Vec3f p, Vec3f n) {
+    public void qef_add_point(Vec4f p, Vec4f n) {
         hasSolution = false;
         n.normalize();
-        data.ata_00 += n.X * n.X;
-        data.ata_01 += n.X * n.Y;
-        data.ata_02 += n.X * n.Z;
-        data.ata_11 += n.Y * n.Y;
-        data.ata_12 += n.Y * n.Z;
-        data.ata_22 += n.Z * n.Z;
-        float dot = n.X * p.X + n.Y * p.Y + n.Z * p.Z;
-        data.atb_x += dot * n.X;
-        data.atb_y += dot * n.Y;
-        data.atb_z += dot * n.Z;
+        data.ata_00 += n.x * n.x;
+        data.ata_01 += n.x * n.y;
+        data.ata_02 += n.x * n.z;
+        data.ata_11 += n.y * n.y;
+        data.ata_12 += n.y * n.z;
+        data.ata_22 += n.z * n.z;
+        float dot = n.x * p.x + n.y * p.y + n.z * p.z;
+        data.atb_x += dot * n.x;
+        data.atb_y += dot * n.y;
+        data.atb_z += dot * n.z;
         data.btb += dot * dot;
-        data.massPoint_x += p.X;
-        data.massPoint_y += p.Y;
-        data.massPoint_z += p.Z;
+        data.massPoint_x += p.x;
+        data.massPoint_y += p.y;
+        data.massPoint_z += p.z;
         ++data.numPoints;
+    }
+
+    public void qef_create_from_points(Vec4f[] positions, Vec4f[] normals, int count) {
+        for (int i= 0; i < count; ++i) {
+            qef_add_point(positions[i], normals[i]);
+        }
     }
 
     public void add(QefData rhs) {
@@ -92,11 +103,6 @@ public class QefSolver {
         data.clear();
     }
 
-    public float solve(Vec3f outx, float svd_tol, int svd_sweeps, float pinv_tol) {
-        //return solveSimple(outx);
-        return solveNew(outx, svd_tol, svd_sweeps, pinv_tol);
-    }
-
     public float solveSimple(Vec3f outx) {
         if (data.numPoints == 0) {
             throw new IllegalArgumentException("...");
@@ -113,7 +119,7 @@ public class QefSolver {
         return 0;
     }
 
-    public float solveNew(Vec3f outx, float svd_tol, int svd_sweeps, float pinv_tol) {
+    public float solveNew(Vec3f outx) {
         if (data.numPoints == 0)
             throw new IllegalArgumentException("...");
         this.massPoint.set(this.data.massPoint_x, this.data.massPoint_y, this.data.massPoint_z);
@@ -131,6 +137,12 @@ public class QefSolver {
         outx.set(x);
         hasSolution = true;
         return result;
+    }
+
+    public Vec4f solve() {
+        Vec3f outx = new Vec3f();
+        float error = solveNew(outx);
+        return new Vec4f(outx);
     }
 
     private void setAta() {

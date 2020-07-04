@@ -1,7 +1,7 @@
 package dc;
 
-import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.entities.MeshBuffer;
@@ -12,11 +12,11 @@ import dc.utils.VoxelHelperUtils;
 import java.util.*;
 
 import static dc.ChunkOctree.*;
-import static dc.impl.LevenLinearOctreeImpl.fieldSize;
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
 import static dc.VoxelOctree.MATERIAL_AIR;
 import static dc.VoxelOctree.edgevmap;
+import static dc.impl.LevenLinearOctreeImpl.fieldSize;
 
 public abstract class AbstractDualContouring implements DualContouring{
 
@@ -411,8 +411,8 @@ public abstract class AbstractDualContouring implements DualContouring{
     }
 
     protected class PosNormHolder{
-        public Vec3f position;
-        public Vec3f averageNormal;
+        public Vec4f position;
+        public Vec4f averageNormal;
     }
 
     protected PosNormHolder tryToCreateBoundSeamPseudoNode(Vec3i leafMin, int leafSize, Vec3i pos, int corners,
@@ -431,7 +431,7 @@ public abstract class AbstractDualContouring implements DualContouring{
                 int y = leafMin.y + (EDGE_OFFSETS[i].y) * leafSize / 2;
                 int z = leafMin.z + (EDGE_OFFSETS[i].z) * leafSize / 2;
 
-                Vec3f nodePos = new Vec3f(x,y,z);
+                Vec4f nodePos = new Vec4f(x,y,z);
                 float density = Density.getNoise(nodePos, densityField);
                 if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
                     PosNormHolder holder = new PosNormHolder();

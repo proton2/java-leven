@@ -4,10 +4,26 @@ import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec4f;
 
-public class LevenQefSolver {
-    private float[]   mat3x3_tri_ATA = new float[6];
+public class LevenQefSolver implements SvdSolver{
+    private float[]   mat3x3_tri_ATA;
     private Vec4f     ATb;
     private Vec4f	  masspoint;
+
+    public LevenQefSolver(){
+        mat3x3_tri_ATA = new float[6];
+        mat3x3_tri_ATA[0] = 0.f;
+        mat3x3_tri_ATA[1] = 0.f;
+        mat3x3_tri_ATA[2] = 0.f;
+        mat3x3_tri_ATA[3] = 0.f;
+        mat3x3_tri_ATA[4] = 0.f;
+        mat3x3_tri_ATA[5] = 0.f;
+        ATb = new Vec4f(0.f, 0.f, 0.f, 0.f);
+        masspoint = new Vec4f(0.f, 0.f, 0.f, 0.f);
+    }
+
+    public Vec4f getMasspoint() {
+        return masspoint;
+    }
 
     int SVD_NUM_SWEEPS = 10;
     float PSUEDO_INVERSE_THRESHOLD = 0.1f;
@@ -149,7 +165,7 @@ public class LevenQefSolver {
         result.z = mat3x3_tri_A[2] * v.x + mat3x3_tri_A[4] * v.y + mat3x3_tri_A[5] * v.z;
     }
 
-    private void qef_add_point(
+    public void qef_add_point(
             Vec4f n,
             Vec4f p)
     {
@@ -196,7 +212,7 @@ public class LevenQefSolver {
         return error;
     }
 
-    public Vec4f qef_solve() {
+    public Vec4f solve() {
         Vec4f solvedPosition = new Vec4f();
         float error = qef_solve(solvedPosition);
         return solvedPosition;
@@ -207,15 +223,6 @@ public class LevenQefSolver {
             Vec4f[] normals,
             int count)
     {
-        mat3x3_tri_ATA[0] = 0.f;
-        mat3x3_tri_ATA[1] = 0.f;
-        mat3x3_tri_ATA[2] = 0.f;
-        mat3x3_tri_ATA[3] = 0.f;
-        mat3x3_tri_ATA[4] = 0.f;
-        mat3x3_tri_ATA[5] = 0.f;
-        ATb = new Vec4f(0.f, 0.f, 0.f, 0.f);
-        masspoint = new Vec4f(0.f, 0.f, 0.f, 0.f);
-
         for (int i= 0; i < count; ++i) {
             qef_add_point(normals[i], positions[i]);
         }

@@ -2,6 +2,7 @@ package dc.impl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4f;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.*;
@@ -110,8 +111,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int materialIndex;
         int voxelEdgeInfo;
         int encodedVoxelPosition;
-        Vec3f solvedPosition;
-        Vec3f averageNormal;
+        Vec4f solvedPosition;
+        Vec4f averageNormal;
     }
 
     private LinearLeafHolder constructLeaf(Vec3i pos, Vec3i chunkMin, int chunkSize, float[] densityField) {
@@ -148,7 +149,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         // otherwise the voxel contains the surface, so find the edge intersections
         int MAX_CROSSINGS = 6;
         int edgeCount = 0;
-        Vec3f averageNormal = new Vec3f(0.f);
+        Vec4f averageNormal = new Vec4f();
         QefSolver qef = new QefSolver();
         for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
             int c1 = edgevmap[i][0];
@@ -162,18 +163,17 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             }
             Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
             Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
-            Vec3f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField).getVec3f();
-            Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-            qef.add(p, n);
+            Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
+            Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
+            qef.qef_add_point(p, n);
             averageNormal = averageNormal.add(n);
             edgeCount++;
         }
 
-        Vec3f qefPosition = new Vec3f(qef.getMassPoint());
-        qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
+        Vec3f qefPosition = qef.solve().getVec3f();
 
         LinearLeafHolder leafHolder = new LinearLeafHolder();
-        leafHolder.solvedPosition = VoxelHelperUtils.isOutFromBounds(qefPosition, leafMin.toVec3f(), leafSize) ? qef.getMassPoint(): qefPosition;
+        leafHolder.solvedPosition = new Vec4f(VoxelHelperUtils.isOutFromBounds(qefPosition, leafMin.toVec3f(), leafSize) ? qef.getMassPoint(): qefPosition);
         int materialIndex = findDominantMaterial(cornerMaterials);
         leafHolder.materialIndex = (materialIndex << 8) | corners;
         leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);

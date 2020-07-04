@@ -2,6 +2,7 @@ package dc.impl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4f;
 import core.utils.Constants;
 import dc.AbstractDualContouring;
 import dc.OctreeDrawInfo;
@@ -165,8 +166,8 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                 return null;
             } else {
                 leaf.drawInfo = new OctreeDrawInfo();
-                leaf.drawInfo.position = holder.position;
-                leaf.drawInfo.averageNormal = holder.averageNormal;
+                leaf.drawInfo.position = holder.position.getVec3f();
+                leaf.drawInfo.averageNormal = holder.averageNormal.getVec3f();
                 leaf.drawInfo.corners = corners;
                 leaf.drawInfo.color = Constants.Blue;
                 leaf.Type = Node_Leaf;
@@ -189,15 +190,14 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             }
             Vec3f p1 = leaf.min.add(CHILD_MIN_OFFSETS[c1].mul(leaf.size)).toVec3f();
             Vec3f p2 = leaf.min.add(CHILD_MIN_OFFSETS[c2].mul(leaf.size)).toVec3f();
-            Vec3f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField).getVec3f();
-            Vec3f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-            qef.add(p, n);
-            averageNormal = averageNormal.add(n);
+            Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
+            Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
+            qef.qef_add_point(p, n);
+            averageNormal = averageNormal.add(n.getVec3f());
             edgeCount++;
         }
 
-        Vec3f qefPosition = new Vec3f(qef.getMassPoint());
-        qef.solve(qefPosition, QEF_ERROR, QEF_SWEEPS, QEF_ERROR);
+        Vec3f qefPosition = qef.solve().getVec3f();
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
         drawInfo.position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.min.toVec3f(), leaf.size) ? qef.getMassPoint(): qefPosition;

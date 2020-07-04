@@ -93,21 +93,21 @@ public class VoxelHelperUtils {
         return p0.add((p1.sub(p0)).mul(t)); // p0 + ((p1 - p0) * t);
     }
 
-    public static Vec3f CalculateSurfaceNormal(Vec3f p, float[] densityField) {
+    public static Vec4f CalculateSurfaceNormal(Vec4f p, float[] densityField) {
 //	    float H = 0.001f;
 //	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField);
 //	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)), densityField);
 //	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)), densityField);
 
         float H = 1f;
-        Vec3f xOffcet = new Vec3f(H, 0.f, 0.f);
-        Vec3f yOffcet = new Vec3f(0.f, H, 0.f);
-        Vec3f zOffcet = new Vec3f(0.f, 0.f, H);
+        Vec4f xOffcet = new Vec4f(H, 0.f, 0.f, 0.f);
+        Vec4f yOffcet = new Vec4f(0.f, H, 0.f, 0.f);
+        Vec4f zOffcet = new Vec4f(0.f, 0.f, H, 0.f);
         float dx = Density.getNoise(p.add(xOffcet), densityField) - Density.getNoise(p.sub(xOffcet), densityField);
         float dy = Density.getNoise(p.add(yOffcet), densityField) - Density.getNoise(p.sub(yOffcet), densityField);
         float dz = Density.getNoise(p.add(zOffcet), densityField) - Density.getNoise(p.sub(zOffcet), densityField);
 
-        Vec3f v = new Vec3f(dx, dy, dz);
+        Vec4f v = new Vec4f(dx, dy, dz);
         v.normalize();
         return v;
     }
