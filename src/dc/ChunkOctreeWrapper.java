@@ -9,7 +9,7 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.LevenLinearOctreeImpl;
+import dc.impl.TransitionLinearOctreeImpl;
 import dc.shaders.RenderDebugShader;
 import dc.utils.Frustum;
 import dc.utils.RenderDebugCmdBuffer;
@@ -31,8 +31,8 @@ public class ChunkOctreeWrapper extends GameObject {
     public ChunkOctreeWrapper() {
         //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
         //chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
-        //chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl());
-        chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
+        chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl());
+        //chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
         rootChunk = chunkOctree.buildChunkOctree();
     }
 

@@ -253,6 +253,8 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
             int MAX_CROSSINGS = 6;
             int edgeCount = 0;
             Vec4f averageNormal = new Vec4f();
+            Vec4f[] edgePositions = new Vec4f[12];
+            Vec4f[] edgeNormals = new Vec4f[12];
             SvdSolver qef =  new QefSolver();
 
             int leafSize = (chunkSize / VOXELS_PER_CHUNK);
@@ -269,10 +271,12 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
                 Vec4f p = VoxelHelperUtils.ApproximateLevenCrossingPosition(p1, p2, densityField);
                 Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-                qef.qef_add_point(p, n);
+                edgePositions[edgeCount] = p;
+                edgeNormals[edgeCount] = n;
                 averageNormal = averageNormal.add(n);
                 edgeCount++;
             }
+            qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
             qefs[index] = qef;
             vertexNormals[index] = averageNormal.div((float) edgeCount).getVec3f().normalize();
         }
