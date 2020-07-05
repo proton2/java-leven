@@ -2,30 +2,12 @@ package dc.svd;
 
 import core.math.Vec2f;
 import core.math.Vec3f;
+import core.math.Vec4f;
 
 /**
  * Created by proton2 on 01.02.2020.
  */
 public class GlslSvd {
-    public static class Vec4f extends Vec3f{
-        public float w;
-        public Vec4f(){}
-        public Vec4f (Vec3f v, float w){
-            X = v.X; Y = v.Y; Z = v.Z; this.w = w;
-        }
-
-        public Vec4f(float x, float y, float z, float w) {
-            X = x; Y = y; Z = z; this.w = w;
-        }
-
-        public void set (Vec4f v){
-            X = v.X; Y = v.Y; Z = v.Z; this.w = v.w;
-        }
-
-        public void add(Vec3f r, float w) {
-            this.X += r.getX(); this.Y += r.getY(); this.Z += r.getZ(); this.w += w;
-        }
-    }
 
     private final int SVD_NUM_SWEEPS = 5;
     private final float Tiny_Number = (float) 1.e-20;
@@ -215,11 +197,11 @@ public class GlslSvd {
         return Math.round(value * scale) / scale;
     }
 
-    void svd_solve_ATA_ATb(float[][] ATA, Vec3f ATb, Vec3f x) {
+    Vec3f svd_solve_ATA_ATb(float[][] ATA, Vec3f ATb) {
         float[][] V = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }; // mat3 V = mat3(1.0);
         float[] sigma = svd_solve_sym(ATA, V);
         float[][] vInv = svd_pseudoinverse(sigma, V);            // A = UEV^T; U = A / (E*V^T)
-        x.set(vmulSym(vInv, ATb));                               // x = vInv * ATb;
+        return vmulSym(vInv, ATb); // x = vInv * ATb;
     }
 
     Vec3f solve(SMat3 ata, Vec3f atb) {
@@ -251,7 +233,7 @@ public class GlslSvd {
     void svd_solve_Ax_b(Mat3 a, Vec3f b, SMat3 ATA, Vec3f ATb, Vec3f x) {
         ATA.set(svd_mul_ata_sym(a));
         ATb.set(a.Vmul(b)); // transpose(a) * b;
-        svd_solve_ATA_ATb(ATA.convTo2dFloat(), ATb, x);
+        x.set(svd_solve_ATA_ATb(ATA.convTo2dFloat(), ATb));
     }
 
     private void qef_add(Vec3f n, Vec3f p, float[][] ATA, Vec3f ATb, Vec4f pointaccum) {
@@ -265,7 +247,7 @@ public class GlslSvd {
         ATb.X += dot * n.X;
         ATb.Y += dot * n.Y;
         ATb.Z += dot * n.Z;
-        pointaccum.add(p,1.0f);
+        pointaccum.set(pointaccum.add(p,1.0f));
     }
 
     float qef_calc_error(float[][] A, Vec3f x, Vec3f b) {
@@ -277,11 +259,11 @@ public class GlslSvd {
     }
 
     private float qef_solve(float[][] ATA, Vec3f ATb, Vec4f pointaccum, Vec3f x) {
-        Vec3f masspoint = pointaccum.div(pointaccum.w);
+        Vec3f masspoint = pointaccum.div(pointaccum.w).getVec3f();
         Vec3f tmpv = vmulSym(ATA, masspoint);
         ATb = ATb.sub(tmpv);
 
-        svd_solve_ATA_ATb(ATA, ATb, x);
+        x.set(svd_solve_ATA_ATb(ATA, ATb));
         float result = qef_calc_error(ATA, x, ATb);
         x.set(x.add(masspoint));
         return result;
@@ -313,7 +295,7 @@ public class GlslSvd {
         for (int i= 0; i < count; ++i) {
             solver.qef_add(normals[i], points[i], ATA, ATb, pointaccum);
         }
-        Vec3f com = pointaccum.div(pointaccum.w);
+        Vec3f com = pointaccum.div(pointaccum.w).getVec3f();
 
         Vec3f x = new Vec3f();
         float error = solver.qef_solve(ATA, ATb, pointaccum, x);

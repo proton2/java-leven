@@ -375,9 +375,9 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
             Vec4f solvedPos = qefs[index].solve();
 
             solvedPos = solvedPos.mul(leafSize).add(chunkMin);
-            Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
-
-            solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
+            // clamping
+            //Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
+            //solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
             solvedPositions[index] = solvedPos.getVec3f();
         }
         return 1;

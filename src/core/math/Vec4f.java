@@ -126,6 +126,10 @@ public class Vec4f {
 		return new Vec4f(x_, y_, z_, w_);
 	}
 
+	public Vec4f add(Vec3f r, float w) {
+		return new Vec4f(this.x += r.getX(), this.y += r.getY(), this.z += r.getZ(), this.w += w);
+	}
+
 	public Vec4f add(Vec3i r)
 	{
 		float x_ = x + r.x;

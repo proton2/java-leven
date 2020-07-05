@@ -129,7 +129,7 @@ public class QefSolver implements SvdSolver{
         Vec3f tmpv = ata.Vmul(this.massPoint);
         this.atb = this.atb.sub(tmpv);
         //glslSvdSolver.svd_solve_ATA_ATb(this.ata.convTo2dFloat(), this.atb, this.x);
-        this.x = glslSvdSolver.solve(this.ata, this.atb);
+        this.x = glslSvdSolver.svd_solve_ATA_ATb(this.ata.convTo2dFloat(), this.atb);
         //float result = glslSvdSolver.qef_calc_error(this.ata.convTo2dFloat(), x, this.atb);
         float result = getError(x);
         this.x = this.x.add(massPoint);
