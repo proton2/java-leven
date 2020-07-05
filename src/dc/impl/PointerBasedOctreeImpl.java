@@ -200,7 +200,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         Vec3f qefPosition = qef.solve().getVec3f();
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-        drawInfo.position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.min.toVec3f(), leaf.size) ? qef.getMassPoint(): qefPosition;
+        drawInfo.position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.min.toVec3f(), leaf.size) ? qef.getMasspoint().getVec3f(): qefPosition;
         drawInfo.color = Constants.Red;//isSeamNode(drawInfo.position, leaf.rootMin, leaf.chunkSize, leaf.min, leaf.size);
         drawInfo.averageNormal = averageNormal.div((float)edgeCount);
         drawInfo.averageNormal.normalize();

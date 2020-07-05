@@ -32,11 +32,13 @@ public class LevenQefSolver implements SvdSolver{
         return (float) Math.pow(a, -0.5);
     }
 
-    private void svd_mul_matrix_vec(Vec4f result, float[][] mat3x3_a, Vec4f b) {
+    private Vec4f svd_mul_matrix_vec(float[][] mat3x3_a, Vec4f b) {
+        Vec4f result = new Vec4f();
         result.x = b.dot(new Vec4f(mat3x3_a[0][0], mat3x3_a[0][1], mat3x3_a[0][2], 0.f));
         result.y = b.dot(new Vec4f(mat3x3_a[1][0], mat3x3_a[1][1], mat3x3_a[1][2], 0.f));
         result.z = b.dot(new Vec4f(mat3x3_a[2][0], mat3x3_a[2][1], mat3x3_a[2][2], 0.f));
         result.w = 0.f;
+        return result;
     }
 
     private void givens_coeffs_sym(float a_pp, float a_pq, float a_qq, Vec2f cs) {
@@ -122,11 +124,11 @@ public class LevenQefSolver implements SvdSolver{
         return (float) ((Math.abs(x) < tol || Math.abs(1.0 / x) < tol) ? 0.0 : (1.0 / x));
     }
 
-    private void svd_pseudoinverse(float[][] mat3x3_o, Vec4f sigma, float[][] mat3x3_v) {
+    private float[][] svd_pseudoinverse(Vec4f sigma, float[][] mat3x3_v) {
         float d0 = svd_invdet(sigma.x, PSUEDO_INVERSE_THRESHOLD);
         float d1 = svd_invdet(sigma.y, PSUEDO_INVERSE_THRESHOLD);
         float d2 = svd_invdet(sigma.z, PSUEDO_INVERSE_THRESHOLD);
-
+        float[][] mat3x3_o = new float[3][3];
         mat3x3_o[0][0] = mat3x3_v[0][0] * d0 * mat3x3_v[0][0] + mat3x3_v[0][1] * d1 * mat3x3_v[0][1] + mat3x3_v[0][2] * d2 * mat3x3_v[0][2];
         mat3x3_o[0][1] = mat3x3_v[0][0] * d0 * mat3x3_v[1][0] + mat3x3_v[0][1] * d1 * mat3x3_v[1][1] + mat3x3_v[0][2] * d2 * mat3x3_v[1][2];
         mat3x3_o[0][2] = mat3x3_v[0][0] * d0 * mat3x3_v[2][0] + mat3x3_v[0][1] * d1 * mat3x3_v[2][1] + mat3x3_v[0][2] * d2 * mat3x3_v[2][2];
@@ -136,12 +138,12 @@ public class LevenQefSolver implements SvdSolver{
         mat3x3_o[2][0] = mat3x3_v[2][0] * d0 * mat3x3_v[0][0] + mat3x3_v[2][1] * d1 * mat3x3_v[0][1] + mat3x3_v[2][2] * d2 * mat3x3_v[0][2];
         mat3x3_o[2][1] = mat3x3_v[2][0] * d0 * mat3x3_v[1][0] + mat3x3_v[2][1] * d1 * mat3x3_v[1][1] + mat3x3_v[2][2] * d2 * mat3x3_v[1][2];
         mat3x3_o[2][2] = mat3x3_v[2][0] * d0 * mat3x3_v[2][0] + mat3x3_v[2][1] * d1 * mat3x3_v[2][1] + mat3x3_v[2][2] * d2 * mat3x3_v[2][2];
+        return mat3x3_o;
     }
 
-    private void svd_solve_ATA_ATb(
+    private Vec4f svd_solve_ATA_ATb(
             float[] mat3x3_tri_ATA,
-            Vec4f ATb,
-            Vec4f x)
+            Vec4f ATb)
     {
         float[][] mat3x3_V = new float[3][3];
         mat3x3_V[0][0] = 1.f; mat3x3_V[0][1] = 0.f; mat3x3_V[0][2] = 0.f;
@@ -152,17 +154,17 @@ public class LevenQefSolver implements SvdSolver{
         svd_solve_sym(mat3x3_tri_ATA, sigma, mat3x3_V);
 
         // A = UEV^T; U = A / (E*V^T)
-        float[][] mat3x3_Vinv = new float[3][3];
-        svd_pseudoinverse(mat3x3_Vinv, sigma, mat3x3_V);
-        svd_mul_matrix_vec(x, mat3x3_Vinv, ATb);
+        float[][] mat3x3_Vinv = svd_pseudoinverse(sigma, mat3x3_V);
+        return svd_mul_matrix_vec(mat3x3_Vinv, ATb);
     }
 
-    private void svd_vmul_sym(Vec4f result, float[] mat3x3_tri_A, Vec4f v) {
+    private Vec4f svd_vmul_sym(float[] mat3x3_tri_A, Vec4f v) {
         Vec4f A_row_x = new Vec4f(mat3x3_tri_A[0], mat3x3_tri_A[1], mat3x3_tri_A[2], 0.f);
-
+        Vec4f result = new Vec4f();
         result.x = v.dot(A_row_x);
         result.y = mat3x3_tri_A[1] * v.x + mat3x3_tri_A[3] * v.y + mat3x3_tri_A[4] * v.z;
         result.z = mat3x3_tri_A[2] * v.x + mat3x3_tri_A[4] * v.y + mat3x3_tri_A[5] * v.z;
+        return result;
     }
 
     public void qef_add_point(
@@ -188,33 +190,24 @@ public class LevenQefSolver implements SvdSolver{
     }
 
     private float qef_calc_error(float[] mat3x3_tri_A, Vec4f x, Vec4f b) {
-        Vec4f tmp = new Vec4f();
-        svd_vmul_sym(tmp, mat3x3_tri_A, x);
+        Vec4f tmp = svd_vmul_sym(mat3x3_tri_A, x);
         tmp = b.sub(tmp);
 
         return tmp.dot(tmp);
     }
 
-    public float qef_solve(Vec4f solvedPosition)
-    {
+    public Vec4f solve() {
         // prevent a div-by-zero exception
         masspoint = masspoint.div(Math.max(masspoint.w, 1.f));
 
-        Vec4f A_mp = new Vec4f();
-        svd_vmul_sym(A_mp, mat3x3_tri_ATA, masspoint);
+        Vec4f A_mp = svd_vmul_sym(mat3x3_tri_ATA, masspoint);
         A_mp = ATb.sub(A_mp);
 
-        svd_solve_ATA_ATb(mat3x3_tri_ATA, A_mp, solvedPosition);
+        Vec4f solvedPosition = svd_solve_ATA_ATb(mat3x3_tri_ATA, A_mp);
 
         float error = qef_calc_error(mat3x3_tri_ATA, solvedPosition, ATb);
-        solvedPosition.set(solvedPosition.add(masspoint));
+        solvedPosition = solvedPosition.add(masspoint);
 
-        return error;
-    }
-
-    public Vec4f solve() {
-        Vec4f solvedPosition = new Vec4f();
-        float error = qef_solve(solvedPosition);
         return solvedPosition;
     }
 

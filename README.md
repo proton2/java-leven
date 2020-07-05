@@ -14,6 +14,11 @@ Features:
       Some holes in seams is not fixed.
   - Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to Java. Some holes in seams is not fixed. The first raw version will still improve;
 
+## Build Instructions
+The dependencies are:
+  * Maven
+  * Java 11
+  * I used IntelliJ IDEA Community edition
  
 
 ## Usage

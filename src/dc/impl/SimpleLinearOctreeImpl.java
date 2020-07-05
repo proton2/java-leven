@@ -66,7 +66,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int[] d_nodeCodes = listHolder.stream().mapToInt(e->e.encodedVoxelPosition).toArray();
         int[] d_nodeMaterials = listHolder.stream().mapToInt(e->e.materialIndex).toArray();
         Vec3f[] d_vertexPositions = listHolder.stream().map(e->e.solvedPosition).toArray(Vec3f[]::new);
-        Vec3f[] d_vertexNormals = listHolder.stream().map(e->e.averageNormal).toArray(Vec3f[]::new);
+        Vec4f[] d_vertexNormals = listHolder.stream().map(e->e.averageNormal).toArray(Vec4f[]::new);
 
         processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
@@ -75,7 +75,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
     private void processDc(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, List<PointerBasedOctreeNode> seamNodes,
                            MeshBuffer buffer, Map<Integer, Integer> octreeNodes, int[] d_nodeCodes, int[] d_nodeMaterials,
-                           Vec3f[] d_vertexPositions, Vec3f[] d_vertexNormals) {
+                           Vec3f[] d_vertexPositions, Vec4f[] d_vertexNormals) {
         int numVertices = octreeNodes.size();
         int indexBufferSize = numVertices * 6 * 3;
         int[] d_indexBuffer = new int[indexBufferSize];
@@ -111,7 +111,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int materialIndex;
         int voxelEdgeInfo;
         int encodedVoxelPosition;
-        Vec4f solvedPosition;
+        Vec3f solvedPosition;
         Vec4f averageNormal;
     }
 
@@ -135,7 +135,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 return null;
             } else {
                 LinearLeafHolder leafHolder = new LinearLeafHolder();
-                leafHolder.solvedPosition = holder.position;
+                leafHolder.solvedPosition = holder.position.getVec3f();
                 int materialIndex = findDominantMaterial(cornerMaterials);
                 leafHolder.materialIndex = (materialIndex << 8) | corners;
                 leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);
@@ -173,7 +173,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         Vec3f qefPosition = qef.solve().getVec3f();
 
         LinearLeafHolder leafHolder = new LinearLeafHolder();
-        leafHolder.solvedPosition = new Vec4f(VoxelHelperUtils.isOutFromBounds(qefPosition, leafMin.toVec3f(), leafSize) ? qef.getMassPoint(): qefPosition);
+        leafHolder.solvedPosition = VoxelHelperUtils.isOutFromBounds(qefPosition, leafMin.toVec3f(), leafSize) ? qef.getMasspoint().getVec3f(): qefPosition;
         int materialIndex = findDominantMaterial(cornerMaterials);
         leafHolder.materialIndex = (materialIndex << 8) | corners;
         leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);
@@ -294,20 +294,20 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         }
     }
 
-    private void GenerateMeshVertexBuffer(Vec3f[] vertexPositions, Vec3f[] vertexNormals, int[] nodeMaterials, Vec3f colour,
+    private void GenerateMeshVertexBuffer(Vec3f[] vertexPositions, Vec4f[] vertexNormals, int[] nodeMaterials, Vec3f colour,
                                           MeshVertex[] meshVertexBuffer) {
         for (int index = 0; index < vertexPositions.length; index++) {
             int material = nodeMaterials[index];
             meshVertexBuffer[index] = new MeshVertex();
             meshVertexBuffer[index].setPos(vertexPositions[index]);
-            meshVertexBuffer[index].setNormal(vertexNormals[index]);
+            meshVertexBuffer[index].setNormal(vertexNormals[index].getVec3f());
             meshVertexBuffer[index].setColor(colour); //colour = new Vec4f(colour.X, colour.Y, colour.Z, (float) (material >> 8));
         }
     }
 
     private void extractNodeInfo(boolean[] isSeamNode, Vec3f color,
                                      int leafSize, Vec3i chunkMin, int from, int to,
-                                     int[] octreeCodes, int[] octreeMaterials, Vec3f[] octreePositions, Vec3f[] octreeNormals,
+                                     int[] octreeCodes, int[] octreeMaterials, Vec3f[] octreePositions, Vec4f[] octreeNormals,
                                      List<PointerBasedOctreeNode> seamNodes) {
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]) {
@@ -318,7 +318,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
                 drawInfo.position = octreePositions[index];
                 drawInfo.color = color;
-                drawInfo.averageNormal = octreeNormals[index];
+                drawInfo.averageNormal = octreeNormals[index].getVec3f();
                 drawInfo.corners = octreeMaterials[index];
                 node.drawInfo = drawInfo;
                 seamNodes.add(node);
