@@ -9,8 +9,8 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.svd.LevenQefSolver;
-import dc.svd.SvdSolver;
+import dc.solver.LevenQefSolver;
+import dc.solver.SvdSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 

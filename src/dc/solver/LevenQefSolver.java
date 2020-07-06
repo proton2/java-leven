@@ -1,4 +1,4 @@
-package dc.svd;
+package dc.solver;
 
 import core.math.Vec2f;
 import core.math.Vec3f;
@@ -8,6 +8,7 @@ public class LevenQefSolver implements SvdSolver{
     private float[]   mat3x3_tri_ATA;
     private Vec4f     ATb;
     private Vec4f	  masspoint;
+    private Vec4f     solvedPos;
 
     public LevenQefSolver(){
         mat3x3_tri_ATA = new float[6];
@@ -23,6 +24,16 @@ public class LevenQefSolver implements SvdSolver{
 
     public Vec4f getMasspoint() {
         return masspoint;
+    }
+
+    @Override
+    public void setSolvedPos(Vec4f pos) {
+        solvedPos = pos;
+    }
+
+    @Override
+    public Vec4f getSolvedPos() {
+        return solvedPos;
     }
 
     int SVD_NUM_SWEEPS = 10;
@@ -203,12 +214,12 @@ public class LevenQefSolver implements SvdSolver{
         Vec4f A_mp = svd_vmul_sym(mat3x3_tri_ATA, masspoint);
         A_mp = ATb.sub(A_mp);
 
-        Vec4f solvedPosition = svd_solve_ATA_ATb(mat3x3_tri_ATA, A_mp);
+        solvedPos = svd_solve_ATA_ATb(mat3x3_tri_ATA, A_mp);
 
-        float error = qef_calc_error(mat3x3_tri_ATA, solvedPosition, ATb);
-        solvedPosition = solvedPosition.add(masspoint);
+        float error = qef_calc_error(mat3x3_tri_ATA, solvedPos, ATb);
+        solvedPos = solvedPos.add(masspoint);
 
-        return solvedPosition;
+        return solvedPos;
     }
 
     public void qef_create_from_points(

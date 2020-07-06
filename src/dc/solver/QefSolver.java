@@ -1,4 +1,4 @@
-package dc.svd;
+package dc.solver;
 
 import core.math.Vec3f;
 import core.math.Vec4f;
@@ -6,31 +6,32 @@ import core.math.Vec4f;
 public class QefSolver implements SvdSolver{
     private float[] ata;
     private Vec3f atb;
-    private Vec3f massPoint;
+    private Vec4f massPoint;
     private float btb;
-    private Vec3f x;
-    private int numPoints;
+    private Vec4f x;
+    //private int numPoints;
 
     public Vec4f getMasspoint() {
-        return new Vec4f(massPoint);
+        return massPoint;
     }
 
-    public void setX(Vec3f x) {
-        this.x = x;
+    @Override
+    public void setSolvedPos(Vec4f pos) {
+        x = pos;
     }
 
-    public Vec3f getX() {
+    @Override
+    public Vec4f getSolvedPos() {
         return x;
     }
 
     private GlslSvd glslSvdSolver = new GlslSvd();
 
     public QefSolver() {
-        ata = new float[6];;
+        ata = new float[6];
         atb = new Vec3f();
-        massPoint = new Vec3f();
-        x = new Vec3f();
-        numPoints = 0;
+        massPoint = new Vec4f();
+        //x = new Vec4f();
     }
 
     public void qef_add_point(Vec4f p, Vec4f n) {
@@ -46,10 +47,11 @@ public class QefSolver implements SvdSolver{
         atb.Y += dot * n.y;
         atb.Z += dot * n.z;
         btb += dot * dot;
-        massPoint.X += p.x;
-        massPoint.Y += p.y;
-        massPoint.Z += p.z;
-        ++numPoints;
+        massPoint.x += p.x;
+        massPoint.y += p.y;
+        massPoint.z += p.z;
+        ++massPoint.w;
+        //++numPoints;
     }
 
     public void qef_create_from_points(Vec4f[] positions, Vec4f[] normals, int count) {
@@ -63,36 +65,27 @@ public class QefSolver implements SvdSolver{
         return pos.dot(atax) - 2 * pos.dot(atb) + btb;
     }
 
-    public float solveSimple(Vec3f outx) {
-        if (numPoints == 0) {
+    public Vec4f solveSimple() {
+        if (massPoint.w == 0) {
             throw new IllegalArgumentException("...");
         }
-        massPoint = massPoint.mul(1.0f / numPoints);
-        this.x.set(0);
-        this.x = this.x.add(massPoint);
-        outx.set(x);
-        return 0;
-    }
-
-    public float solveNew(Vec3f outx) {
-        if (numPoints == 0)
-            throw new IllegalArgumentException("...");
-        massPoint = massPoint.mul(1.0f / numPoints);
-
-        Vec3f tmpv = glslSvdSolver.vmulSym(ata, massPoint);
-        this.atb = this.atb.sub(tmpv);
-        this.x = glslSvdSolver.svd_solve_ATA_ATb(this.ata, this.atb);
-        //float result = glslSvdSolver.qef_calc_error(this.ata.convTo2dFloat(), x, this.atb);
-        float result = getError(x);
-        this.x = this.x.add(massPoint);
-
-        outx.set(x);
-        return result;
+        massPoint = massPoint.mul(1.0f / massPoint.w);
+        x = x.add(massPoint);
+        return x;
     }
 
     public Vec4f solve() {
-        Vec3f outx = new Vec3f();
-        float error = solveNew(outx);
-        return new Vec4f(outx);
+        if (massPoint.w == 0)
+            throw new IllegalArgumentException("...");
+        massPoint = massPoint.mul(1.0f / massPoint.w);
+
+        Vec3f tmpv = glslSvdSolver.vmulSym(ata, massPoint.getVec3f());
+        this.atb = this.atb.sub(tmpv);
+        this.x = glslSvdSolver.svd_solve_ATA_ATb(this.ata, this.atb);
+        //float result = glslSvdSolver.qef_calc_error(this.ata.convTo2dFloat(), x, this.atb);
+        float result = getError(x.getVec3f());
+        this.x = this.x.add(massPoint);
+
+        return x;
     }
 }
