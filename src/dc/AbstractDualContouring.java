@@ -7,7 +7,6 @@ import core.utils.BufferUtil;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.utils.Density;
-import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
 
@@ -410,12 +409,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         return faces;
     }
 
-    protected class PosNormHolder{
-        public Vec4f position;
-        public Vec4f averageNormal;
-    }
-
-    protected PosNormHolder tryToCreateBoundSeamPseudoNode(Vec3i leafMin, int leafSize, Vec3i pos, int corners,
+    protected Vec4f tryToCreateBoundSeamPseudoNode(Vec3i leafMin, int leafSize, Vec3i pos, int corners,
                                                                     int nodeMinSize, float[] densityField) {
         Vec3i chunkBorders = getChunkBorder(pos);
         // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
@@ -434,10 +428,7 @@ public abstract class AbstractDualContouring implements DualContouring{
                 Vec4f nodePos = new Vec4f(x,y,z);
                 float density = Density.getNoise(nodePos, densityField);
                 if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
-                    PosNormHolder holder = new PosNormHolder();
-                    holder.position = nodePos;
-                    holder.averageNormal = VoxelHelperUtils.CalculateSurfaceNormal(nodePos, densityField);
-                    return holder;
+                    return nodePos;
                 }
             }
         }

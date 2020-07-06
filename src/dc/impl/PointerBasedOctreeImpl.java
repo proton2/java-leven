@@ -10,7 +10,7 @@ import dc.PointerBasedOctreeNode;
 import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
 import dc.entities.VoxelTypes;
-import dc.svd.QefSolver;
+import dc.solver.QefSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
@@ -161,13 +161,13 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            PosNormHolder holder = tryToCreateBoundSeamPseudoNode(leaf.min, leaf.size, pos, corners, leafSizeScale, densityField);
-            if(holder==null){
+            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leaf.min, leaf.size, pos, corners, leafSizeScale, densityField);
+            if(nodePos==null){
                 return null;
             } else {
                 leaf.drawInfo = new OctreeDrawInfo();
-                leaf.drawInfo.position = holder.position.getVec3f();
-                leaf.drawInfo.averageNormal = holder.averageNormal.getVec3f();
+                leaf.drawInfo.position = nodePos.getVec3f();
+                leaf.drawInfo.averageNormal = VoxelHelperUtils.CalculateSurfaceNormal(nodePos, densityField).getVec3f();
                 leaf.drawInfo.corners = corners;
                 leaf.drawInfo.color = Constants.Blue;
                 leaf.Type = Node_Leaf;
