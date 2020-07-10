@@ -10,7 +10,7 @@ import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.LevenQefSolver;
-import dc.solver.SvdSolver;
+import dc.solver.QefSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
@@ -88,7 +88,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
                 d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
 
         int numVertices = d_nodeCodes.length;
-        SvdSolver[] qefs = new SvdSolver[numVertices];
+        QefSolver[] qefs = new QefSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
         //////////////////////////////
         createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / voxelsPerChunk, d_nodeCodes,
@@ -309,7 +309,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
 
     void createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, int sampleScale, int[] voxelPositions,
                          int[] voxelEdgeInfo, Vec4f[] edgeDataTable,
-                         SvdSolver[] leafQEFs, Map<Integer, Integer> nodes,
+                         QefSolver[] leafQEFs, Map<Integer, Integer> nodes,
                          Vec3f[] vertexNormals)
     {
         for (int index = from; index < to; index++) {
@@ -321,7 +321,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
             Vec4f[] edgePositions = new Vec4f[12];
             Vec4f[] edgeNormals = new Vec4f[12];
             int edgeCount = 0;
-            SvdSolver qef = new LevenQefSolver(); //new QefSolver();
+            QefSolver qef = new QefSolver(new LevenQefSolver());
 
             for (int i = 0; i < 12; i++) {
                 int active = (edgeList >> i) & 1;
@@ -364,7 +364,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
     }
 
     private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                          SvdSolver[] qefs, Vec3f[] solvedPositions){
+                          QefSolver[] qefs, Vec3f[] solvedPositions){
 
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];

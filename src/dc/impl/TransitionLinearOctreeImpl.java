@@ -8,8 +8,8 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
+import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
-import dc.solver.SvdSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
@@ -145,11 +145,32 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
 
         int numVertices = activeLeafsSize;
-        SvdSolver[] qefs = new SvdSolver[numVertices];
+        QefSolver[] qefs = new QefSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
-        createLeafNodes(chunkSize, chunkMin, 0, numVertices, densityField, borderNodePositions,
-                d_nodeCodes, d_compactLeafEdgeInfo,
-                d_vertexNormals, qefs);
+//        createLeafNodes(chunkSize, chunkMin, 0, numVertices, densityField, borderNodePositions,
+//                d_nodeCodes, d_compactLeafEdgeInfo,
+//                d_vertexNormals, qefs);
+
+        ExecutorService serviceLeafs = Executors.newFixedThreadPool(availableProcessors);
+        List<Callable<Integer>> leafsTasks = new ArrayList<>();
+        for (int i = 0; i < availableProcessors; i++) {
+            int finalI = i;
+            Callable<Integer> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                return createLeafNodes(chunkSize, chunkMin, from, to, densityField, borderNodePositions,
+                        d_nodeCodes, d_compactLeafEdgeInfo,
+                        d_vertexNormals, qefs);
+            };
+            leafsTasks.add(task);
+        }
+        try {
+            serviceLeafs.invokeAll(leafsTasks);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+            return false;
+        }
+        serviceLeafs.shutdown();
 
         Vec3f[] d_vertexPositions = new Vec3f[numVertices];
         solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, 0, numVertices,
@@ -250,12 +271,12 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                                     Map<Integer, Vec4f> borderNodePositions,
                                     int[] voxelPositions,
                                     int[] voxelEdgeInfo,
-                                    Vec3f[] vertexNormals, SvdSolver[] qefs) {
+                                    Vec3f[] vertexNormals, QefSolver[] qefs) {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
             Vec3i position = LinearOctreeTest.positionForCode(encodedPosition);
             int corners = voxelEdgeInfo[index];
-            SvdSolver qef = new QefSolver();
+            QefSolver qef = new QefSolver(new GlslSvd());
             if (corners==0 || corners==255){
                 Vec4f nodePos = borderNodePositions.get(encodedPosition);
                 qef.setSolvedPos(nodePos);
@@ -297,7 +318,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     }
 
     private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                          SvdSolver[] qefs, Vec3f[] solvedPositions) {
+                          QefSolver[] qefs, Vec3f[] solvedPositions) {
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];
             Vec3i pos = LinearOctreeTest.positionForCode(encodedPosition);

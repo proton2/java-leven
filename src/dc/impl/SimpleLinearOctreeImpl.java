@@ -8,6 +8,7 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
+import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
@@ -150,7 +151,9 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int MAX_CROSSINGS = 6;
         int edgeCount = 0;
         Vec4f averageNormal = new Vec4f();
-        QefSolver qef = new QefSolver();
+        Vec4f[] edgePositions = new Vec4f[12];
+        Vec4f[] edgeNormals = new Vec4f[12];
+        QefSolver qef = new QefSolver(new GlslSvd());
         for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
             int c1 = edgevmap[i][0];
             int c2 = edgevmap[i][1];
@@ -165,11 +168,12 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
             Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
             Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-            qef.qef_add_point(p, n);
+            edgePositions[edgeCount] = p;
+            edgeNormals[edgeCount] = n;
             averageNormal = averageNormal.add(n);
             edgeCount++;
         }
-
+        qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
         Vec4f qefPosition = qef.solve();
 
         LinearLeafHolder leafHolder = new LinearLeafHolder();

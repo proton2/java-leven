@@ -7,11 +7,10 @@ import core.math.Vec4f;
 /**
  * Created by proton2 on 01.02.2020.
  */
-public class GlslSvd {
+public class GlslSvd implements SvdSolver{
 
     private final int SVD_NUM_SWEEPS = 5;
     private final float Tiny_Number = (float) 1.e-20;
-    //private final float Tiny_Number = 1e-6f;
 
     private float rsqrt(float x) {
         return (float) (1.0 / Math.sqrt(x));
@@ -129,28 +128,30 @@ public class GlslSvd {
         return Math.round(value * scale) / scale;
     }
 
-    Vec4f svd_solve_ATA_ATb(float[] ATA, Vec3f ATb) {
+    Vec4f svd_solve_ATA_ATb(float[] ATA, Vec4f ATb) {
         float[][] V = { { 1, 0, 0 }, { 0, 1, 0 }, { 0, 0, 1 } }; // mat3 V = mat3(1.0);
         float[] sigma = svd_solve_sym(ATA, V);
         float[][] vInv = svd_pseudoinverse(sigma, V);            // A = UEV^T; U = A / (E*V^T)
         return vmulSym(vInv, ATb); // x = vInv * ATb;
     }
 
-    public Vec3f vmulSym(float[] a, Vec3f v) {
-        return new Vec3f(
-                (a[0] * v.X) + (a[1] * v.Y) + (a[2] * v.Z),
-                (a[1] * v.X) + (a[3] * v.Y) + (a[4] * v.Z),
-                (a[2] * v.X) + (a[4] * v.Y) + (a[5] * v.Z));
+    private Vec4f vmulSym(float[][] mat3x3_a, Vec4f b) {
+        Vec4f result = new Vec4f();
+        result.x = b.dot(new Vec4f(mat3x3_a[0][0], mat3x3_a[0][1], mat3x3_a[0][2], 0.f));
+        result.y = b.dot(new Vec4f(mat3x3_a[1][0], mat3x3_a[1][1], mat3x3_a[1][2], 0.f));
+        result.z = b.dot(new Vec4f(mat3x3_a[2][0], mat3x3_a[2][1], mat3x3_a[2][2], 0.f));
+        result.w = 0.f;
+        return result;
     }
 
-//    public Vec4f vmulSym(float[] mat3x3_tri_A, Vec4f v) {
-//        Vec4f A_row_x = new Vec4f(mat3x3_tri_A[0], mat3x3_tri_A[1], mat3x3_tri_A[2], 0.f);
-//        Vec4f result = new Vec4f();
-//        result.x = v.dot(A_row_x);
-//        result.y = mat3x3_tri_A[1] * v.x + mat3x3_tri_A[3] * v.y + mat3x3_tri_A[4] * v.z;
-//        result.z = mat3x3_tri_A[2] * v.x + mat3x3_tri_A[4] * v.y + mat3x3_tri_A[5] * v.z;
-//        return result;
-//    }
+    public Vec4f vmulSym(float[] mat3x3_tri_A, Vec4f v) {
+        Vec4f A_row_x = new Vec4f(mat3x3_tri_A[0], mat3x3_tri_A[1], mat3x3_tri_A[2], 0.f);
+        Vec4f result = new Vec4f();
+        result.x = v.dot(A_row_x);
+        result.y = mat3x3_tri_A[1] * v.x + mat3x3_tri_A[3] * v.y + mat3x3_tri_A[4] * v.z;
+        result.z = mat3x3_tri_A[2] * v.x + mat3x3_tri_A[4] * v.y + mat3x3_tri_A[5] * v.z;
+        return result;
+    }
 
     public Vec4f vmulSym(float[][] a, Vec3f v) {
         return new Vec4f(
@@ -160,70 +161,25 @@ public class GlslSvd {
                 0f);
     }
 
-    private void qef_add(Vec3f n, Vec3f p, float[] ATA, Vec3f ATb, Vec4f pointaccum) {
-        ATA[0] += n.X * n.X;
-        ATA[1] += n.X * n.Y;
-        ATA[2] += n.X * n.Z;
-        ATA[3] += n.Y * n.Y;
-        ATA[4] += n.Y * n.Z;
-        ATA[5] += n.Z * n.Z;
-        float dot = p.dot(n);
-        ATb.X += dot * n.X;
-        ATb.Y += dot * n.Y;
-        ATb.Z += dot * n.Z;
-        pointaccum.set(pointaccum.add(p,1.0f));
-    }
-
-    float qef_calc_error(float[] A, Vec4f x, Vec3f b) {
+    float qef_calc_error(float[] A, Vec4f x, Vec4f b) {
 //        Vec3f atax = this.ata.Vmul(pos);
 //        return pos.dot(atax) - 2 * pos.dot(atb) + data.btb;
 
-        Vec3f vtmp = b.sub(vmulSym(A, x.getVec3f()));
+        Vec4f vtmp = b.sub(vmulSym(A, x));
         return vtmp.dot(vtmp);
     }
 
-    private Vec4f qef_solve(float[] ATA, Vec3f ATb, Vec4f pointaccum) {
+    @Override
+    public Vec4f solve(float[] ATA, Vec4f ATb, Vec4f pointaccum) {
+        if (pointaccum.w == 0)
+            throw new IllegalArgumentException("...");
         Vec4f masspoint = pointaccum.div(pointaccum.w);
-        Vec3f tmpv = vmulSym(ATA, masspoint.getVec3f());
+        Vec4f tmpv = vmulSym(ATA, masspoint);
         ATb = ATb.sub(tmpv);
 
         Vec4f x = svd_solve_ATA_ATb(ATA, ATb);
         float result = qef_calc_error(ATA, x, ATb);
         x = x.add(masspoint);
         return x;
-    }
-
-    public static void main(String[] args) {
-        Vec4f pointaccum = new Vec4f(0,0,0,0);
-        float[] ATA = new float[6];
-        Vec3f ATb = new Vec3f();
-
-        final int count = 5;
-        Vec3f[] normals = {
-                new Vec3f( 1.0f,1.0f,0.0f).normalize(),
-                new Vec3f( 1.0f,1.0f,0.0f).normalize(),
-                new Vec3f(-1.0f,1.0f,0.0f).normalize(),
-                new Vec3f(-1.0f,2.0f,1.0f).normalize(),
-                new Vec3f(-1.0f,1.0f,0.0f).normalize(),
-        };
-        Vec3f[] points = {
-                new Vec3f(  1.0f, 0.0f, 0.3f),
-                new Vec3f(  0.9f, 0.1f, -0.5f),
-                new Vec3f( -0.8f, 0.2f, 0.6f),
-                new Vec3f( -1.0f, 0.0f, 0.01f),
-                new Vec3f( -1.1f, -0.1f, -0.5f),
-        };
-
-        GlslSvd solver = new GlslSvd();
-
-        for (int i= 0; i < count; ++i) {
-            solver.qef_add(normals[i], points[i], ATA, ATb, pointaccum);
-        }
-        Vec3f com = pointaccum.div(pointaccum.w).getVec3f();
-
-        Vec4f x = solver.qef_solve(ATA, ATb, pointaccum);
-
-        System.out.println(String.format("masspoint = (%.5f %.5f %.5f)\n", com.X, com.Y, com.Z));
-        System.out.println(String.format("point = (%.5f %.5f %.5f %.5f)\n", x.x, x.y, x.z, x.w));
     }
 }

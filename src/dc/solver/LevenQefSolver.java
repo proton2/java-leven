@@ -5,37 +5,6 @@ import core.math.Vec3f;
 import core.math.Vec4f;
 
 public class LevenQefSolver implements SvdSolver{
-    private float[]   mat3x3_tri_ATA;
-    private Vec4f     ATb;
-    private Vec4f	  masspoint;
-    private Vec4f     solvedPos;
-
-    public LevenQefSolver(){
-        mat3x3_tri_ATA = new float[6];
-        mat3x3_tri_ATA[0] = 0.f;
-        mat3x3_tri_ATA[1] = 0.f;
-        mat3x3_tri_ATA[2] = 0.f;
-        mat3x3_tri_ATA[3] = 0.f;
-        mat3x3_tri_ATA[4] = 0.f;
-        mat3x3_tri_ATA[5] = 0.f;
-        ATb = new Vec4f(0.f, 0.f, 0.f, 0.f);
-        masspoint = new Vec4f(0.f, 0.f, 0.f, 0.f);
-    }
-
-    public Vec4f getMasspoint() {
-        return masspoint;
-    }
-
-    @Override
-    public void setSolvedPos(Vec4f pos) {
-        solvedPos = pos;
-    }
-
-    @Override
-    public Vec4f getSolvedPos() {
-        return solvedPos;
-    }
-
     int SVD_NUM_SWEEPS = 10;
     float PSUEDO_INVERSE_THRESHOLD = 0.1f;
 
@@ -178,28 +147,6 @@ public class LevenQefSolver implements SvdSolver{
         return result;
     }
 
-    public void qef_add_point(
-            Vec4f n,
-            Vec4f p)
-    {
-        mat3x3_tri_ATA[0] += n.x * n.x;
-        mat3x3_tri_ATA[1] += n.x * n.y;
-        mat3x3_tri_ATA[2] += n.x * n.z;
-        mat3x3_tri_ATA[3] += n.y * n.y;
-        mat3x3_tri_ATA[4] += n.y * n.z;
-        mat3x3_tri_ATA[5] += n.z * n.z;
-
-        float b = n.dot(p);
-        ATb.x += n.x * b;
-        ATb.y += n.y * b;
-        ATb.z += n.z * b;
-
-        masspoint.x += p.x;
-        masspoint.y += p.y;
-        masspoint.z += p.z;
-        masspoint.w += 1.f;
-    }
-
     private float qef_calc_error(float[] mat3x3_tri_A, Vec4f x, Vec4f b) {
         Vec4f tmp = svd_vmul_sym(mat3x3_tri_A, x);
         tmp = b.sub(tmp);
@@ -207,30 +154,19 @@ public class LevenQefSolver implements SvdSolver{
         return tmp.dot(tmp);
     }
 
-    public Vec4f solve() {
+    @Override
+    public Vec4f solve(float[] mat3x3_tri_ATA, Vec4f ATb, Vec4f masspoint) {
         // prevent a div-by-zero exception
         masspoint = masspoint.div(Math.max(masspoint.w, 1.f));
 
         Vec4f A_mp = svd_vmul_sym(mat3x3_tri_ATA, masspoint);
         A_mp = ATb.sub(A_mp);
 
-        solvedPos = svd_solve_ATA_ATb(mat3x3_tri_ATA, A_mp);
+        Vec4f solvedPos = svd_solve_ATA_ATb(mat3x3_tri_ATA, A_mp);
 
         float error = qef_calc_error(mat3x3_tri_ATA, solvedPos, ATb);
         solvedPos = solvedPos.add(masspoint);
 
         return solvedPos;
-    }
-
-    public void qef_create_from_points(
-            Vec4f[] positions,
-            Vec4f[] normals,
-            int count)
-    {
-        for (int i= 0; i < count; ++i) {
-            qef_add_point(normals[i], positions[i]);
-        }
-
-        masspoint = masspoint.div(masspoint.w);
     }
 }

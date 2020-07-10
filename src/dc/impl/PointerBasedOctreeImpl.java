@@ -10,6 +10,7 @@ import dc.PointerBasedOctreeNode;
 import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
 import dc.entities.VoxelTypes;
+import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
@@ -179,7 +180,9 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
 	    int MAX_CROSSINGS = 6;
         int edgeCount = 0;
         Vec3f averageNormal = new Vec3f(0.f);
-        QefSolver qef = new QefSolver();
+        Vec4f[] edgePositions = new Vec4f[12];
+        Vec4f[] edgeNormals = new Vec4f[12];
+        QefSolver qef = new QefSolver(new GlslSvd());
         for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
 		    int c1 = edgevmap[i][0];
 		    int c2 = edgevmap[i][1];
@@ -192,11 +195,12 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             Vec3f p2 = leaf.min.add(CHILD_MIN_OFFSETS[c2].mul(leaf.size)).toVec3f();
             Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
             Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
-            qef.qef_add_point(p, n);
+            edgePositions[edgeCount] = p;
+            edgeNormals[edgeCount] = n;
             averageNormal = averageNormal.add(n.getVec3f());
             edgeCount++;
         }
-
+        qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
         Vec3f qefPosition = qef.solve().getVec3f();
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
