@@ -56,3 +56,13 @@ middle mouse - camera walking
 Use:
 
 Oreon Engine (Java - OpenGL/Vulkan) https://github.com/fynnfluegge/oreon-engine
+
+<br>
+
+##Other interesting implementations for research:
+* Dual contouring in Unity. Chunks and compute shaders using
+https://github.com/Colt-Zero/DualContouringGPU
+<br>
+* Dual contouring chunks
+<br>
+https://github.com/yixinxie/TestDC/
