@@ -147,30 +147,30 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         int numVertices = activeLeafsSize;
         QefSolver[] qefs = new QefSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
-//        createLeafNodes(chunkSize, chunkMin, 0, numVertices, densityField, borderNodePositions,
-//                d_nodeCodes, d_compactLeafEdgeInfo,
-//                d_vertexNormals, qefs);
+        createLeafNodes(chunkSize, chunkMin, 0, numVertices, densityField, borderNodePositions,
+                d_nodeCodes, d_compactLeafEdgeInfo,
+                d_vertexNormals, qefs);
 
-        ExecutorService serviceLeafs = Executors.newFixedThreadPool(availableProcessors);
-        List<Callable<Integer>> leafsTasks = new ArrayList<>();
-        for (int i = 0; i < availableProcessors; i++) {
-            int finalI = i;
-            Callable<Integer> task = () -> {
-                int from = finalI * threadBound;
-                int to = from + threadBound;
-                return createLeafNodes(chunkSize, chunkMin, from, to, densityField, borderNodePositions,
-                        d_nodeCodes, d_compactLeafEdgeInfo,
-                        d_vertexNormals, qefs);
-            };
-            leafsTasks.add(task);
-        }
-        try {
-            serviceLeafs.invokeAll(leafsTasks);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-            return false;
-        }
-        serviceLeafs.shutdown();
+//        ExecutorService serviceLeafs = Executors.newFixedThreadPool(availableProcessors);
+//        List<Callable<Integer>> leafsTasks = new ArrayList<>();
+//        for (int i = 0; i < availableProcessors; i++) {
+//            int finalI = i;
+//            Callable<Integer> task = () -> {
+//                int from = finalI * threadBound;
+//                int to = from + threadBound;
+//                return createLeafNodes(chunkSize, chunkMin, from, to, densityField, borderNodePositions,
+//                        d_nodeCodes, d_compactLeafEdgeInfo,
+//                        d_vertexNormals, qefs);
+//            };
+//            leafsTasks.add(task);
+//        }
+//        try {
+//            serviceLeafs.invokeAll(leafsTasks);
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//            return false;
+//        }
+//        serviceLeafs.shutdown();
 
         Vec3f[] d_vertexPositions = new Vec3f[numVertices];
         solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, 0, numVertices,
@@ -327,9 +327,13 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 
             Vec3f qefPosition;
             if (qefs[index].getSolvedPos()!=null){
-                qefPosition = qefs[index].getSolvedPos().getVec3f();
-            } else{
-                qefPosition = qefs[index].solve().getVec3f();
+                qefPosition = qefs[index].getSolvedPos().getVec3f();    // precalculated position for seam holes
+            } else {
+                if(leafSize == LEAF_SIZE_SCALE) {
+                    qefPosition = qefs[index].solve().getVec3f();       // run solver only for LOD 0
+                } else {
+                    qefPosition = qefs[index].getMasspoint().getVec3f();// for other LOD's get masspoint - to increase performance
+                }
             }
             //qefPosition = qefPosition.mul(leafSize).add(chunkMin.toVec3f());
             Vec3f position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.toVec3f(), leafSize) ? qefs[index].getMasspoint().getVec3f() : qefPosition;

@@ -60,9 +60,9 @@ Oreon Engine (Java - OpenGL/Vulkan) https://github.com/fynnfluegge/oreon-engine
 <br>
 
 ##Other interesting implementations for research:
-* Dual contouring in Unity. Chunks and compute shaders using
+
+- Dual contouring in Unity. Chunks and compute shaders using<br>
 https://github.com/Colt-Zero/DualContouringGPU
-<br>
-* Dual contouring chunks
-<br>
+
+- Dual contouring chunks<br>
 https://github.com/yixinxie/TestDC/
