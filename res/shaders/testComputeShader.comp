@@ -1,0 +1,21 @@
+#version 430 core
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
+
+layout (std430, binding = 0) buffer indices {
+	int j[];
+} bit_reversed;
+
+uniform int N;
+
+void main(void)
+{
+	uint x = gl_GlobalInvocationID.x;
+	//uint y = gl_GlobalInvocationID.y;
+	//uint z = gl_GlobalInvocationID.z;
+	//const uint index = x + (y * 64) + (z * 64 * 64);
+
+	int t = bit_reversed.j[x];
+	bit_reversed.j[x] = t + N;
+}
+
