@@ -1,16 +1,12 @@
 package dc;
 
-import core.buffers.MeshDcVBO;
-import core.configs.CW;
 import core.kernel.Camera;
 import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
-import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.utils.Constants;
 import dc.entities.MeshBuffer;
-import dc.shaders.DcSimpleShader;
 import dc.utils.Aabb;
 import dc.utils.Density;
 import dc.utils.Frustum;
@@ -145,7 +141,7 @@ public class ChunkOctree {
         node.active = false;
         if (node.seamMesh!=null) {
             //invalidatedMeshes.add(node.seamMesh);
-            node.seamMesh.cleanMesh();
+            node.seamRender = null;
             node.seamMesh = null;
         }
 
@@ -229,7 +225,7 @@ public class ChunkOctree {
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
             if (seamUpdateNode.seamMesh!=null){
                 //invalidatedMeshes.add(seamUpdateNode.seamMesh);
-                seamUpdateNode.seamMesh.cleanMesh();
+                seamUpdateNode.seamRender = null;
                 seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
@@ -258,12 +254,7 @@ public class ChunkOctree {
 
         MeshBuffer meshBuffer = new MeshBuffer();
         voxelOctree.processNodesToMesh(new ArrayList<>(seamNodes), node.min, node.size * 2, true, meshBuffer);
-
-        Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
-        meshBuffer.getVertices().clear();
-        meshBuffer.getIndicates().clear();
-        renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
-        node.seamMesh = renderer;
+        node.seamMesh = meshBuffer;
     }
 
     private List<PointerBasedOctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
@@ -363,11 +354,7 @@ public class ChunkOctree {
             return false;
         }
 
-        Renderer renderer = new Renderer(new MeshDcVBO(meshBuffer));
-        meshBuffer.getVertices().clear();
-        meshBuffer.getIndicates().clear();
-        renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
-        chunk.renderMesh = renderer;
+        chunk.renderMesh = meshBuffer;
         return chunk.active;
     }
 

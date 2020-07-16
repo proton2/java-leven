@@ -1,6 +1,7 @@
 package dc;
 
 import core.buffers.DebugMeshVBO;
+import core.buffers.MeshDcVBO;
 import core.configs.CW;
 import core.kernel.Camera;
 import core.kernel.Input;
@@ -10,6 +11,7 @@ import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
 import dc.impl.TransitionLinearOctreeImpl;
+import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.Frustum;
 import dc.utils.RenderDebugCmdBuffer;
@@ -69,9 +71,23 @@ public class ChunkOctreeWrapper extends GameObject {
         for (ChunkNode node : renderNodes) {
             if(Frustum.cubeIntoFrustum(Camera.getInstance().getFrustumPlanes(), node.min, node.size)) {//!node.empty &&
                 renderCmds.addCube(node.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green, 0.2f, node.min, node.size);
-                addComponent("chunks " + node.min, node.renderMesh);
+                if(node.meshRender==null){
+                    Renderer renderer = new Renderer(new MeshDcVBO(node.renderMesh));
+                    node.renderMesh.getVertices().clear();
+                    node.renderMesh.getIndicates().clear();
+                    renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
+                    node.meshRender = renderer;
+                }
+                addComponent("chunks " + node.min, node.meshRender);
                 if (node.seamMesh != null) {
-                    addComponent("seams " + node.min, node.seamMesh);
+                    if(node.seamRender==null) {
+                        Renderer seamRenderer = new Renderer(new MeshDcVBO(node.seamMesh));
+                        node.seamMesh.getVertices().clear();
+                        node.seamMesh.getIndicates().clear();
+                        seamRenderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
+                        node.seamRender = seamRenderer;
+                    }
+                    addComponent("seams " + node.min, node.seamRender);
                 }
                 if (drawSeamBounds) {
                     renderDebugVoxelsBounds(node);
