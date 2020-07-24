@@ -37,6 +37,23 @@ public class ChunkOctree {
     Vec3i worldBoundsMin = worldOrigin.sub(worldSize.div(2));
     Vec3i worldBoundsMax = worldOrigin.add(worldSize.div(2));
 
+    private List<RenderMesh> renderMeshes;
+    public List<RenderMesh> getRenderMeshes(Camera camera, boolean frustumCulling) {
+        if (!frustumCulling){
+            return renderMeshes;
+        } else {
+            List<RenderMesh> meshes = new ArrayList<>();
+            if(renderMeshes!=null) {
+                for (RenderMesh renderMesh : renderMeshes) {
+                    if (Frustum.cubeIntoFrustum(camera.getFrustumPlanes(), renderMesh.min, renderMesh.size)) {
+                        meshes.add(renderMesh);
+                    }
+                }
+            }
+            return meshes;
+        }
+    }
+
     private float[] LOD_ACTIVE_DISTANCES = {0.f,
             CLIPMAP_LEAF_SIZE * 1.5f,
             CLIPMAP_LEAF_SIZE * 3.5f,
@@ -141,7 +158,6 @@ public class ChunkOctree {
         node.active = false;
         if (node.seamMesh!=null) {
             //invalidatedMeshes.add(node.seamMesh);
-            node.seamRender = null;
             node.seamMesh = null;
         }
 
@@ -163,7 +179,7 @@ public class ChunkOctree {
          */
     }
 
-    public ArrayList<ChunkNode> update(ChunkNode root, Camera camera) {
+    public void update(ChunkNode root, Camera camera) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
 
@@ -188,7 +204,7 @@ public class ChunkOctree {
             if (!reserveNodes.isEmpty()) {          // no nodes in the frustum need updated so update outside nodes
                 filteredNodes = reserveNodes;
             } else {
-                return activeNodes; // no nodes to update so no work to do
+                return; // no nodes to update so no work to do
             }
         }
 
@@ -225,13 +241,22 @@ public class ChunkOctree {
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
             if (seamUpdateNode.seamMesh!=null){
                 //invalidatedMeshes.add(seamUpdateNode.seamMesh);
-                seamUpdateNode.seamRender = null;
                 seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
         }
-        // construct seams end
-        return activeNodes;
+        renderMeshes = getRenderMeshes(activeNodes);
+    }
+
+    private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){
+        List<RenderMesh> renderMeshes = new ArrayList<>(chunkNodes.size());
+        for(ChunkNode node : chunkNodes){
+            if(!node.empty) {
+                RenderMesh renderMesh = new RenderMesh(node.min, node.size, node.renderMesh, node.seamMesh);
+                renderMeshes.add(renderMesh);
+            }
+        }
+        return renderMeshes;
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){

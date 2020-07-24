@@ -13,13 +13,11 @@ import dc.entities.DebugDrawBuffer;
 import dc.impl.TransitionLinearOctreeImpl;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
-import dc.utils.Frustum;
 import dc.utils.RenderDebugCmdBuffer;
 
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 import static dc.ChunkOctree.CLIPMAP_LEAF_SIZE;
 import static org.lwjgl.glfw.GLFW.*;
@@ -30,7 +28,6 @@ public class ChunkOctreeWrapper extends GameObject {
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
     private ChunkNode rootChunk;
-    private List<ChunkNode> renderNodes;
     ExecutorService service;
 
     // Uncomment necessary implementation in constructor
@@ -72,47 +69,37 @@ public class ChunkOctreeWrapper extends GameObject {
         }
     }
 
-    void refreshCallBack(List<ChunkNode> refreshedNodes){
-        this.renderNodes = refreshedNodes;
-    }
-
     private void renderMesh() {
         getComponents().clear();
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
 
-        service.submit(()->{
-            List<ChunkNode> refreshedNodes = chunkOctree.update(rootChunk, Camera.getInstance()).stream().filter(e->!e.empty).collect(Collectors.toList());
-            refreshCallBack(refreshedNodes);
-        });
+        service.submit(
+                ()-> chunkOctree.update(rootChunk, Camera.getInstance())
+        );
 
-        if(renderNodes!=null) {
-            for (ChunkNode node : renderNodes) {
-                if (Frustum.cubeIntoFrustum(Camera.getInstance().getFrustumPlanes(), node.min, node.size)) {//!node.empty &&
-                    renderCmds.addCube(node.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green, 0.2f, node.min, node.size);
-                    if (node.meshRender == null) {
-                        Renderer renderer = new Renderer(new MeshDcVBO(node.renderMesh));
-                        node.renderMesh.getVertices().clear();
-                        node.renderMesh.getIndicates().clear();
-                        renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
-                        node.meshRender = renderer;
-                    }
-                    addComponent("chunks " + node.min, node.meshRender);
-                    if (node.seamMesh != null) {
-                        if (node.seamRender == null) {
-                            Renderer seamRenderer = new Renderer(new MeshDcVBO(node.seamMesh));
-                            node.seamMesh.getVertices().clear();
-                            node.seamMesh.getIndicates().clear();
-                            seamRenderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
-                            node.seamRender = seamRenderer;
-                        }
-                        addComponent("seams " + node.min, node.seamRender);
-                    }
-                    if (drawSeamBounds) {
-                        renderDebugVoxelsBounds(node);
-                    }
-                }
+        List<RenderMesh> renderNodes = chunkOctree.getRenderMeshes(Camera.getInstance(), true);
+
+        for (RenderMesh node : renderNodes) {
+            renderCmds.addCube(node.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green, 0.2f, node.min, node.size);
+            if (node.meshRender == null) {
+                Renderer renderer = new Renderer(new MeshDcVBO(node.renderMesh));
+                renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
+                node.meshRender = renderer;
             }
+            addComponent("chunks " + node.min, node.meshRender);
+            if (node.seamMesh != null) {
+                if (node.seamRender == null) {
+                    Renderer seamRenderer = new Renderer(new MeshDcVBO(node.seamMesh));
+                    seamRenderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
+                    node.seamRender = seamRenderer;
+                }
+                addComponent("seams " + node.min, node.seamRender);
+            }
+//          if (drawSeamBounds) {
+//              renderDebugVoxelsBounds(node);
+//          }
         }
+
         if(drawNodeBounds) {
             DebugDrawBuffer buf = renderCmds.UpdateDebugDrawBuffer();
             DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();

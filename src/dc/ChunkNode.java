@@ -1,7 +1,6 @@
 package dc;
 
 import core.math.Vec3i;
-import core.renderer.Renderer;
 import dc.entities.MeshBuffer;
 
 import java.util.List;
@@ -15,7 +14,6 @@ public class ChunkNode {
     boolean	empty = false;
     List<PointerBasedOctreeNode> seamNodes;
     MeshBuffer renderMesh, seamMesh;
-    Renderer meshRender, seamRender;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);
