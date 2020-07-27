@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ChunkOctree {
     static int LEAF_SIZE_LOG2 = 2;
@@ -36,9 +38,12 @@ public class ChunkOctree {
     Vec3i worldOrigin = new Vec3i(0);
     Vec3i worldBoundsMin = worldOrigin.sub(worldSize.div(2));
     Vec3i worldBoundsMax = worldOrigin.add(worldSize.div(2));
+    private final ExecutorService service;
+    private ChunkNode root;
+    private Camera camera;
 
     private List<RenderMesh> renderMeshes;
-    public List<RenderMesh> getRenderMeshes(Camera camera, boolean frustumCulling) {
+    public List<RenderMesh> getRenderMeshes(boolean frustumCulling) {
         if (!frustumCulling){
             return renderMeshes;
         } else {
@@ -54,7 +59,7 @@ public class ChunkOctree {
         }
     }
 
-    private float[] LOD_ACTIVE_DISTANCES = {0.f,
+    private final float[] LOD_ACTIVE_DISTANCES = {0.f,
             CLIPMAP_LEAF_SIZE * 1.5f,
             CLIPMAP_LEAF_SIZE * 3.5f,
             CLIPMAP_LEAF_SIZE * 5.5f,
@@ -67,14 +72,16 @@ public class ChunkOctree {
 
     public ChunkOctree(VoxelOctree voxelOctree) {
         this.voxelOctree = voxelOctree;
+        service = Executors.newFixedThreadPool(1);
+        buildChunkOctree();
     }
 
     public static int log2(int N) {
         return (int) (Math.log(N) / Math.log(2));
     }
 
-    public ChunkNode buildChunkOctree() {
-        ChunkNode root = new ChunkNode();
+    private void buildChunkOctree() {
+        root = new ChunkNode();
         Vec3i boundsSize = worldBoundsMax.sub(worldBoundsMin);
         float maxSize = Math.max(boundsSize.x, Math.max(boundsSize.y, boundsSize.z));
         int factor = (int) maxSize / CLIPMAP_LEAF_SIZE;
@@ -99,7 +106,6 @@ public class ChunkOctree {
 
         //image = ImageLoader.loadImageToFloatArray("./res/textures/heightmap-01.png", root.size, root.size);
         constructChildrens(root);
-        return root;
     }
 
     private void constructChildrens(ChunkNode node) {
@@ -179,7 +185,18 @@ public class ChunkOctree {
          */
     }
 
-    public void update(ChunkNode root, Camera camera) {
+    public void updateNonBlocked(Camera cam){
+        this.camera = cam;
+        service.submit(
+                ()-> update(camera)
+        );
+    }
+
+    public void clean(){
+        service.shutdown();
+    }
+
+    public void update(Camera camera) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
 

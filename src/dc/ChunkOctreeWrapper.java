@@ -16,19 +16,15 @@ import dc.shaders.RenderDebugShader;
 import dc.utils.RenderDebugCmdBuffer;
 
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static dc.ChunkOctree.CLIPMAP_LEAF_SIZE;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
-    private ChunkOctree chunkOctree;
+    private final ChunkOctree chunkOctree;
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
-    private ChunkNode rootChunk;
-    ExecutorService service;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
@@ -38,12 +34,11 @@ public class ChunkOctreeWrapper extends GameObject {
         //chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
         chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl());
         //chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
-        rootChunk = chunkOctree.buildChunkOctree();
-
-        service = Executors.newFixedThreadPool(1);
     }
 
     public void update() {
+        chunkOctree.updateNonBlocked(Camera.getInstance());
+
         if (refreshMesh) {
             renderMesh();
         }
@@ -67,17 +62,16 @@ public class ChunkOctreeWrapper extends GameObject {
         if(!drawWireframe){
             glDisable(GL_CULL_FACE);
         }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_ESCAPE)) {
+            chunkOctree.clean();
+        }
     }
 
     private void renderMesh() {
         getComponents().clear();
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
 
-        service.submit(
-                ()-> chunkOctree.update(rootChunk, Camera.getInstance())
-        );
-
-        List<RenderMesh> renderNodes = chunkOctree.getRenderMeshes(Camera.getInstance(), true);
+        List<RenderMesh> renderNodes = chunkOctree.getRenderMeshes(true);
 
         for (RenderMesh node : renderNodes) {
             renderCmds.addCube(node.size == CLIPMAP_LEAF_SIZE ? Constants.Blue : Constants.Green, 0.2f, node.min, node.size);
