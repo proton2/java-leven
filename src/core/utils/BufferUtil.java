@@ -6,6 +6,7 @@ import dc.entities.DebugDrawBuffer;
 import dc.entities.MeshVertex;
 import org.lwjgl.BufferUtils;
 
+import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.List;
@@ -28,6 +29,20 @@ public class BufferUtil {
 		buffer.put(values);
 		buffer.flip();
 		
+		return buffer;
+	}
+
+	public static FloatBuffer createFlippedBuffer(float... values) {
+		FloatBuffer buffer = createFloatBuffer(values.length);
+		buffer.put(values);
+		buffer.flip();
+		return buffer;
+	}
+
+	public static ByteBuffer createFlippedBuffer(byte... values) {
+		ByteBuffer buffer = BufferUtils.createByteBuffer(values.length);
+		buffer.put(values);
+		buffer.flip();
 		return buffer;
 	}
 
