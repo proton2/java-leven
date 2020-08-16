@@ -31,33 +31,33 @@ public class CalculateMaterialService {
                 new DensityPrimitive(new Vec4f(3.1f, 4.2f, 5.7f, 1), new Vec4f(6.4f, 7.1f, 9.6f, 1)),
                 new DensityPrimitive(new Vec4f(5.8f, 3.7f, 8.1f, 1), new Vec4f(5.9f, 2.6f, 1.8f, 1))
         };
-//
-//        densityPrimitiveComputeBuffer = new ComputeBuffer();
-//        densityPrimitiveComputeBuffer.setData(primitiveMods);
-//
-//        permComputeBuffer = new ComputeBuffer();
-//        permComputeBuffer.setData(permutations);
-//
-//        fieldMaterialsComputeBuffer = new ComputeBuffer();
-//        fieldMaterialsComputeBuffer.setData(fieldMaterials);
-//
-//        shader = CalculateMaterialComputeShader.getInstance();
-//        shader.bind();
-//
-//
-//        permComputeBuffer.bindBufferBase(0);
-//        densityPrimitiveComputeBuffer.bindBufferBase(1);
-//        fieldMaterialsComputeBuffer.bindBufferBase(2);
-//
-//        shader.updateSimpleScaleUniforms(sampleScale);
-//        shader.updateOffcetUniforms(offset.toVec3f());
-//        shader.dispatch(1,1,1);
-//
-//        permComputeBuffer.getData(permutations);
-//        densityPrimitiveComputeBuffer.getData(primitiveMods);
-//        fieldMaterialsComputeBuffer.getData(fieldMaterials);
 
-        calculateTest(offset, sampleScale, fieldMaterials);
+        densityPrimitiveComputeBuffer = new ComputeBuffer();
+        densityPrimitiveComputeBuffer.setData(primitiveMods);
+
+        permComputeBuffer = new ComputeBuffer();
+        permComputeBuffer.setData(permutations);
+
+        fieldMaterialsComputeBuffer = new ComputeBuffer();
+        fieldMaterialsComputeBuffer.setData(fieldMaterials);
+
+        shader = CalculateMaterialComputeShader.getInstance();
+        shader.bind();
+
+
+        permComputeBuffer.bindBufferBase(0);
+        densityPrimitiveComputeBuffer.bindBufferBase(1);
+        fieldMaterialsComputeBuffer.bindBufferBase(2);
+
+        shader.updateSimpleScaleUniforms(sampleScale);
+        shader.updateOffcetUniforms(offset.toVec3f());
+        shader.dispatch(1,1,1);
+
+        permComputeBuffer.getData(permutations);
+        densityPrimitiveComputeBuffer.getData(primitiveMods);
+        fieldMaterialsComputeBuffer.getData(fieldMaterials);
+
+        //calculateTest(offset, sampleScale, fieldMaterials);
     }
 
     protected int field_index(Vec3i pos) {
