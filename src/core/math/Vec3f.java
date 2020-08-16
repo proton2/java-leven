@@ -1,5 +1,8 @@
 package core.math;
 
+import org.joml.Vector3f;
+import org.joml.Vector3fc;
+
 public class Vec3f {
 	
 	public float X;
@@ -222,5 +225,9 @@ public class Vec3f {
 
 	public void setZ(float z) {
 		Z = z;
+	}
+
+	public static Vec3f max(Vec3f v, Vec3f dest) {
+		return new Vec3f(Math.max(dest.X, v.X), Math.max(dest.Y, v.Y), Math.max(dest.Z, v.Z));
 	}
 }

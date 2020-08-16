@@ -9,10 +9,9 @@ The work has just begun and the project is still raw. Only the CPU implementatio
 Features:
 - Pointer based octree Dual contouring implementation;
 - Linear octree Dual contouring implementations: <br>
-  - Simple implementation, in series steps to calculate leafs data;
+  - Simple implementation, in series steps to calculate leafs data.
   - Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation.
-      Some holes in seams is not fixed.
-  - Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to Java. Some holes in seams is not fixed. The first raw version will still improve;
+  - Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to Java.
 
 ## Build Instructions
 The dependencies are:
@@ -59,7 +58,7 @@ Oreon Engine (Java - OpenGL/Vulkan) https://github.com/fynnfluegge/oreon-engine
 
 <br>
 
-##Other interesting implementations for research:
+Other interesting implementations for research:
 
 - Dual contouring in Unity. Chunks and compute shaders using<br>
 https://github.com/Colt-Zero/DualContouringGPU

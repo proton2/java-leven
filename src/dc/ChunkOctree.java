@@ -6,6 +6,7 @@ import core.math.Vec3f;
 import core.math.Vec3i;
 import core.renderer.Renderer;
 import core.utils.Constants;
+import core.utils.ImageLoader;
 import dc.entities.MeshBuffer;
 import dc.utils.Aabb;
 import dc.utils.Density;
@@ -104,7 +105,7 @@ public class ChunkOctree {
             }
         }
 
-        //image = ImageLoader.loadImageToFloatArray("./res/textures/heightmap-01.png", root.size, root.size);
+        //densityField = ImageLoader.loadImageToFloatArray("./res/textures/heightmap-01.tga", root.size, root.size);
         constructChildrens(root);
     }
 

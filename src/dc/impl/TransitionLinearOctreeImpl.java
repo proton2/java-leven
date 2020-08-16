@@ -102,7 +102,15 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 
         int[] materials = new int[fieldSize*fieldSize*fieldSize];
         GenerateDefaultField(densityField, chunkMin, 0, fieldSize*fieldSize*fieldSize, chunkSize / voxelsPerChunk, MATERIAL_SOLID, materials);
+//        CalculateMaterialService calculateMaterialService = new CalculateMaterialService();
+//        calculateMaterialService.calculate(chunkMin, chunkSize / voxelsPerChunk, materials);
 
+//        int count = 0;
+//        for (int material : materials) {
+//            if (material > 0) {
+//                ++count;
+//            }
+//        }
         boolean[] d_leafOccupancy = new boolean[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
         int[] d_leafEdgeInfo = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
         int[] d_leafCodes = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];

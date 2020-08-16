@@ -19,6 +19,12 @@ public class Vec3i {
         this.z = r;
     }
 
+    public Vec3i(float x, float y, float z) {
+        this.x = (int)x;
+        this.y = (int)y;
+        this.z = (int)z;
+    }
+
     public Vec3f toVec3f(){
         return new Vec3f(this.x, this.y, this.z);
     }
