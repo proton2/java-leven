@@ -13,6 +13,9 @@ import dc.utils.Density;
 import dc.utils.Frustum;
 import dc.utils.VoxelHelperUtils;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -99,13 +102,20 @@ public class ChunkOctree {
 
         densityField = new float[root.size * root.size];
 
-        for(int z=0; z<root.size; z++){
-            for(int x=0; x<root.size; x++){
-                densityField[x + z * root.size] = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x-(root.size/2), z-(root.size/2)));
+        String filename = "./res/textures/floatArray.dat";
+        Path path = Paths.get(filename);
+        if (Files.exists(path)) {
+            ImageLoader.loadImageToFloatArray(densityField, filename);
+        }
+        if (Files.notExists(path)) {
+            for (int z = 0; z < root.size; z++) {
+                for (int x = 0; x < root.size; x++) {
+                    densityField[x + z * root.size] = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
+                }
             }
+            ImageLoader.saveImageToFloat(densityField, filename);
         }
 
-        //densityField = ImageLoader.loadImageToFloatArray("./res/textures/heightmap-01.tga", root.size, root.size);
         constructChildrens(root);
     }
 

@@ -2,12 +2,12 @@ package core.utils;
 
 import org.lwjgl.BufferUtils;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.file.Files;
@@ -16,6 +16,7 @@ import java.nio.file.Paths;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.stb.STBImage.*;
+import static org.lwjgl.stb.STBImageWrite.stbi_write_tga;
 
 public class ImageLoader {
 
@@ -64,6 +65,54 @@ public static int loadImage(String file) {
         
 		return texId;
 	}
+
+    public static ByteBuffer floatArray2ByteArray(float[] values){
+        ByteBuffer buffer = ByteBuffer.allocate(4 * values.length);
+        for (float value : values){
+            buffer.putFloat(value);
+        }
+        buffer.flip();
+        return buffer;
+    }
+
+	public static boolean saveImageToTga(String fileName, int width, int height, int comp, float[] data){
+        ByteBuffer byteBuffer = floatArray2ByteArray(data);
+        return stbi_write_tga(fileName, width, height, comp, byteBuffer);
+        //return stbi_write_png(fileName, width, height, comp, floatArray2ByteArray(data), width*3);
+    }
+
+    public static void loadImageToFloatArray(float[] data, String fileName){
+        try{
+            RandomAccessFile rFile = new RandomAccessFile(fileName, "r");
+            FileChannel inChannel = rFile.getChannel();
+            ByteBuffer buf_in = ByteBuffer.allocate(4*data.length);
+            buf_in.clear();
+            inChannel.read(buf_in);
+            buf_in.rewind();
+            buf_in.asFloatBuffer().get(data);
+            inChannel.close();
+        } catch (IOException ex) {
+            System.err.println(ex.getMessage());
+        }
+    }
+
+    public static void saveImageToFloat(float[] data, String fileName) {
+        DataOutputStream out = null;
+        try {
+            out = new DataOutputStream(new FileOutputStream(fileName));
+            byte[] buf = new byte[4 * data.length];
+            for (int i = 0; i < data.length; ++i) {
+                int val = Float.floatToRawIntBits(data[i]);
+                buf[4 * i] = (byte) (val >> 24);
+                buf[4 * i + 1] = (byte) (val >> 16);
+                buf[4 * i + 2] = (byte) (val >> 8);
+                buf[4 * i + 3] = (byte) (val);
+            }
+            out.write(buf);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 	
 	public static ByteBuffer loadImageToByteBuffer(String file){
 		ByteBuffer imageBuffer;
