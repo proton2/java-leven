@@ -44,12 +44,6 @@ public class Density {
         return 0.5f + (0.5f * noise);
     }
 
-    static private float getHeight (float xc, float zc, float[][] image){
-        int x = ((int)xc + ChunkOctree.worldSizeXZ/2) & (ChunkOctree.worldSizeXZ-1);
-        int z = ((int)zc + ChunkOctree.worldSizeXZ/2) & (ChunkOctree.worldSizeXZ-1);
-        return image[x][z];
-    }
-
     private static final float MAX_HEIGHT = 40;
     private static final float MAX_PIXEL_COLOUR = 256*256*256;
 
@@ -62,28 +56,6 @@ public class Density {
 //        height /= MAX_PIXEL_COLOUR/2f;
 //        height *= MAX_HEIGHT;
         return height;
-    }
-
-    public static float Density_Func(Vec3f pos, float[][] densityField)
-    {
-        float MAX_HEIGHT = 20.0f;
-        //float noise = getHeight(pos.X, pos.Z, densityField);
-        //float noise = getHeight(pos.X, pos.Z, image);
-        float noise = FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
-
-        //float noise = worldPosition.getY() - Noise(worldPosition) * 8.0f -8;
-        //float terrain = worldPosition.getY() - 2;
-
-        //float cube = Cuboid(pos, new Vec3f(-4.0f, 10.0f, -4.0f), new Vec3f(12.0f, 12.0f, 12.0f));
-        //float sphere = Sphere(worldPosition, new Vec3f(15.0f, 2.5f, 1.0f), 16.0f);
-
-        //return Math.max(-cube, Math.min(sphere, terrain));
-        //return Math.max(-cube, terrain);
-        //return pos.Y - (MAX_HEIGHT * noise);
-        return pos.Y - noise * MAX_HEIGHT - 40;
-
-//        float density = pos.getY() - Noise(pos) * 8.0f -8;
-//        return density;
     }
 
     public static float getNoise(Vec4f pos, float[] densityField) {

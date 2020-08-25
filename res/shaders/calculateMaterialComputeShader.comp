@@ -1,7 +1,7 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout (local_size_x = 9, local_size_y = 8, local_size_z = 8) in;
+layout (local_size_x = 10, local_size_y = 10, local_size_z = 10) in;
 
 struct DensityPrimitive
 {
@@ -123,55 +123,6 @@ float lerp(float a, float b, float t)
     return (1 - t) * a + t * b;
 }
 
-float Perlin(float x, float y, float z)
-{
-    int X = x > 0 ? int(x) : int(x) - 1;
-int Y = y > 0 ? int(y) : int(y) - 1;
-int Z = z > 0 ? int(z) : int(z) - 1;
-
-x = x - X;
-y = y - Y;
-z = z - Z;
-
-X = X & 255;
-Y = Y & 255;
-Z = Z & 255;
-
-int gi000 = permutations[X + permutations[Y + permutations[Z]]] % 12;
-int gi001 = permutations[X + permutations[Y + permutations[Z + 1]]] % 12;
-int gi010 = permutations[X + permutations[Y + 1 + permutations[Z]]] % 12;
-int gi011 = permutations[X + permutations[Y + 1 + permutations[Z + 1]]] % 12;
-int gi100 = permutations[X + 1 + permutations[Y + permutations[Z]]] % 12;
-int gi101 = permutations[X + 1 + permutations[Y + permutations[Z + 1]]] % 12;
-int gi110 = permutations[X + 1 + permutations[Y + 1 + permutations[Z]]] % 12;
-int gi111 = permutations[X + 1 + permutations[Y + 1 + permutations[Z + 1]]] % 12;
-
-float n000 = Vec3Dot(Grad3[gi000], vec3(x, y, z));
-float n100 = Vec3Dot(Grad3[gi100], vec3(x - 1, y, z));
-float n010 = Vec3Dot(Grad3[gi010], vec3(x, y - 1, z));
-float n110 = Vec3Dot(Grad3[gi110], vec3(x - 1, y - 1, z));
-float n001 = Vec3Dot(Grad3[gi001], vec3(x, y, z - 1));
-float n101 = Vec3Dot(Grad3[gi101], vec3(x - 1, y, z - 1));
-float n011 = Vec3Dot(Grad3[gi011], vec3(x, y - 1, z - 1));
-float n111 = Vec3Dot(Grad3[gi111], vec3(x - 1, y - 1, z - 1));
-
-float u = float(x * x * x * (x * (x * 6 - 15) + 10));
-float v = float(y * y * y * (y * (y * 6 - 15) + 10));
-float w = float(z * z * z * (z * (z * 6 - 15) + 10));
-
-float nx00 = lerp(n000, n100, u);
-float nx01 = lerp(n001, n101, u);
-float nx10 = lerp(n010, n110, u);
-float nx11 = lerp(n011, n111, u);
-
-float nxy0 = lerp(nx00, nx10, v);
-float nxy1 = lerp(nx01, nx11, v);
-
-float nxyz = lerp(nxy0, nxy1, w);
-
-return nxyz;
-}
-
 float FractalNoise(int octaves, float frequency, float lacunarity, float persistence, vec2 position)
 {
     float SCALE = 1.0f / 128.0f;
@@ -191,51 +142,20 @@ float FractalNoise(int octaves, float frequency, float lacunarity, float persist
     return 0.5f + (0.5f * nois);
 }
 
-float FractalNoise(int octaves, float frequency, float lacunarity, float persistence, vec3 position)
-{
-    float SCALE = 1.0f / 128.0f;
-    vec3 p = position * SCALE;
-    float nois = 0.0f;
-
-    float amplitude = 1.0f;
-    p *= frequency;
-
-    for (int i = 0; i < octaves; i++)
-    {
-        nois += Perlin(p.x, p.y, p.z) * amplitude;
-        p *= lacunarity;
-        amplitude *= persistence;
-    }
-
-    return nois;
-}
-
-float FractalNoise(float frequency, float lacunarity, float persistence, vec3 position)
-{
-    float SCALE = 1.0f / 128.0f;
-    vec3 p = position * SCALE;
-    float nois = 0.0f;
-
-    float amplitude = 1.0f;
-    p *= frequency;
-
-    nois += Perlin(p.x, p.y, p.z) * amplitude;
-    p *= lacunarity;
-    amplitude *= persistence;
-
-    return nois;
-}
-
-float CalculateNoiseValue(vec3 pos, float scale)
-{
-    return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos * scale);
-}
+//float CalculateNoiseValue(vec3 pos, float scale)
+//{
+//    return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos * scale);
+//}
 
 float CLerp(float a, float b, float t)
 {
     return (1 - t) * a + t * b;
 }
 
+float Density_Func(vec2 pos){
+    return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos);
+}
+/*
 float Density_Func(vec3 worldPosition)
 {
     float worldRadius = 200.0f;
@@ -257,7 +177,7 @@ float Density_Func(vec3 worldPosition)
     float rockyBlend = 1.0f;
 
     //mountainBlend = saturate(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world * 0.11f)) * 4.0f);
-    mountainBlend = clamp(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world * 0.11f)) * 4.0f, 0.0, 1.0);
+    mountainBlend = clamp(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world)) * 4.0f, 0.0, 1.0);
 
     float mountain = CalculateNoiseValue(world, 0.07f);
 
@@ -304,15 +224,22 @@ float Density_Func(vec3 worldPosition)
 
     return result;
 }
+*/
 
 void main(void){
-    uint index = gl_GlobalInvocationID.x + 9 * (gl_GlobalInvocationID.y + 8 * gl_GlobalInvocationID.z);
+    int fieldSize = 66;
+    uint index = gl_GlobalInvocationID.x + fieldSize * (gl_GlobalInvocationID.y + fieldSize * gl_GlobalInvocationID.z);
+
     vec3 cornerPos = vec3(gl_GlobalInvocationID.x * simpleScale,
                             gl_GlobalInvocationID.y * simpleScale,
-                            gl_GlobalInvocationID.x * simpleScale
+                            gl_GlobalInvocationID.z * simpleScale
     );
-
-    float density = Density_Func(cornerPos + offcet);
+    vec3 pos = cornerPos + offcet;
+    float noise = Density_Func(vec2(pos.x, pos.z));
+    float MAX_HEIGHT = 20.0f;
+    float density = pos.y - noise * MAX_HEIGHT - 40;
     int material = density < 0.0f ? 1 : 0;
     cornerMaterials.elem[index] = material;
+
+    //cornerMaterials.elem[index] = int(index);
 }

@@ -51,7 +51,7 @@ public class CalculateMaterialService {
 
         shader.updateSimpleScaleUniforms(sampleScale);
         shader.updateOffcetUniforms(offset.toVec3f());
-        shader.dispatch(1,1,1);
+        shader.dispatch(7,7,6);
 
         permComputeBuffer.getData(permutations);
         densityPrimitiveComputeBuffer.getData(primitiveMods);
@@ -70,9 +70,11 @@ public class CalculateMaterialService {
                 for (int x = 0; x < fieldSize; x++) {
                     Vec3i local_pos = new Vec3i(x, y, z);
                     Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
-                    float density = Density_Func(world_pos);
-                    int index = field_index(local_pos);
+                    float noise = Density_Func(new Vec2f(world_pos.X, world_pos.Z));
+                    float MAX_HEIGHT = 20.0f;
+                    float density = world_pos.Y - noise * MAX_HEIGHT - 40;
                     int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
+                    int index = field_index(local_pos);
                     fieldMaterials[index] = material;
                 }
             }
@@ -103,88 +105,62 @@ public class CalculateMaterialService {
         return (1 - t) * a + t * b;
     }
 
-    float Perlin(float x, float y, float z) {
-        int X = x > 0 ? (int)x : (int)x - 1;
-        int Y = y > 0 ? (int)y : (int)y - 1;
-        int Z = z > 0 ? (int)z : (int)z - 1;
+    float Perlin(float x, float y)
+    {
+        int i = x > 0 ? (int)x : (int)x - 1;
+        int j = y > 0 ? (int)y : (int)y - 1;
 
-        x = x - X;
-        y = y - Y;
-        z = z - Z;
+        x = x - i;
+        y = y - j;
 
-        X = X & 255;
-        Y = Y & 255;
-        Z = Z & 255;
+        i = i & 255;
+        j = j & 255;
 
-        int gi000 = permutations[X + permutations[Y + permutations[Z]]] % 12;
-        int gi001 = permutations[X + permutations[Y + permutations[Z + 1]]] % 12;
-        int gi010 = permutations[X + permutations[Y + 1 + permutations[Z]]] % 12;
-        int gi011 = permutations[X + permutations[Y + 1 + permutations[Z + 1]]] % 12;
-        int gi100 = permutations[X + 1 + permutations[Y + permutations[Z]]] % 12;
-        int gi101 = permutations[X + 1 + permutations[Y + permutations[Z + 1]]] % 12;
-        int gi110 = permutations[X + 1 + permutations[Y + 1 + permutations[Z]]] % 12;
-        int gi111 = permutations[X + 1 + permutations[Y + 1 + permutations[Z + 1]]] % 12;
+        int gll = permutations[i + permutations[j]] % 12;
+        int glh = permutations[i + permutations[j + 1]] % 12;
+        int ghl = permutations[i + 1 + permutations[j]] % 12;
+        int ghh = permutations[i + 1 + permutations[j + 1]] % 12;
 
-        float n000 = Vec3Dot(Grad3[gi000], new Vec3i(x, y, z));
-        float n100 = Vec3Dot(Grad3[gi100], new Vec3i(x - 1, y, z));
-        float n010 = Vec3Dot(Grad3[gi010], new Vec3i(x, y - 1, z));
-        float n110 = Vec3Dot(Grad3[gi110], new Vec3i(x - 1, y - 1, z));
-        float n001 = Vec3Dot(Grad3[gi001], new Vec3i(x, y, z - 1));
-        float n101 = Vec3Dot(Grad3[gi101], new Vec3i(x - 1, y, z - 1));
-        float n011 = Vec3Dot(Grad3[gi011], new Vec3i(x, y - 1, z - 1));
-        float n111 = Vec3Dot(Grad3[gi111], new Vec3i(x - 1, y - 1, z - 1));
+        float nll = (Grad3[gll].x * x) + (Grad3[gll].y * y);
+        float nlh = (Grad3[glh].x * x) + (Grad3[glh].y * (y - 1));
+        float nhl = (Grad3[ghl].x * (x - 1)) + (Grad3[ghl].y * y);
+        float nhh = (Grad3[ghh].x * (x - 1)) + (Grad3[ghh].y * (y - 1));
 
-        float u = (x * x * x * (x * (x * 6 - 15) + 10));
-        float v = (y * y * y * (y * (y * 6 - 15) + 10));
-        float w = (z * z * z * (z * (z * 6 - 15) + 10));
+        float u = x * x * x * (x * (x * 6 - 15) + 10);
+        float v = y * y * y * (y * (y * 6 - 15) + 10);
 
-        float nx00 = lerp(n000, n100, u);
-        float nx01 = lerp(n001, n101, u);
-        float nx10 = lerp(n010, n110, u);
-        float nx11 = lerp(n011, n111, u);
+//float nyl = Mathf.Lerp(nll, nhl, u);
+        float nyl = (1-u)*nll + u*nhl;
+//float nyh = Mathf.Lerp(nlh, nhh, u);
+        float nyh = (1-u)*nlh + u*nhh;
 
-        float nxy0 = lerp(nx00, nx10, v);
-        float nxy1 = lerp(nx01, nx11, v);
+//float nxy = Mathf.Lerp(nyl, nyh, v);
+        float nxy = (1-v)*nyl + v*nyh;
 
-        float nxyz = lerp(nxy0, nxy1, w);
-
-        return nxyz;
+        return nxy;
     }
 
-    float FractalNoise(int octaves, float frequency, float lacunarity, float persistence, Vec3f position) {
+    float FractalNoise(int octaves, float frequency, float lacunarity, float persistence, Vec2f position)
+    {
         float SCALE = 1.0f / 128.0f;
-        Vec3f p = position.mul(SCALE);
+        Vec2f p = position.mul(SCALE);
         float nois = 0.0f;
 
         float amplitude = 1.0f;
         p = p.mul(frequency);
 
-        for (int i = 0; i < octaves; i++) {
-            nois += Perlin(p.X, p.Y, p.Z) * amplitude;
-            p = p.mul(frequency);
+        for (int i = 0; i < octaves; i++)
+        {
+            nois += Perlin(p.X, p.Y) * amplitude;
+            p = p.mul(lacunarity);
             amplitude *= persistence;
         }
 
-        return nois;
+        return 0.5f + (0.5f * nois);
     }
 
-    float FractalNoise(float frequency, float lacunarity, float persistence, Vec3f position) {
-        float SCALE = 1.0f / 128.0f;
-        Vec3f p = position.mul(SCALE);
-        float nois = 0.0f;
-
-        float amplitude = 1.0f;
-        p = p.mul(frequency);
-
-        nois += Perlin(p.X, p.Y, p.Z) * amplitude;
-        p = p.mul(frequency);
-        amplitude *= persistence;
-
-        return nois;
-    }
-
-    float CalculateNoiseValue(Vec3f pos, float scale) {
-        return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos.mul(scale));
+    float CalculateNoiseValue(Vec3f pos) {
+        return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
     }
 
     float CLerp(float a, float b, float t) {
@@ -193,6 +169,10 @@ public class CalculateMaterialService {
 
     public static float clamp(float val, float min, float max) {
         return Math.max(min, Math.min(max, val));
+    }
+
+    float Density_Func(Vec2f pos){
+        return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos);
     }
 
     float Density_Func(Vec3f worldPosition) {
@@ -211,15 +191,15 @@ public class CalculateMaterialService {
         float maxMountainMixLerpAmount = 0.075f;
         float minMountainMixLerpAmount = 1.0f;
 
-        float mountainBlend = 0.0f;
+        float mountainBlend;
         float rockyBlend = 1.0f;
 
         //mountainBlend = saturate(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world * 0.11f)) * 4.0f);
-        mountainBlend = clamp(Math.abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world.mul(0.11f))) * 4.0f, 0.0f, 1.0f);
+        mountainBlend = clamp(Math.abs(FractalNoise(1,0.5343f, 2.2324f, 0.68324f, new Vec2f(worldPosition.X, worldPosition.Z))) * 4.0f, 0.0f, 1.0f);
 
-        float mountain = CalculateNoiseValue(world, 0.07f);
+        float mountain = CalculateNoiseValue(worldPosition);
 
-        float blob = CalculateNoiseValue(world, flatlandNoiseScale + ((rockyNoiseScale - flatlandNoiseScale) * rockyBlend));
+        float blob = CalculateNoiseValue(worldPosition);
         blob = CLerp(blob, (worldDist) * (flatlandYPercent + ((rockyYPercent - flatlandYPercent) * rockyBlend)),
                 flatlandLerpAmount + ((rockyLerpAmount - flatlandLerpAmount) * rockyBlend));
 

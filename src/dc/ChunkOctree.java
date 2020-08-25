@@ -110,7 +110,8 @@ public class ChunkOctree {
         if (Files.notExists(path)) {
             for (int z = 0; z < root.size; z++) {
                 for (int x = 0; x < root.size; x++) {
-                    densityField[x + z * root.size] = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
+                    float t = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
+                    densityField[x + z * root.size] = t;
                 }
             }
             ImageLoader.saveImageToFloat(densityField, filename);
@@ -196,11 +197,13 @@ public class ChunkOctree {
          */
     }
 
-    public void updateNonBlocked(Camera cam){
+    public void update(Camera cam, boolean multiTread){
         this.camera = cam;
-        service.submit(
-                ()-> update(camera)
-        );
+        if (multiTread) {
+            service.submit(() -> update(camera));
+        } else {
+            update(camera);
+        }
     }
 
     public void clean(){
