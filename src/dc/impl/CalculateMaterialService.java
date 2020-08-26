@@ -51,7 +51,7 @@ public class CalculateMaterialService {
 
         shader.updateSimpleScaleUniforms(sampleScale);
         shader.updateOffcetUniforms(offset.toVec3f());
-        shader.dispatch(7,7,6);
+        shader.dispatch(7,7,7);
 
         permComputeBuffer.getData(permutations);
         densityPrimitiveComputeBuffer.getData(primitiveMods);
