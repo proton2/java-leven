@@ -25,6 +25,15 @@ public class CalculateMaterialService {
 
     public CalculateMaterialService(){}
 
+    public static void InitPermutations(int seed, int[] permutations) {
+        Random random = new Random(seed);
+        for (int i = 0; i < 256; i++)
+            permutations[i] = (int) (256 * (random.nextInt(10000) / 10000.0f));
+
+        for (int i = 256; i < 512; i++)
+            permutations[i] = permutations[i - 256];
+    }
+
     public void calculate(Vec3i offset, int sampleScale, int[] fieldMaterials) {
         InitPermutations(1200, permutations);
         primitiveMods = new DensityPrimitive[]{
@@ -60,10 +69,6 @@ public class CalculateMaterialService {
         //calculateTest(offset, sampleScale, fieldMaterials);
     }
 
-    protected int field_index(Vec3i pos) {
-        return pos.x + (pos.y * fieldSize) + (pos.z * fieldSize * fieldSize);
-    }
-
     void calculateTest(Vec3i offset, int sampleScale, int[] fieldMaterials) {
         for (int z = 0; z < fieldSize; z++) {
             for (int y = 0; y < fieldSize; y++) {
@@ -81,13 +86,8 @@ public class CalculateMaterialService {
         }
     }
 
-    public static void InitPermutations(int seed, int[] permutations) {
-        Random random = new Random(seed);
-        for (int i = 0; i < 256; i++)
-            permutations[i] = (int) (256 * (random.nextInt(10000) / 10000.0f));
-
-        for (int i = 256; i < 512; i++)
-            permutations[i] = permutations[i - 256];
+    protected int field_index(Vec3i pos) {
+        return pos.x + (pos.y * fieldSize) + (pos.z * fieldSize * fieldSize);
     }
 
     Vec3i Grad3[] = {
@@ -96,48 +96,8 @@ public class CalculateMaterialService {
             new Vec3i(0,1,1), new Vec3i(0,-1,1), new Vec3i(0,1,-1), new Vec3i(0,-1,-1)
     };
 
-    float Vec3Dot(Vec3i a, Vec3i b) {
-        float res = (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
-        return res;
-    }
-
-    float lerp(float a, float b, float t) {
-        return (1 - t) * a + t * b;
-    }
-
-    float Perlin(float x, float y)
-    {
-        int i = x > 0 ? (int)x : (int)x - 1;
-        int j = y > 0 ? (int)y : (int)y - 1;
-
-        x = x - i;
-        y = y - j;
-
-        i = i & 255;
-        j = j & 255;
-
-        int gll = permutations[i + permutations[j]] % 12;
-        int glh = permutations[i + permutations[j + 1]] % 12;
-        int ghl = permutations[i + 1 + permutations[j]] % 12;
-        int ghh = permutations[i + 1 + permutations[j + 1]] % 12;
-
-        float nll = (Grad3[gll].x * x) + (Grad3[gll].y * y);
-        float nlh = (Grad3[glh].x * x) + (Grad3[glh].y * (y - 1));
-        float nhl = (Grad3[ghl].x * (x - 1)) + (Grad3[ghl].y * y);
-        float nhh = (Grad3[ghh].x * (x - 1)) + (Grad3[ghh].y * (y - 1));
-
-        float u = x * x * x * (x * (x * 6 - 15) + 10);
-        float v = y * y * y * (y * (y * 6 - 15) + 10);
-
-//float nyl = Mathf.Lerp(nll, nhl, u);
-        float nyl = (1-u)*nll + u*nhl;
-//float nyh = Mathf.Lerp(nlh, nhh, u);
-        float nyh = (1-u)*nlh + u*nhh;
-
-//float nxy = Mathf.Lerp(nyl, nyh, v);
-        float nxy = (1-v)*nyl + v*nyh;
-
-        return nxy;
+    float Density_Func(Vec2f pos){
+        return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos);
     }
 
     float FractalNoise(int octaves, float frequency, float lacunarity, float persistence, Vec2f position)
@@ -159,80 +119,37 @@ public class CalculateMaterialService {
         return 0.5f + (0.5f * nois);
     }
 
-    float CalculateNoiseValue(Vec3f pos) {
-        return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
-    }
+    float Perlin(float x, float y) {
+        int i = (int) (x > 0 ? x : x - 1);
+        int j = (int) (y > 0 ? y : y - 1);
 
-    float CLerp(float a, float b, float t) {
-        return (1 - t) * a + t * b;
-    }
+        x = x - i;
+        y = y - j;
 
-    public static float clamp(float val, float min, float max) {
-        return Math.max(min, Math.min(max, val));
-    }
+        i = i & 255;
+        j = j & 255;
 
-    float Density_Func(Vec2f pos){
-        return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos);
-    }
+        int gll = permutations[i + permutations[j]] % 12;
+        int glh = permutations[i + permutations[j + 1]] % 12;
+        int ghl = permutations[i + 1 + permutations[j]] % 12;
+        int ghh = permutations[i + 1 + permutations[j + 1]] % 12;
 
-    float Density_Func(Vec3f worldPosition) {
-        float worldRadius = 200.0f;
-        Vec3f world = worldPosition.sub(new Vec3f(0, -worldRadius, 0));
-        float worldDist = -worldRadius + world.length();
+        float nll = (Grad3[gll].x * x) + (Grad3[gll].y * y);
+        float nlh = (Grad3[glh].x * x) + (Grad3[glh].y * (y - 1));
+        float nhl = (Grad3[ghl].x * (x - 1)) + (Grad3[ghl].y * y);
+        float nhh = (Grad3[ghh].x * (x - 1)) + (Grad3[ghh].y * (y - 1));
 
-        float flatlandNoiseScale = 1.0f;
-        float flatlandLerpAmount = 0.07f;
-        float flatlandYPercent = 1.2f;
+        float u = (x * x * x * (x * (x * 6 - 15) + 10));
+        float v = (y * y * y * (y * (y * 6 - 15) + 10));
 
-        float rockyNoiseScale = 1.5f;
-        float rockyLerpAmount = 0.05f;
-        float rockyYPercent = 0.7f;
+        //float nyl = Mathf.Lerp(nll, nhl, u);
+        float nyl = (1-u)*nll + u*nhl;
+        //float nyh = Mathf.Lerp(nlh, nhh, u);
+        float nyh = (1-u)*nlh + u*nhh;
 
-        float maxMountainMixLerpAmount = 0.075f;
-        float minMountainMixLerpAmount = 1.0f;
+        //float nxy = Mathf.Lerp(nyl, nyh, v);
+        float nxy = (1-v)*nyl + v*nyh;
 
-        float mountainBlend;
-        float rockyBlend = 1.0f;
-
-        //mountainBlend = saturate(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world * 0.11f)) * 4.0f);
-        mountainBlend = clamp(Math.abs(FractalNoise(1,0.5343f, 2.2324f, 0.68324f, new Vec2f(worldPosition.X, worldPosition.Z))) * 4.0f, 0.0f, 1.0f);
-
-        float mountain = CalculateNoiseValue(worldPosition);
-
-        float blob = CalculateNoiseValue(worldPosition);
-        blob = CLerp(blob, (worldDist) * (flatlandYPercent + ((rockyYPercent - flatlandYPercent) * rockyBlend)),
-                flatlandLerpAmount + ((rockyLerpAmount - flatlandLerpAmount) * rockyBlend));
-
-        float result = ((worldDist) / worldRadius) + CLerp(mountain, blob, minMountainMixLerpAmount + ((maxMountainMixLerpAmount - minMountainMixLerpAmount) * mountainBlend));
-/*
-        for (int i = 0; i < primitiveMods.length; i++){
-            float primitive = 0;
-            //type
-            boolean primChosen = primitiveMods[i].position.w == 0 || primitiveMods[i].position.w == 1 || primitiveMods[i].position.w == 2;
-
-            if (primChosen){
-                if (primitiveMods[i].position.w == 0) {
-                    primitive = Box(worldPosition, new Vec3f(primitiveMods[i].position.x, primitiveMods[i].position.y, primitiveMods[i].position.z),
-                            new Vec3f(primitiveMods[i].size.x, primitiveMods[i].size.y, primitiveMods[i].size.z));
-                }
-                else if (primitiveMods[i].position.w == 1) {
-                    primitive = Sphere(worldPosition, new Vec3f(primitiveMods[i].position.x, primitiveMods[i].position.y, primitiveMods[i].position.z),
-                            primitiveMods[i].size.x);
-                }
-                else if (primitiveMods[i].position.w == 2) {
-                    primitive = Cylinder(worldPosition, new Vec3f(primitiveMods[i].position.x, primitiveMods[i].position.y, primitiveMods[i].position.z),
-                            new Vec3f(primitiveMods[i].size.x, primitiveMods[i].size.y, primitiveMods[i].size.z));
-                }
-
-                if (primitiveMods[i].size.w == 0) {
-                    result = Math.max(-primitive, result);
-                }
-                else {
-                    result = Math.min(primitive, result);
-                }
-            }
-        }
-*/
-        return result;
+        return nxy;
     }
 }
