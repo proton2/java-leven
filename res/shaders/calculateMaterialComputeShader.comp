@@ -228,12 +228,12 @@ float Density_Func(vec3 worldPosition)
 
 void main(void){
     int fieldSize = 66;
-    uint index = gl_GlobalInvocationID.x + fieldSize * (gl_GlobalInvocationID.y + fieldSize * gl_GlobalInvocationID.z);
+    uint index = gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y * fieldSize) + (gl_GlobalInvocationID.z * fieldSize * fieldSize);
 
     vec3 cornerPos = vec3(gl_GlobalInvocationID.x * simpleScale,
                             gl_GlobalInvocationID.y * simpleScale,
-                            gl_GlobalInvocationID.z * simpleScale
-    );
+                            gl_GlobalInvocationID.z * simpleScale);
+
     vec3 pos = cornerPos + offcet;
     float noise = Density_Func(vec2(pos.x, pos.z));
     float MAX_HEIGHT = 20.0f;
