@@ -10,10 +10,7 @@ import static org.lwjgl.opengl.GL43.GL_COMPUTE_SHADER;
 import static org.lwjgl.opengl.GL30.glBindFragDataLocation;
 import java.util.HashMap;
 
-import core.math.Matrix4f;
-import core.math.Quaternion;
-import core.math.Vec2f;
-import core.math.Vec3f;
+import core.math.*;
 import core.scene.GameObject;
 import core.utils.BufferUtil;
 
@@ -158,6 +155,10 @@ public abstract class Shader {
 	public void setUniform(String uniformName, Vec3f value)
 	{
 		glUniform3f(uniforms.get(uniformName), value.getX(), value.getY(), value.getZ());
+	}
+	public void setUniform(String uniformName, Vec3i value)
+	{
+		glUniform3f(uniforms.get(uniformName), value.x, value.y, value.z);
 	}
 	public void setUniform(String uniformName, Quaternion value)
 	{

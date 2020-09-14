@@ -31,52 +31,6 @@ vec3 Grad3[] = {
     vec3(0,1,1), vec3(0,-1,1), vec3(0,1,-1), vec3(0,-1,-1)
 };
 
-float Box(vec3 worldPosition, vec3 origin, vec3 halfDimensions)
-{
-    vec3 local_pos = worldPosition - origin;
-    vec3 pos = local_pos;
-
-    vec3 d = vec3(abs(pos.x), abs(pos.y), abs(pos.z)) - halfDimensions;
-    float m = max(d.x, max(d.y, d.z));
-    return min(m, length(max(d, vec3(0, 0, 0))));
-}
-
-float Sphere(vec3 worldPosition, vec3 origin, float radius)
-{
-    return length(worldPosition - origin) - radius;
-}
-
-float Cylinder(vec3 worldPosition, vec3 origin, vec3 size)
-{
-    vec3 p = worldPosition - origin;
-
-    if (Box(worldPosition, origin, size) > 0.0f)
-    return 1;
-
-    float sqr_dist = (p.x * p.x + p.z * p.z);
-    float sqr_rad = size.x * size.x;
-    return sqr_dist - sqr_rad;
-}
-
-float Torus(vec3 worldPosition, vec3 origin)
-{
-    vec3 local_pos = worldPosition - origin;
-    float xt = local_pos.x;
-    float yt = local_pos.y;
-    float zt = local_pos.z;
-    float _radius = 10.0f;
-    float _radius2 = 2.33f;
-
-    float x = xt;
-    float y = yt;
-    float z = zt;
-
-    float x2 = sqrt(x * x + z * z) - _radius / 2.0f;
-    float d = x2 * x2 + y * y - _radius2 * _radius2;
-
-    return d;
-}
-
 float Perlin(float x, float y)
 {
     int i = x > 0 ? int(x) : int(x) - 1;
@@ -112,17 +66,6 @@ float nxy = (1-v)*nyl + v*nyh;
 return nxy;
 }
 
-float Vec3Dot(vec3 a, vec3 b)
-{
-    float res = (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
-    return res;
-}
-
-float lerp(float a, float b, float t)
-{
-    return (1 - t) * a + t * b;
-}
-
 float FractalNoise(int octaves, float frequency, float lacunarity, float persistence, vec2 position)
 {
     float SCALE = 1.0f / 128.0f;
@@ -142,103 +85,60 @@ float FractalNoise(int octaves, float frequency, float lacunarity, float persist
     return 0.5f + (0.5f * nois);
 }
 
-//float CalculateNoiseValue(vec3 pos, float scale)
-//{
-//    return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos * scale);
-//}
-
-float CLerp(float a, float b, float t)
-{
-    return (1 - t) * a + t * b;
-}
-
 float Density_Func(vec2 pos){
     return FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, pos);
 }
-/*
-float Density_Func(vec3 worldPosition)
-{
-    float worldRadius = 200.0f;
-    vec3 world = worldPosition - vec3(0, -worldRadius, 0);
-    float worldDist = -worldRadius + length(world);
 
-    float flatlandNoiseScale = 1.0f;
-    float flatlandLerpAmount = 0.07f;
-    float flatlandYPercent = 1.2f;
+vec2 fade(vec2 t) {return t*t*t*(t*(t*6.0-15.0)+10.0);}
+vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
 
-    float rockyNoiseScale = 1.5f;
-    float rockyLerpAmount = 0.05f;
-    float rockyYPercent = 0.7f;
-
-    float maxMountainMixLerpAmount = 0.075f;
-    float minMountainMixLerpAmount = 1.0f;
-
-    float mountainBlend = 0.0f;
-    float rockyBlend = 1.0f;
-
-    //mountainBlend = saturate(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world * 0.11f)) * 4.0f);
-    mountainBlend = clamp(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world)) * 4.0f, 0.0, 1.0);
-
-    float mountain = CalculateNoiseValue(world, 0.07f);
-
-    float blob = CalculateNoiseValue(world, flatlandNoiseScale + ((rockyNoiseScale - flatlandNoiseScale) * rockyBlend));
-    blob = CLerp(blob, (worldDist) * (flatlandYPercent + ((rockyYPercent - flatlandYPercent) * rockyBlend)),
-    flatlandLerpAmount + ((rockyLerpAmount - flatlandLerpAmount) * rockyBlend));
-
-    float result = ((worldDist) / worldRadius) + CLerp(mountain, blob, minMountainMixLerpAmount + ((maxMountainMixLerpAmount - minMountainMixLerpAmount) * mountainBlend));
-
-    for (int i = 0; i < primitiveMods.length(); i++) //////////////////// NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN
-    {
-        float primitive = 0;
-        //type
-        bool primChosen = primitiveMods[i].position.w == 0 || primitiveMods[i].position.w == 1 || primitiveMods[i].position.w == 2;
-
-        if (primChosen)
-        {
-            if (primitiveMods[i].position.w == 0)
-            {
-                primitive = Box(worldPosition, vec3(primitiveMods[i].position.x, primitiveMods[i].position.y, primitiveMods[i].position.z),
-                vec3(primitiveMods[i].size.x, primitiveMods[i].size.y, primitiveMods[i].size.z));
-            }
-            else if (primitiveMods[i].position.w == 1)
-            {
-                primitive = Sphere(worldPosition, vec3(primitiveMods[i].position.x, primitiveMods[i].position.y, primitiveMods[i].position.z),
-                primitiveMods[i].size.x);
-            }
-            else if (primitiveMods[i].position.w == 2)
-            {
-                primitive = Cylinder(worldPosition, vec3(primitiveMods[i].position.x, primitiveMods[i].position.y, primitiveMods[i].position.z),
-                vec3(primitiveMods[i].size.x, primitiveMods[i].size.y, primitiveMods[i].size.z));
-            }
-
-            if (primitiveMods[i].size.w == 0)
-            {
-                result = max(-primitive, result);
-            }
-            else
-            {
-                result = min(primitive, result);
-            }
-        }
-    }
-
-    return result;
+float cnoise(vec2 P){
+    vec4 Pi = floor(P.xyxy) + vec4(0.0, 0.0, 1.0, 1.0);
+    vec4 Pf = fract(P.xyxy) - vec4(0.0, 0.0, 1.0, 1.0);
+    Pi = mod(Pi, 289.0); // To avoid truncation effects in permutation
+    vec4 ix = Pi.xzxz;
+    vec4 iy = Pi.yyww;
+    vec4 fx = Pf.xzxz;
+    vec4 fy = Pf.yyww;
+    vec4 i = permute(permute(ix) + iy);
+    vec4 gx = 2.0 * fract(i * 0.0243902439) - 1.0; // 1/41 = 0.024...
+    vec4 gy = abs(gx) - 0.5;
+    vec4 tx = floor(gx + 0.5);
+    gx = gx - tx;
+    vec2 g00 = vec2(gx.x,gy.x);
+    vec2 g10 = vec2(gx.y,gy.y);
+    vec2 g01 = vec2(gx.z,gy.z);
+    vec2 g11 = vec2(gx.w,gy.w);
+    vec4 norm = 1.79284291400159 - 0.85373472095314 *
+    vec4(dot(g00, g00), dot(g01, g01), dot(g10, g10), dot(g11, g11));
+    g00 *= norm.x;
+    g01 *= norm.y;
+    g10 *= norm.z;
+    g11 *= norm.w;
+    float n00 = dot(g00, vec2(fx.x, fy.x));
+    float n10 = dot(g10, vec2(fx.y, fy.y));
+    float n01 = dot(g01, vec2(fx.z, fy.z));
+    float n11 = dot(g11, vec2(fx.w, fy.w));
+    vec2 fade_xy = fade(Pf.xy);
+    vec2 n_x = mix(vec2(n00, n01), vec2(n10, n11), fade_xy.x);
+    float n_xy = mix(n_x.x, n_x.y, fade_xy.y);
+    //return 2.3 * n_xy;
+    return n_xy;
 }
-*/
 
 void main(void){
     int fieldSize = 66;
-    uint index = gl_GlobalInvocationID.x + (gl_GlobalInvocationID.y * fieldSize) + (gl_GlobalInvocationID.z * fieldSize * fieldSize);
+    int x = int(gl_GlobalInvocationID.x);
+    int y = int(gl_GlobalInvocationID.y);
+    int z = int(gl_GlobalInvocationID.z);
 
-    vec3 cornerPos = vec3(gl_GlobalInvocationID.x * simpleScale,
-                            gl_GlobalInvocationID.y * simpleScale,
-                            gl_GlobalInvocationID.z * simpleScale);
-
-    vec3 pos = cornerPos + offcet;
-    float noise = Density_Func(vec2(pos.x, pos.z));
+    vec3 local_pos = vec3(x, y, z);
+    vec3 world_pos = local_pos * simpleScale + offcet;
+    float noise = Density_Func(vec2(world_pos.x, world_pos.z));
     float MAX_HEIGHT = 20.0f;
-    float density = pos.y - noise * MAX_HEIGHT - 40;
+    float density = world_pos.y - noise * MAX_HEIGHT - 40;
     int material = density < 0.0f ? 1 : 0;
+    int index = x + (y * fieldSize) + (z * fieldSize * fieldSize);
     cornerMaterials.elem[index] = material;
 
     //cornerMaterials.elem[index] = int(index);

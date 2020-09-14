@@ -59,7 +59,7 @@ public class CalculateMaterialService {
         fieldMaterialsComputeBuffer.bindBufferBase(2);
 
         shader.updateSimpleScaleUniforms(sampleScale);
-        shader.updateOffcetUniforms(offset.toVec3f());
+        shader.updateOffcetUniforms(offset);
         shader.dispatch(7,7,7);
 
         permComputeBuffer.getData(permutations);

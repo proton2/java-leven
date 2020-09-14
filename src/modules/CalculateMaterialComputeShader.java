@@ -4,7 +4,9 @@ import core.math.Vec3f;
 import core.math.Vec3i;
 import core.shaders.Shader;
 import core.utils.ResourceLoader;
+import org.lwjgl.opengl.GL43;
 
+import static org.lwjgl.opengl.GL42.glMemoryBarrier;
 import static org.lwjgl.opengl.GL43.glDispatchCompute;
 
 public class CalculateMaterialComputeShader extends Shader {
@@ -29,11 +31,12 @@ public class CalculateMaterialComputeShader extends Shader {
 		setUniformi("simpleScale", simpleScale);
 	}
 
-	public void updateOffcetUniforms(Vec3f offcet) {
+	public void updateOffcetUniforms(Vec3i offcet) {
 		setUniform("offcet", offcet);
 	}
 
 	public void dispatch(int num_groups_x, int num_groups_y, int num_groups_z){
 		glDispatchCompute(num_groups_x, num_groups_y, num_groups_z);
+		//glMemoryBarrier(GL43.GL_SHADER_STORAGE_BUFFER);
 	}
 }
