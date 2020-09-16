@@ -4,26 +4,26 @@ import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
-import dc.utils.Density;
 import modules.CalculateMaterialComputeShader;
 import modules.ComputeBuffer;
 import modules.DensityPrimitive;
-import org.joml.Vector3f;
 
 import java.util.Random;
 
 import static dc.VoxelOctree.MATERIAL_AIR;
 import static dc.VoxelOctree.MATERIAL_SOLID;
-import static dc.impl.LevenLinearOctreeImpl.fieldSize;
 
 public class CalculateMaterialService {
     CalculateMaterialComputeShader shader;
     private ComputeBuffer fieldMaterialsComputeBuffer, permComputeBuffer, densityPrimitiveComputeBuffer;
+    private final int fieldSize;
 
     static int[] permutations = new int[512];
     private DensityPrimitive[] primitiveMods;
 
-    public CalculateMaterialService(){}
+    public CalculateMaterialService(int fieldSize){
+        this.fieldSize = fieldSize;
+    }
 
     public static void InitPermutations(int seed, int[] permutations) {
         Random random = new Random(seed);

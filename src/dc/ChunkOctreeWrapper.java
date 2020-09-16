@@ -11,6 +11,8 @@ import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
 import dc.impl.TransitionLinearOctreeImpl;
+import dc.impl.opencl.MeshGenerationContext;
+import dc.impl.opencl.OCLUtils;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.RenderDebugCmdBuffer;
@@ -23,6 +25,7 @@ import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
     private final ChunkOctree chunkOctree;
+    private MeshGenerationContext meshGen;
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
 
@@ -32,7 +35,9 @@ public class ChunkOctreeWrapper extends GameObject {
         //computeShaderTest.render();
         //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
         //chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
-        chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl());
+        meshGen = new MeshGenerationContext(OCLUtils.getOpenCLContext());
+        meshGen.createContext();
+        chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl(meshGen));
         //chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
     }
 
@@ -63,8 +68,13 @@ public class ChunkOctreeWrapper extends GameObject {
             glDisable(GL_CULL_FACE);
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_ESCAPE)) {
-            chunkOctree.clean();
+            cleanUp();
         }
+    }
+
+    public void cleanUp(){
+        meshGen.destroyContext();
+        chunkOctree.clean();
     }
 
     private void renderMesh() {

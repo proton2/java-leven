@@ -8,6 +8,8 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
+import dc.impl.opencl.MeshGenerationContext;
+import dc.impl.opencl.OpenCLCalculateMaterialsService;
 import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
 import dc.utils.Density;
@@ -29,6 +31,11 @@ import static dc.impl.LevenLinearOctreeImpl.fieldSize;
  */
 
 public class TransitionLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
+    private final MeshGenerationContext meshGenerationContext;
+
+    public TransitionLinearOctreeImpl(MeshGenerationContext meshGen) {
+        this.meshGenerationContext = meshGen;
+    }
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
@@ -102,15 +109,13 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 
         int[] materials = new int[fieldSize*fieldSize*fieldSize];
         //GenerateDefaultField(densityField, chunkMin, 0, fieldSize*fieldSize*fieldSize, chunkSize / voxelsPerChunk, MATERIAL_SOLID, materials);
-        CalculateMaterialService calculateMaterialService = new CalculateMaterialService();
-        calculateMaterialService.calculate(chunkMin, chunkSize / voxelsPerChunk, materials);
 
-        int count = 0;
-        for (int material : materials) {
-            if (material > 0) {
-                ++count;
-            }
-        }
+//        CalculateMaterialService calculateMaterialService = new CalculateMaterialService(fieldSize);
+//        calculateMaterialService.calculate(chunkMin, chunkSize / voxelsPerChunk, materials);
+
+        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(fieldSize);
+        calculateMaterialsService.run(meshGenerationContext, chunkMin, chunkSize / voxelsPerChunk, materials);
+
         boolean[] d_leafOccupancy = new boolean[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
         int[] d_leafEdgeInfo = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
         int[] d_leafCodes = new int[voxelsPerChunk * voxelsPerChunk * voxelsPerChunk];
