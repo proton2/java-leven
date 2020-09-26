@@ -49,6 +49,6 @@ public class RenderingEngine {
 	public void update(){}
 	
 	public void shutdown(){
-		//dcWrapper.shutDown();
+		chunkOctreeWrapper.cleanUp();
 	}
 }

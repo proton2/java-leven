@@ -1,18 +1,13 @@
 package dc.impl.opencl;
 
 import core.math.Vec3i;
-import core.utils.ResourceLoader;
-import dc.impl.opencl.ComputeContext;
-import dc.impl.opencl.OCLUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
-import org.lwjgl.opencl.CL;
 import org.lwjgl.opencl.CL10;
 
 import java.nio.IntBuffer;
 
 import static org.lwjgl.opencl.CL10.*;
-import static org.lwjgl.system.MemoryUtil.NULL;
 
 public final class OpenCLCalculateMaterialsService {
 

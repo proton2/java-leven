@@ -67,9 +67,6 @@ public class ChunkOctreeWrapper extends GameObject {
         if(!drawWireframe){
             glDisable(GL_CULL_FACE);
         }
-        if (Input.getInstance().isKeyHold(GLFW_KEY_ESCAPE)) {
-            cleanUp();
-        }
     }
 
     public void cleanUp(){
