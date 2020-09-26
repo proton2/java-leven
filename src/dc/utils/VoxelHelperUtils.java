@@ -117,4 +117,8 @@ public class VoxelHelperUtils {
                 p.Y < min.Y || p.Y > (min.Y + size) ||
                 p.Z < min.Z || p.Z > (min.Z + size);
     }
+
+    public static float clamp(float val, float min, float max) {
+        return Math.max(min, Math.min(max, val));
+    }
 }

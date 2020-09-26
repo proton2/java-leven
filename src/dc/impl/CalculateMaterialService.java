@@ -1,14 +1,12 @@
 package dc.impl;
 
-import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
-import dc.utils.Density;
+import dc.utils.VoxelHelperUtils;
 import modules.CalculateMaterialComputeShader;
 import modules.ComputeBuffer;
 import modules.DensityPrimitive;
-import org.joml.Vector3f;
 
 import java.util.Random;
 
@@ -191,10 +189,6 @@ public class CalculateMaterialService {
         return (1 - t) * a + t * b;
     }
 
-    public static float clamp(float val, float min, float max) {
-        return Math.max(min, Math.min(max, val));
-    }
-
     float Density_Func(Vec3f worldPosition) {
         float worldRadius = 200.0f;
         Vec3f world = worldPosition.sub(new Vec3f(0, -worldRadius, 0));
@@ -215,7 +209,7 @@ public class CalculateMaterialService {
         float rockyBlend = 1.0f;
 
         //mountainBlend = saturate(abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world * 0.11f)) * 4.0f);
-        mountainBlend = clamp(Math.abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world.mul(0.11f))) * 4.0f, 0.0f, 1.0f);
+        mountainBlend = VoxelHelperUtils.clamp(Math.abs(FractalNoise(0.5343f, 2.2324f, 0.68324f, world.mul(0.11f))) * 4.0f, 0.0f, 1.0f);
 
         float mountain = CalculateNoiseValue(world, 0.07f);
 

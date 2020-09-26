@@ -8,10 +8,7 @@ import core.renderer.Renderer;
 import core.utils.Constants;
 import core.utils.ImageLoader;
 import dc.entities.MeshBuffer;
-import dc.utils.Aabb;
-import dc.utils.Density;
-import dc.utils.Frustum;
-import dc.utils.VoxelHelperUtils;
+import dc.utils.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -110,7 +107,8 @@ public class ChunkOctree {
         if (Files.notExists(path)) {
             for (int z = 0; z < root.size; z++) {
                 for (int x = 0; x < root.size; x++) {
-                    densityField[x + z * root.size] = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
+                    //densityField[x + z * root.size] = SimplexNoise.BasicFractal(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
+                    densityField[x + z * root.size] = SimplexNoise.Terrain(new Vec2f(x - (root.size / 2), z - (root.size / 2)));
                 }
             }
             ImageLoader.saveImageToFloat(densityField, filename);

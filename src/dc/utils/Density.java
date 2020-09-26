@@ -21,29 +21,6 @@ public class Density {
         return Math.min(m, d.length() > 0 ? d.length() : new Vec3f(0, 0, 0).length());
     }
 
-    public static float FractalNoise(int octaves, float frequency, float lacunarity, float persistence, Vec2f position)
-    {
-        float SCALE = 1.0f / 128.0f;
-        //Vec2f p = position * SCALE;
-        Vec2f p = position.mul(SCALE);
-        float noise = 0.0f;
-
-        float amplitude = 1.0f;
-        //p *= frequency;
-        p = p.mul(frequency);
-
-        for (int i = 0; i < octaves; i++)
-        {
-            noise += SimplexNoise.noise(p.getX(), p.getY()) * amplitude;
-            //p *= lacunarity;
-            p = p.mul(lacunarity);
-            amplitude *= persistence;
-        }
-
-        // move into [0, 1] range
-        return 0.5f + (0.5f * noise);
-    }
-
     static private float getHeight (float xc, float zc, float[][] image){
         int x = ((int)xc + ChunkOctree.worldSizeXZ/2) & (ChunkOctree.worldSizeXZ-1);
         int z = ((int)zc + ChunkOctree.worldSizeXZ/2) & (ChunkOctree.worldSizeXZ-1);
@@ -69,7 +46,7 @@ public class Density {
         float MAX_HEIGHT = 20.0f;
         //float noise = getHeight(pos.X, pos.Z, densityField);
         //float noise = getHeight(pos.X, pos.Z, image);
-        float noise = FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
+        float noise = SimplexNoise.BasicFractal(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
 
         //float noise = worldPosition.getY() - Noise(worldPosition) * 8.0f -8;
         //float terrain = worldPosition.getY() - 2;
@@ -90,11 +67,17 @@ public class Density {
         return getNoise(new Vec3f(pos.x, pos.y, pos.z), densityField);
     }
 
-    public static float getNoise(Vec3f pos, float[] densityField) {
+    public static float getNoiseSimple(Vec3f pos, float[] densityField) {
         float MAX_HEIGHT = 20.0f;
         float noise = getHeight(pos.X, pos.Z, densityField);
         //float noise = FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(pos.X, pos.Z));
         return pos.Y - noise * MAX_HEIGHT - 40;
+    }
+
+    public static float getNoise(Vec3f pos, float[] densityField) {
+        float MAX_TERRAIN_HEIGHT = 900.f;
+        float noise = getHeight(pos.X, pos.Z, densityField);
+        return pos.Y - (MAX_TERRAIN_HEIGHT * noise) + 800;
     }
 
     public static float Cuboid(Vector3f pos)
