@@ -75,6 +75,7 @@ public class ChunkOctree {
         this.voxelOctree = voxelOctree;
         service = Executors.newFixedThreadPool(1);
         buildChunkOctree();
+        update(Camera.getInstance());
     }
 
     public static int log2(int N) {
