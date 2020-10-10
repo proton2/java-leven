@@ -19,9 +19,9 @@ public final class ScanOpenCLService {
         scan(scanProgram, data, scan, count, true);
 
         IntBuffer lastValueBuff = BufferUtils.createIntBuffer(1);
-        CL10.clEnqueueReadBuffer(ctx.getClQueue(), data, false, (count - 1), lastValueBuff, null, null);
+        CL10.clEnqueueReadBuffer(ctx.getClQueue(), data, false, (count - 1)*4, lastValueBuff, null, null);
         IntBuffer lastScanValueBuff = BufferUtils.createIntBuffer(1);
-        CL10.clEnqueueReadBuffer(ctx.getClQueue(), scan, true, (count - 1), lastScanValueBuff, null, null);
+        CL10.clEnqueueReadBuffer(ctx.getClQueue(), scan, true, (count - 1)*4, lastScanValueBuff, null, null);
 
         int lastValue = lastValueBuff.get(0);
         int lastScanValue = lastScanValueBuff.get(0);
