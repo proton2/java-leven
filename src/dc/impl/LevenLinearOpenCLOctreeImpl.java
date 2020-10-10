@@ -58,12 +58,12 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, fieldSize);
         calculateMaterialsService.run(meshGenerationContext,chunkSize / voxelsPerChunk, materials, field);
 
-        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, new ScanOpenCLService(ctx));
-        int compactEdgesSize = findDefEdges.run(meshGenerationContext, field);
-        if(compactEdgesSize==0){
-            return false;
-        }
-/*
+//        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, new ScanOpenCLService(ctx));
+//        int compactEdgesSize = findDefEdges.run(meshGenerationContext, field);
+//        if(compactEdgesSize==0){
+//            return false;
+//        }
+
         int edgeBufferSize = hermiteIndexSize * hermiteIndexSize * hermiteIndexSize * 3;
         boolean[] edgeOccupancy = new boolean[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
@@ -75,16 +75,14 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 
         int[] edgeIndicesCompact = new int [compactEdgesSize];
         //////////////////////////////
-        */
-        Map<Integer, Integer> edgeIndicatesMap = compactEdges(findDefEdges.getEdgeOccupancyBuffer(),
-                findDefEdges.getEdgeIndicesNonCompactBuffer(), field.getNumEdges(), findDefEdges.getEdgeIndicesCompact(field.getEdgeIndices()));
-/*
+        Map<Integer, Integer> edgeIndicatesMap = compactEdges(edgeOccupancy, edgeIndicesNonCompact, compactEdgesSize,
+                edgeIndicesCompact);
+
         Vec4f[] normals = new Vec4f[compactEdgesSize];
         //////////////////////////////
         FindEdgeIntersectionInfo(chunkMin, chunkSize / VOXELS_PER_CHUNK, 0, compactEdgesSize, densityField,
                 edgeIndicesCompact,
                 normals);
- */
 
         boolean[] d_leafOccupancy = new boolean [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
         int[] d_leafEdgeInfo = new int [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
@@ -107,9 +105,15 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         int numVertices = d_nodeCodes.length;
         QefSolver[] qefs = new QefSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
+
         //////////////////////////////
+//        createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / voxelsPerChunk, d_nodeCodes,
+//                d_compactLeafEdgeInfo, findDefEdges.getNormals(field.getNormals()),
+//                qefs, edgeIndicatesMap,
+//                d_vertexNormals);
+
         createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / voxelsPerChunk, d_nodeCodes,
-                d_compactLeafEdgeInfo, findDefEdges.getNormals(field.getNormals()),
+                d_compactLeafEdgeInfo, normals,
                 qefs, edgeIndicatesMap,
                 d_vertexNormals);
 
@@ -147,9 +151,9 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
                 chunkSize / voxelsPerChunk, chunkMin, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
-        CL10.clReleaseMemObject(field.getEdgeIndices());
-        CL10.clReleaseMemObject(field.getMaterials());
-        CL10.clReleaseMemObject(field.getNormals());
+//        CL10.clReleaseMemObject(field.getEdgeIndices());
+//        CL10.clReleaseMemObject(field.getMaterials());
+//        CL10.clReleaseMemObject(field.getNormals());
         return true;
     }
 
@@ -208,11 +212,11 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         return size;
     }
 
-    Map<Integer, Integer> compactEdges(int[] edgeValid, int[] edges, int compactEdgesSize, int[] compactActiveEdges) {
+    Map<Integer, Integer> compactEdges(boolean[] edgeValid, int[] edges, int compactEdgesSize, int[] compactActiveEdges) {
         int current = 0;
         Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(compactEdgesSize);
         for (int index = 0; index < edges.length; index++) {
-            if (edgeValid[index]==1) {
+            if (edgeValid[index]) {
                 edgeIndicatesMap.put(edges[index], current);
                 compactActiveEdges[current] = edges[index];
                 ++current;

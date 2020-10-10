@@ -8,10 +8,7 @@ import core.renderer.Renderer;
 import core.utils.Constants;
 import core.utils.ImageLoader;
 import dc.entities.MeshBuffer;
-import dc.utils.Aabb;
-import dc.utils.Density;
-import dc.utils.Frustum;
-import dc.utils.VoxelHelperUtils;
+import dc.utils.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -198,7 +195,7 @@ public class ChunkOctree {
          */
     }
 
-    public void updateNonBlocked(Camera cam, boolean multiTread){
+    public void update(Camera cam, boolean multiTread){
         this.camera = cam;
         if (multiTread) {
             service.submit(() -> update(camera));
@@ -243,7 +240,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> emptyNodes = new ArrayList<>();
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
-            boolean result = filterNodesForDebug(filteredNode) &&
+            boolean result = //filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
             if (filteredNode.renderMesh !=null || (filteredNode.seamNodes!=null && filteredNode.seamNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
