@@ -220,8 +220,6 @@ float noise_2d(float x, float y) {
   	return position.y - (MAX_TERRAIN_HEIGHT * noise) + 1000;
   }
 
-  constant int FIELD_DIM = 66;
-
   int field_index(const int4 pos)
   {
   	return pos.x + (pos.y * FIELD_DIM) + (pos.z * FIELD_DIM * FIELD_DIM);

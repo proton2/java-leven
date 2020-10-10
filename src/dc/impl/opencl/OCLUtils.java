@@ -1,6 +1,5 @@
 package dc.impl.opencl;
 
-import dc.impl.opencl.ComputeContext;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL;
@@ -18,6 +17,155 @@ import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.*;
 
 public class OCLUtils {
+
+    // Error codes
+    public static final int CL_SUCCESS                                  = 0;
+    public static final int CL_DEVICE_NOT_FOUND                         = -1;
+    public static final int CL_DEVICE_NOT_AVAILABLE                     = -2;
+    public static final int CL_COMPILER_NOT_AVAILABLE                   = -3;
+    public static final int CL_MEM_OBJECT_ALLOCATION_FAILURE            = -4;
+    public static final int CL_OUT_OF_RESOURCES                         = -5;
+    public static final int CL_OUT_OF_HOST_MEMORY                       = -6;
+    public static final int CL_PROFILING_INFO_NOT_AVAILABLE             = -7;
+    public static final int CL_MEM_COPY_OVERLAP                         = -8;
+    public static final int CL_IMAGE_FORMAT_MISMATCH                    = -9;
+    public static final int CL_IMAGE_FORMAT_NOT_SUPPORTED               = -10;
+    public static final int CL_BUILD_PROGRAM_FAILURE                    = -11;
+    public static final int CL_MAP_FAILURE                              = -12;
+    public static final int CL_MISALIGNED_SUB_BUFFER_OFFSET             = -13;
+    public static final int CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST= -14;
+    // OPENCL_1_2
+    public static final int CL_COMPILE_PROGRAM_FAILURE                  = -15;
+    public static final int CL_LINKER_NOT_AVAILABLE                     = -16;
+    public static final int CL_LINK_PROGRAM_FAILURE                     = -17;
+    public static final int CL_DEVICE_PARTITION_FAILED                  = -18;
+    public static final int CL_KERNEL_ARG_INFO_NOT_AVAILABLE            = -19;
+
+    public static final int CL_INVALID_VALUE                            = -30;
+    public static final int CL_INVALID_DEVICE_TYPE                      = -31;
+    public static final int CL_INVALID_PLATFORM                         = -32;
+    public static final int CL_INVALID_DEVICE                           = -33;
+    public static final int CL_INVALID_CONTEXT                          = -34;
+    public static final int CL_INVALID_QUEUE_PROPERTIES                 = -35;
+    public static final int CL_INVALID_COMMAND_QUEUE                    = -36;
+    public static final int CL_INVALID_HOST_PTR                         = -37;
+    public static final int CL_INVALID_MEM_OBJECT                       = -38;
+    public static final int CL_INVALID_IMAGE_FORMAT_DESCRIPTOR          = -39;
+    public static final int CL_INVALID_IMAGE_SIZE                       = -40;
+    public static final int CL_INVALID_SAMPLER                          = -41;
+    public static final int CL_INVALID_BINARY                           = -42;
+    public static final int CL_INVALID_BUILD_OPTIONS                    = -43;
+    public static final int CL_INVALID_PROGRAM                          = -44;
+    public static final int CL_INVALID_PROGRAM_EXECUTABLE               = -45;
+    public static final int CL_INVALID_KERNEL_NAME                      = -46;
+    public static final int CL_INVALID_KERNEL_DEFINITION                = -47;
+    public static final int CL_INVALID_KERNEL                           = -48;
+    public static final int CL_INVALID_ARG_INDEX                        = -49;
+    public static final int CL_INVALID_ARG_VALUE                        = -50;
+    public static final int CL_INVALID_ARG_SIZE                         = -51;
+    public static final int CL_INVALID_KERNEL_ARGS                      = -52;
+    public static final int CL_INVALID_WORK_DIMENSION                   = -53;
+    public static final int CL_INVALID_WORK_GROUP_SIZE                  = -54;
+    public static final int CL_INVALID_WORK_ITEM_SIZE                   = -55;
+    public static final int CL_INVALID_GLOBAL_OFFSET                    = -56;
+    public static final int CL_INVALID_EVENT_WAIT_LIST                  = -57;
+    public static final int CL_INVALID_EVENT                            = -58;
+    public static final int CL_INVALID_OPERATION                        = -59;
+    public static final int CL_INVALID_GL_OBJECT                        = -60;
+    public static final int CL_INVALID_BUFFER_SIZE                      = -61;
+    public static final int CL_INVALID_MIP_LEVEL                        = -62;
+    public static final int CL_INVALID_GLOBAL_WORK_SIZE                 = -63;
+    // OPENCL_1_2
+    public static final int CL_INVALID_PROPERTY                         = -64;
+    public static final int CL_INVALID_IMAGE_DESCRIPTOR                 = -65;
+    public static final int CL_INVALID_COMPILER_OPTIONS                 = -66;
+    public static final int CL_INVALID_LINKER_OPTIONS                   = -67;
+    public static final int CL_INVALID_DEVICE_PARTITION_COUNT           = -68;
+
+    // OPENCL_2_0
+    public static final int CL_INVALID_PIPE_SIZE                        = -69;
+    public static final int CL_INVALID_DEVICE_QUEUE                     = -70;
+
+
+    public static final int CL_JOCL_INTERNAL_ERROR                      = -16384;
+    public static final int CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR      = -1000;
+    public static final int CL_PLATFORM_NOT_FOUND_KHR                   = -1001;
+
+    public static String stringFor_errorCode(int n)
+    {
+        switch (n)
+        {
+            case CL_SUCCESS: return "CL_SUCCESS";
+            case CL_DEVICE_NOT_FOUND: return "CL_DEVICE_NOT_FOUND";
+            case CL_DEVICE_NOT_AVAILABLE: return "CL_DEVICE_NOT_AVAILABLE";
+            case CL_COMPILER_NOT_AVAILABLE: return "CL_COMPILER_NOT_AVAILABLE";
+            case CL_MEM_OBJECT_ALLOCATION_FAILURE: return "CL_MEM_OBJECT_ALLOCATION_FAILURE";
+            case CL_OUT_OF_RESOURCES: return "CL_OUT_OF_RESOURCES";
+            case CL_OUT_OF_HOST_MEMORY: return "CL_OUT_OF_HOST_MEMORY";
+            case CL_PROFILING_INFO_NOT_AVAILABLE: return "CL_PROFILING_INFO_NOT_AVAILABLE";
+            case CL_MEM_COPY_OVERLAP: return "CL_MEM_COPY_OVERLAP";
+            case CL_IMAGE_FORMAT_MISMATCH: return "CL_IMAGE_FORMAT_MISMATCH";
+            case CL_IMAGE_FORMAT_NOT_SUPPORTED: return "CL_IMAGE_FORMAT_NOT_SUPPORTED";
+            case CL_BUILD_PROGRAM_FAILURE: return "CL_BUILD_PROGRAM_FAILURE";
+            case CL_MAP_FAILURE: return "CL_MAP_FAILURE";
+            case CL_MISALIGNED_SUB_BUFFER_OFFSET: return "CL_MISALIGNED_SUB_BUFFER_OFFSET";
+            case CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST: return "CL_EXEC_STATUS_ERROR_FOR_EVENTS_IN_WAIT_LIST";
+            case CL_COMPILE_PROGRAM_FAILURE: return "CL_COMPILE_PROGRAM_FAILURE";
+            case CL_LINKER_NOT_AVAILABLE: return "CL_LINKER_NOT_AVAILABLE";
+            case CL_LINK_PROGRAM_FAILURE: return "CL_LINK_PROGRAM_FAILURE";
+            case CL_DEVICE_PARTITION_FAILED: return "CL_DEVICE_PARTITION_FAILED";
+            case CL_KERNEL_ARG_INFO_NOT_AVAILABLE: return "CL_KERNEL_ARG_INFO_NOT_AVAILABLE";
+            case CL_INVALID_VALUE: return "CL_INVALID_VALUE";
+            case CL_INVALID_DEVICE_TYPE: return "CL_INVALID_DEVICE_TYPE";
+            case CL_INVALID_PLATFORM: return "CL_INVALID_PLATFORM";
+            case CL_INVALID_DEVICE: return "CL_INVALID_DEVICE";
+            case CL_INVALID_CONTEXT: return "CL_INVALID_CONTEXT";
+            case CL_INVALID_QUEUE_PROPERTIES: return "CL_INVALID_QUEUE_PROPERTIES";
+            case CL_INVALID_COMMAND_QUEUE: return "CL_INVALID_COMMAND_QUEUE";
+            case CL_INVALID_HOST_PTR: return "CL_INVALID_HOST_PTR";
+            case CL_INVALID_MEM_OBJECT: return "CL_INVALID_MEM_OBJECT";
+            case CL_INVALID_IMAGE_FORMAT_DESCRIPTOR: return "CL_INVALID_IMAGE_FORMAT_DESCRIPTOR";
+            case CL_INVALID_IMAGE_SIZE: return "CL_INVALID_IMAGE_SIZE";
+            case CL_INVALID_SAMPLER: return "CL_INVALID_SAMPLER";
+            case CL_INVALID_BINARY: return "CL_INVALID_BINARY";
+            case CL_INVALID_BUILD_OPTIONS: return "CL_INVALID_BUILD_OPTIONS";
+            case CL_INVALID_PROGRAM: return "CL_INVALID_PROGRAM";
+            case CL_INVALID_PROGRAM_EXECUTABLE: return "CL_INVALID_PROGRAM_EXECUTABLE";
+            case CL_INVALID_KERNEL_NAME: return "CL_INVALID_KERNEL_NAME";
+            case CL_INVALID_KERNEL_DEFINITION: return "CL_INVALID_KERNEL_DEFINITION";
+            case CL_INVALID_KERNEL: return "CL_INVALID_KERNEL";
+            case CL_INVALID_ARG_INDEX: return "CL_INVALID_ARG_INDEX";
+            case CL_INVALID_ARG_VALUE: return "CL_INVALID_ARG_VALUE";
+            case CL_INVALID_ARG_SIZE: return "CL_INVALID_ARG_SIZE";
+            case CL_INVALID_KERNEL_ARGS: return "CL_INVALID_KERNEL_ARGS";
+            case CL_INVALID_WORK_DIMENSION: return "CL_INVALID_WORK_DIMENSION";
+            case CL_INVALID_WORK_GROUP_SIZE: return "CL_INVALID_WORK_GROUP_SIZE";
+            case CL_INVALID_WORK_ITEM_SIZE: return "CL_INVALID_WORK_ITEM_SIZE";
+            case CL_INVALID_GLOBAL_OFFSET: return "CL_INVALID_GLOBAL_OFFSET";
+            case CL_INVALID_EVENT_WAIT_LIST: return "CL_INVALID_EVENT_WAIT_LIST";
+            case CL_INVALID_EVENT: return "CL_INVALID_EVENT";
+            case CL_INVALID_OPERATION: return "CL_INVALID_OPERATION";
+            case CL_INVALID_GL_OBJECT: return "CL_INVALID_GL_OBJECT";
+            case CL_INVALID_BUFFER_SIZE: return "CL_INVALID_BUFFER_SIZE";
+            case CL_INVALID_MIP_LEVEL: return "CL_INVALID_MIP_LEVEL";
+            case CL_INVALID_GLOBAL_WORK_SIZE: return "CL_INVALID_GLOBAL_WORK_SIZE";
+            case CL_INVALID_PROPERTY: return "CL_INVALID_PROPERTY";
+            case CL_INVALID_IMAGE_DESCRIPTOR: return "CL_INVALID_IMAGE_DESCRIPTOR";
+            case CL_INVALID_COMPILER_OPTIONS: return "CL_INVALID_COMPILER_OPTIONS";
+            case CL_INVALID_LINKER_OPTIONS: return "CL_INVALID_LINKER_OPTIONS";
+            case CL_INVALID_DEVICE_PARTITION_COUNT: return "CL_INVALID_DEVICE_PARTITION_COUNT";
+            case CL_INVALID_PIPE_SIZE: return "CL_INVALID_PIPE_SIZE";
+            case CL_INVALID_DEVICE_QUEUE: return "CL_INVALID_DEVICE_QUEUE";
+            case CL_JOCL_INTERNAL_ERROR: return "CL_JOCL_INTERNAL_ERROR";
+            case CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR: return "CL_INVALID_GL_SHAREGROUP_REFERENCE_KHR";
+            case CL_PLATFORM_NOT_FOUND_KHR: return "CL_PLATFORM_NOT_FOUND_KHR";
+
+            // Some OpenCL implementation return 1 for glBuildProgram
+            // if the source code contains errors...
+            case 1: return "Error in program source code";
+        }
+        return "INVALID error code: "+n;
+    }
 
     private OCLUtils() { }
 
@@ -145,7 +293,7 @@ public class OCLUtils {
         }
     }
 
-    static int getDeviceInfoInt(long cl_device_id, int param_name) {
+    public static int getDeviceInfoInt(long cl_device_id, int param_name) {
         try (MemoryStack stack = stackPush()) {
             IntBuffer pl = stack.mallocInt(1);
             checkCLError(clGetDeviceInfo(cl_device_id, param_name, pl, null));
@@ -153,7 +301,7 @@ public class OCLUtils {
         }
     }
 
-    static long getDeviceInfoLong(long cl_device_id, int param_name) {
+    public static long getDeviceInfoLong(long cl_device_id, int param_name) {
         try (MemoryStack stack = stackPush()) {
             LongBuffer pl = stack.mallocLong(1);
             checkCLError(clGetDeviceInfo(cl_device_id, param_name, pl, null));
@@ -161,7 +309,7 @@ public class OCLUtils {
         }
     }
 
-    static long getDeviceInfoPointer(long cl_device_id, int param_name) {
+    public static long getDeviceInfoPointer(long cl_device_id, int param_name) {
         try (MemoryStack stack = stackPush()) {
             PointerBuffer pp = stack.mallocPointer(1);
             checkCLError(clGetDeviceInfo(cl_device_id, param_name, pp, null));
@@ -203,13 +351,13 @@ public class OCLUtils {
         }
     }
 
-    static void checkCLError(IntBuffer errcode) {
+    public static void checkCLError(IntBuffer errcode) {
         checkCLError(errcode.get(errcode.position()));
     }
 
-    static void checkCLError(int errcode) {
+    public static void checkCLError(int errcode) {
         if (errcode != CL_SUCCESS) {
-            throw new RuntimeException(String.format("OpenCL error [%d]", errcode));
+            throw new RuntimeException("OpenCL error " + stringFor_errorCode(errcode));
         }
     }
 
@@ -217,7 +365,7 @@ public class OCLUtils {
         System.out.println("\t" + param_name + " = " + getPlatformInfoStringUTF8(platform, param));
     }
 
-    static void printDeviceInfo(long device, String param_name, int param) {
+    public static void printDeviceInfo(long device, String param_name, int param) {
         System.out.println("\t" + param_name + " = " + getDeviceInfoStringUTF8(device, param));
     }
 }

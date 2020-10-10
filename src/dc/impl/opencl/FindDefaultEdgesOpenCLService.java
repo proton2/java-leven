@@ -1,0 +1,150 @@
+package dc.impl.opencl;
+
+import core.math.Vec4f;
+import dc.impl.GPUDensityField;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
+import org.lwjgl.opencl.CL10;
+
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
+import static dc.ChunkOctree.LEAF_SIZE_SCALE;
+import static org.lwjgl.opencl.CL10.*;
+
+public final class FindDefaultEdgesOpenCLService {
+    private long edgeOccupancyBuffer, edgeIndicesNonCompactBuffer;
+    private final ScanOpenCLService scanOpenCLService;
+    private int numEdges, edgeBufferSize;
+    private ComputeContext ctx;
+
+    public FindDefaultEdgesOpenCLService(ComputeContext computeContext, ScanOpenCLService scanOpenCLService) {
+        this.scanOpenCLService = scanOpenCLService;
+        this.ctx = computeContext;
+    }
+
+    public int run(MeshGenerationContext meshGen, GPUDensityField field) {
+        edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
+        edgeOccupancyBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        edgeIndicesNonCompactBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        long findFieldEdgesKernel = clCreateKernel(meshGen.getFindFieldEdgesProgram(), "FindFieldEdges", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        clSetKernelArg1p(findFieldEdgesKernel, 0, field.getMaterials());
+        clSetKernelArg1p(findFieldEdgesKernel, 1, edgeOccupancyBuffer);
+        clSetKernelArg1p(findFieldEdgesKernel, 2, edgeIndicesNonCompactBuffer);
+
+        final int dimensions = 3;
+        PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(dimensions);
+        globalWorkSize.put(0, meshGen.getHermiteIndexSize());
+        globalWorkSize.put(1, meshGen.getHermiteIndexSize());
+        globalWorkSize.put(2, meshGen.getHermiteIndexSize());
+
+        // Run the specified number of work units using our OpenCL program kernel
+        int errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), findFieldEdgesKernel, dimensions, null, globalWorkSize, null, null, null);
+        OCLUtils.checkCLError(errcode);
+
+        long edgeScanBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        numEdges = scanOpenCLService.exclusiveScan(meshGen.getScanProgram(), edgeOccupancyBuffer, edgeScanBuffer, edgeBufferSize);
+        field.setNumEdges(numEdges);
+        if (field.getNumEdges() < 0) {
+            System.out.println("FindDefaultEdges: ExclusiveScan error=%d\n" + field.getNumEdges());
+            return field.getNumEdges();
+        }
+        if(field.getNumEdges()==0){
+            return 0;
+        }
+
+        long compactActiveEdgesBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, field.getNumEdges() * 4, ctx.getErrcode_ret());
+        long compactEdgesKernel = clCreateKernel(meshGen.getFindFieldEdgesProgram(), "CompactEdges", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        clSetKernelArg1p(compactEdgesKernel, 0, edgeOccupancyBuffer);
+        clSetKernelArg1p(compactEdgesKernel, 1, edgeScanBuffer);
+        clSetKernelArg1p(compactEdgesKernel, 2, edgeIndicesNonCompactBuffer);
+        clSetKernelArg1p(compactEdgesKernel, 3, compactActiveEdgesBuffer);
+
+        PointerBuffer globalWorkEdgeBufferSize = BufferUtils.createPointerBuffer(1);
+        globalWorkSize.put(0, edgeBufferSize);
+        errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), compactEdgesKernel, 1, null, globalWorkEdgeBufferSize, null, null, null);
+        OCLUtils.checkCLError(errcode);
+        field.setEdgeIndices(compactActiveEdgesBuffer);
+
+        field.setNormals(CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_WRITE_ONLY, field.getNumEdges() * 4 * 4, ctx.getErrcode_ret()));
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        int sampleScale = field.getSize() / (meshGen.getVoxelsPerChunk() * LEAF_SIZE_SCALE);
+        long kFindInfoKernel = clCreateKernel(meshGen.getFindFieldEdgesProgram(), "FindEdgeIntersectionInfo", ctx.getErrcode_ret());
+        clSetKernelArg4i(kFindInfoKernel, 0, field.getMin().x/LEAF_SIZE_SCALE, field.getMin().y/LEAF_SIZE_SCALE, field.getMin().z/LEAF_SIZE_SCALE, 0);
+        clSetKernelArg1i(kFindInfoKernel, 1, sampleScale);
+        clSetKernelArg1p(kFindInfoKernel, 2, field.getEdgeIndices());
+        clSetKernelArg1p(kFindInfoKernel, 3, field.getNormals());
+
+        PointerBuffer globalWorkNumEdgesSize = BufferUtils.createPointerBuffer(1);
+        globalWorkSize.put(0, field.getNumEdges());
+        errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), kFindInfoKernel, 1, null, globalWorkNumEdgesSize, null, null, null);
+        OCLUtils.checkCLError(errcode);
+
+        CL10.clReleaseMemObject(edgeScanBuffer);
+        CL10.clReleaseKernel(compactEdgesKernel);
+        CL10.clReleaseKernel(kFindInfoKernel);
+        CL10.clReleaseKernel(findFieldEdgesKernel);
+        CL10.clFinish(ctx.getClQueue());
+        return field.getNumEdges();
+    }
+
+    public Vec4f[] getNormals(long normBuffer){
+        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(numEdges * 4);
+        CL10.clEnqueueReadBuffer(ctx.getClQueue(), normBuffer, true, 0, resultBuff, null, null);
+        Vec4f[] normalsBuffer = new Vec4f[numEdges];
+        for (int i = 0; i < resultBuff.capacity(); i++) {
+            Vec4f normal = new Vec4f();
+            normal.x = resultBuff.get(i);
+            normal.y = resultBuff.get(i);
+            normal.z = resultBuff.get(i);
+            normal.w = resultBuff.get(i);
+            int index = i/4;
+            normalsBuffer[index] = normal;
+        }
+        return normalsBuffer;
+    }
+
+    public int[] getEdgeIndicesCompact(long compactEdgeIndicates){
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(numEdges);
+        CL10.clEnqueueReadBuffer(ctx.getClQueue(), compactEdgeIndicates, true, 0, resultBuff,
+                null, null);
+        int[] returnBuffer = new int[numEdges];
+        resultBuff.get(returnBuffer);
+        return returnBuffer;
+    }
+
+    public int[] getEdgeOccupancyBuffer(){
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(edgeBufferSize);
+        CL10.clEnqueueReadBuffer(ctx.getClQueue(), edgeOccupancyBuffer, true, 0, resultBuff,
+                null, null);
+        int[] returnBuffer = new int[edgeBufferSize];
+        resultBuff.get(returnBuffer);
+        CL10.clReleaseMemObject(edgeOccupancyBuffer);
+        int count = 0;
+        for (int i=0; i<edgeBufferSize; i++){
+            if(returnBuffer[i]==1){
+                ++count;
+            }
+        }
+        System.out.println(count);
+        return returnBuffer;
+    }
+
+    public int[] getEdgeIndicesNonCompactBuffer(){
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(edgeBufferSize);
+        CL10.clEnqueueReadBuffer(ctx.getClQueue(), edgeIndicesNonCompactBuffer, true, 0, resultBuff,
+                null, null);
+        int[] returnBuffer = new int[edgeBufferSize];
+        resultBuff.get(returnBuffer);
+        CL10.clReleaseMemObject(edgeIndicesNonCompactBuffer);
+        return returnBuffer;
+    }
+}

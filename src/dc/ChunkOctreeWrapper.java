@@ -10,6 +10,7 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
+import dc.impl.LevenLinearOpenCLOctreeImpl;
 import dc.impl.TransitionLinearOctreeImpl;
 import dc.impl.opencl.MeshGenerationContext;
 import dc.impl.opencl.OCLUtils;
@@ -19,7 +20,7 @@ import dc.utils.RenderDebugCmdBuffer;
 
 import java.util.List;
 
-import static dc.ChunkOctree.CLIPMAP_LEAF_SIZE;
+import static dc.ChunkOctree.*;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 
@@ -36,8 +37,14 @@ public class ChunkOctreeWrapper extends GameObject {
         //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
         //chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
         meshGen = new MeshGenerationContext(OCLUtils.getOpenCLContext());
+        meshGen.setVoxelsPerChunk(VOXELS_PER_CHUNK);
+        meshGen.setHermiteIndexSize(meshGen.getVoxelsPerChunk() + 1);
+        meshGen.setFieldSize(meshGen.getHermiteIndexSize() + 1);
+        meshGen.setIndexShift(log2(VOXELS_PER_CHUNK) + 1);
+        meshGen.setIndexMask((1 << meshGen.getIndexShift()) - 1);
         meshGen.createContext();
-        chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl(meshGen));
+        //chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl(meshGen));
+        chunkOctree = new ChunkOctree(new LevenLinearOpenCLOctreeImpl(meshGen));
         //chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
     }
 

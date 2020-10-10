@@ -1,0 +1,36 @@
+origin: https://github.com/nchong/scan
+
+Предположим, у вас есть группа потоков, каждый из которых производит произвольное количество выходных данных.
+thread 0 outputs 3 values (a,b,c)
+thread 1 outputs 0 values ()
+thread 2 outputs 2 values (i,j)
+thread 3 outputs 1 values (x).
+
+В настоящее время точно неизвестно, сколько значений будет генерировать поток (но вы знаете, сколько всего будет создано, в данном случае 6).
+Вы хотите сохранить эти выходные данные в непрерывном массиве:
+      0   1   2   3   4   5
+    +---+---+---+---+---+---+
+    | a | b | c | i | j | x |
+    +---+---+---+---+---+---+
+Как это сделать? Вам нужна эксклюзивная операция сканирования!
+берем массив, содержащий количество выходов для каждого потока:
+     t0  t1  t2  t3
+    +---+---+---+---+
+    | 3 | 0 | 2 | 1 |
+    +---+---+---+---+
+Операция монопольного сканирования вычисляет для каждого индекса i сумму предшествующих ему элементов.
+То есть для нашего примера:
+     t0  t1  t2  t3
+    +---+---+---+---+
+    | 0 | 3 | 3 | 5 |
+    +---+---+---+---+
+Это именно то смещение в нашем непрерывном массиве, которое каждый поток должен записать.
+Оказывается, это очень полезная операция (см. Blelloch [2]), и ее можно хорошо использовать для всех видов добра.
+К счастью, существуют эффективные алгоритмы для параллельного вычисления данных операций.
+
+ПОДРОБНЕЕ
+--------
+http://en.wikipedia.org/wiki/Prefix_sum
+[0] HARRIS [Parallel Prefix Sum (Scan) with CUDA](http://developer.download.nvidia.com/compute/cuda/1_1/Website/projects/scan/doc/scan.pdf)
+[1] SENGUPTA ET AL [Scan Primitives for GPU Computing](http://www.google.co.uk/url?sa=t&source=web&cd=1&ved=0CCgQFjAA&url=http%3A%2F%2Fciteseer.ist.psu.edu%2Fviewdoc%2Fdownload%3Bjsessionid%3D1190FF7DA52704424448D3AFDDF1AE40%3Fdoi%3D10.1.1.131.3326%26rep%3Drep1%26type%3Dpdf&ei=CpOMTqa4HoWWhQfRoIHgAw&usg=AFQjCNHqpkKwQMHosfwVNEmWm1dFI9CM0g)
+[2] BLELLOCH [Prefix Sums and Their Applications](http://citeseerx.ist.psu.edu/viewdoc/download?doi=10.1.1.128.6230&rep=rep1&type=pdf)
