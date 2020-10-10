@@ -72,6 +72,7 @@ public class Camera {
 		previousViewMatrix = new Matrix4f().Zero();
 		viewProjectionMatrix = new Matrix4f().Zero();
 		previousViewProjectionMatrix = new Matrix4f().Zero();
+		initfrustum();
 	}
 	
 	private Camera(Vec3f position, Vec3f forward, Vec3f up)

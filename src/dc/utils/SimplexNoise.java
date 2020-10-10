@@ -18,7 +18,12 @@ package dc.utils;
  *
  */
 
+import core.math.Vec2f;
+
 public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
+	static final float RIDGED_MULTI_H = 1.f;
+	static final float NOISE_SCALE =  1.f;
+
 	private static Grad grad3[] = { new Grad(1, 1, 0), new Grad(-1, 1, 0),
 			new Grad(1, -1, 0), new Grad(-1, -1, 0), new Grad(1, 0, 1),
 			new Grad(-1, 0, 1), new Grad(1, 0, -1), new Grad(-1, 0, -1),
@@ -99,7 +104,7 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 	}
 
 	// 2D simplex noise
-	public static double noise(double xin, double yin) {
+	private static double noise(double xin, double yin) {
 		double n0, n1, n2; // Noise contributions from the three corners
 		// Skew the input space to determine which simplex cell we're in
 		double s = (xin + yin) * F2; // Hairy factor for 2D
@@ -467,5 +472,77 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 			this.z = z;
 			this.w = w;
 		}
+	}
+
+	public static float Terrain(Vec2f position) {
+		Vec2f p = position.mul(1.f / 2000.f);
+
+		float ridged = 0.8f * RidgedMultiFractal(7, 2.114352f, /*gain=*/1.5241f, /*offset=*/1.f, p);
+		ridged = VoxelHelperUtils.clamp(ridged, 0.f, 1.f);
+
+		float billow = 0.6f * BasicFractal(4, 0.24f, 1.8754f, 0.433f, p.mul(new Vec2f(-4.33f, 7.98f)));
+		billow = (0.5f * billow) + 0.5f;
+
+		float noise = billow * ridged;
+
+		float b2 = 0.6f * BasicFractal(2, 0.63f, 2.2f, 0.15f, p);
+		b2 = (b2 * 0.5f) + 0.5f;
+		noise += b2;
+
+		//	return 0.1;
+		return noise;
+	}
+
+	public static float BasicFractal(int octaves, float frequency, float lacunarity, float persistence, Vec2f position) {
+		float SCALE = 1.0f / 128.0f;
+		//Vec2f p = position.mul(NOISE_SCALE);
+		Vec2f p = position.mul(SCALE);
+		float noise = 0.f;
+
+		float amplitude = 1.f;
+		p = p.mul(frequency);
+
+		for (int i = 0; i < octaves; i++) {
+			noise += noise(p.X, p.Y) * amplitude;
+			p = p.mul(lacunarity);
+			amplitude *= persistence;
+		}
+
+		// move into (0, 1) range
+		//return noise;
+  		return 0.5f + (0.5f * noise);
+	}
+
+	private static float RidgedMultiFractal(int octaves, float lacunarity, float gain, float offset, Vec2f position) {
+		Vec2f p = position.mul(NOISE_SCALE);
+
+		float signal = (float) noise(p.X, p.Y);
+		signal = Math.abs(signal);
+		signal = offset - signal;
+		signal *= signal;
+
+		float noise = signal;
+		float weight = 1.f;
+		float frequency = 1.f;
+
+		for (int i = 0; i < octaves; i++) {
+			p = p.mul(lacunarity);
+
+			weight = signal * gain;
+			weight = VoxelHelperUtils.clamp(weight, 0.f, 1.f);
+
+			signal = (float) noise(p.X, p.Y);
+			signal = Math.abs(signal);
+			signal = offset - signal;
+			signal *= weight;
+
+  		 	float exponent = (float) Math.pow(frequency, -1.f * RIDGED_MULTI_H);
+			frequency *= lacunarity;
+
+			noise += signal * exponent;
+		}
+
+		noise *= (1.f / octaves);
+		return noise;
 	}
 }

@@ -78,6 +78,7 @@ public class ChunkOctree {
         this.voxelOctree = voxelOctree;
         service = Executors.newFixedThreadPool(1);
         buildChunkOctree();
+        update(Camera.getInstance());
     }
 
     public static int log2(int N) {
@@ -110,8 +111,8 @@ public class ChunkOctree {
         if (Files.notExists(path)) {
             for (int z = 0; z < root.size; z++) {
                 for (int x = 0; x < root.size; x++) {
-                    float t = Density.FractalNoise(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
-                    densityField[x + z * root.size] = t;
+                    //densityField[x + z * root.size] = SimplexNoise.BasicFractal(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
+                    densityField[x + z * root.size] = SimplexNoise.Terrain(new Vec2f(x - (root.size / 2), z - (root.size / 2)));
                 }
             }
             ImageLoader.saveImageToFloat(densityField, filename);
@@ -197,7 +198,7 @@ public class ChunkOctree {
          */
     }
 
-    public void update(Camera cam, boolean multiTread){
+    public void updateNonBlocked(Camera cam, boolean multiTread){
         this.camera = cam;
         if (multiTread) {
             service.submit(() -> update(camera));
