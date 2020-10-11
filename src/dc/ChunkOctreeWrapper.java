@@ -11,13 +11,15 @@ import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
 import dc.impl.LevenLinearOpenCLOctreeImpl;
-import dc.impl.TransitionLinearOctreeImpl;
-import dc.impl.opencl.MeshGenerationContext;
+import dc.impl.opencl.KernelNames;
+import dc.impl.opencl.KernelsHolder;
 import dc.impl.opencl.OCLUtils;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.RenderDebugCmdBuffer;
 
+import java.io.File;
+import java.nio.file.Paths;
 import java.util.List;
 
 import static dc.ChunkOctree.*;
@@ -26,9 +28,36 @@ import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
     private final ChunkOctree chunkOctree;
-    private MeshGenerationContext meshGen;
+    private final KernelsHolder kernelHolder;
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
+
+    StringBuilder createMainBuildOptions(){
+        StringBuilder buildOptions = new StringBuilder();
+        buildOptions.append("-cl-denorms-are-zero ");
+        buildOptions.append("-cl-finite-math-only ");
+        buildOptions.append("-cl-no-signed-zeros ");
+        buildOptions.append("-cl-fast-relaxed-math ");
+        buildOptions.append("-Werror ");
+
+        int indexShift = log2(VOXELS_PER_CHUNK) + 1;
+        int hermiteIndexSize = VOXELS_PER_CHUNK + 1;
+        int fieldSize = hermiteIndexSize + 1;
+        int indexMask = (1 << indexShift) - 1;
+
+        buildOptions.append("-DFIELD_DIM=").append(fieldSize).append(" ");
+        buildOptions.append("-DFIND_EDGE_INFO_STEPS=" + 16 + " ");
+        buildOptions.append("-DFIND_EDGE_INFO_INCREMENT=" + (1.f/16.f) + " ");
+        buildOptions.append("-DVOXELS_PER_CHUNK=").append(VOXELS_PER_CHUNK).append(" ");
+        buildOptions.append("-DVOXEL_INDEX_SHIFT=").append(indexShift).append(" ");
+        buildOptions.append("-DVOXEL_INDEX_MASK=").append(indexMask).append(" ");
+        buildOptions.append("-DHERMITE_INDEX_SIZE=").append(hermiteIndexSize).append(" ");
+        File file = new File(Paths.get("res/opencl/scan.cl").toUri());
+        if(file.exists()){
+            buildOptions.append("-I ").append(file.getParent());
+        }
+        return buildOptions;
+    }
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
@@ -36,15 +65,13 @@ public class ChunkOctreeWrapper extends GameObject {
         //computeShaderTest.render();
         //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
         //chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
-        meshGen = new MeshGenerationContext(OCLUtils.getOpenCLContext());
-        meshGen.setVoxelsPerChunk(VOXELS_PER_CHUNK);
-        meshGen.setHermiteIndexSize(meshGen.getVoxelsPerChunk() + 1);
-        meshGen.setFieldSize(meshGen.getHermiteIndexSize() + 1);
-        meshGen.setIndexShift(log2(VOXELS_PER_CHUNK) + 1);
-        meshGen.setIndexMask((1 << meshGen.getIndexShift()) - 1);
-        meshGen.createContext();
+        StringBuilder kernelBuildOptions = createMainBuildOptions();
+        kernelHolder = new KernelsHolder(OCLUtils.getOpenCLContext());
+        kernelHolder.buildKernel(KernelNames.DENSITY, kernelBuildOptions);
+        kernelHolder.buildKernel(KernelNames.FIND_DEFAULT_EDGES, kernelBuildOptions);
+        kernelHolder.buildKernel(KernelNames.SCAN, null);
         //chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl(meshGen));
-        chunkOctree = new ChunkOctree(new LevenLinearOpenCLOctreeImpl(meshGen));
+        chunkOctree = new ChunkOctree(new LevenLinearOpenCLOctreeImpl(kernelHolder));
         //chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
     }
 
@@ -77,7 +104,7 @@ public class ChunkOctreeWrapper extends GameObject {
     }
 
     public void cleanUp(){
-        meshGen.destroyContext();
+        kernelHolder.destroyContext();
         chunkOctree.clean();
     }
 

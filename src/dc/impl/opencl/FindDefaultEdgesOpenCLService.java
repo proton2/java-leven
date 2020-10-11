@@ -23,14 +23,14 @@ public final class FindDefaultEdgesOpenCLService {
         this.ctx = computeContext;
     }
 
-    public int run(MeshGenerationContext meshGen, GPUDensityField field) {
-        edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
+    public int run(KernelsHolder kernels, GPUDensityField field, int voxelPerChunk, int hermiteIndexSize) {
+        edgeBufferSize = hermiteIndexSize * hermiteIndexSize * hermiteIndexSize * 3;
         edgeOccupancyBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         edgeIndicesNonCompactBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
-        long findFieldEdgesKernel = clCreateKernel(meshGen.getFindFieldEdgesProgram(), "FindFieldEdges", ctx.getErrcode_ret());
+        long findFieldEdgesKernel = clCreateKernel(kernels.getKernel(KernelNames.FIND_DEFAULT_EDGES), "FindFieldEdges", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         clSetKernelArg1p(findFieldEdgesKernel, 0, field.getMaterials());
         clSetKernelArg1p(findFieldEdgesKernel, 1, edgeOccupancyBuffer);
@@ -38,9 +38,9 @@ public final class FindDefaultEdgesOpenCLService {
 
         final int dimensions = 3;
         PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(dimensions);
-        globalWorkSize.put(0, meshGen.getHermiteIndexSize());
-        globalWorkSize.put(1, meshGen.getHermiteIndexSize());
-        globalWorkSize.put(2, meshGen.getHermiteIndexSize());
+        globalWorkSize.put(0, hermiteIndexSize);
+        globalWorkSize.put(1, hermiteIndexSize);
+        globalWorkSize.put(2, hermiteIndexSize);
 
         // Run the specified number of work units using our OpenCL program kernel
         int errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), findFieldEdgesKernel, dimensions, null, globalWorkSize, null, null, null);
@@ -48,7 +48,7 @@ public final class FindDefaultEdgesOpenCLService {
 
         long edgeScanBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        numEdges = scanOpenCLService.exclusiveScan(meshGen.getScanProgram(), edgeOccupancyBuffer, edgeScanBuffer, edgeBufferSize);
+        numEdges = scanOpenCLService.exclusiveScan(kernels.getKernel(KernelNames.SCAN), edgeOccupancyBuffer, edgeScanBuffer, edgeBufferSize);
         field.setNumEdges(numEdges);
         if (field.getNumEdges() < 0) {
             System.out.println("FindDefaultEdges: ExclusiveScan error=%d\n" + field.getNumEdges());
@@ -59,7 +59,7 @@ public final class FindDefaultEdgesOpenCLService {
         }
 
         long compactActiveEdgesBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, field.getNumEdges() * 4, ctx.getErrcode_ret());
-        long compactEdgesKernel = clCreateKernel(meshGen.getFindFieldEdgesProgram(), "CompactEdges", ctx.getErrcode_ret());
+        long compactEdgesKernel = clCreateKernel(kernels.getKernel(KernelNames.FIND_DEFAULT_EDGES), "CompactEdges", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         clSetKernelArg1p(compactEdgesKernel, 0, edgeOccupancyBuffer);
@@ -76,8 +76,8 @@ public final class FindDefaultEdgesOpenCLService {
         field.setNormals(CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_WRITE_ONLY, field.getNumEdges() * 4 * 4, ctx.getErrcode_ret()));
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
-        int sampleScale = field.getSize() / (meshGen.getVoxelsPerChunk() * LEAF_SIZE_SCALE);
-        long kFindInfoKernel = clCreateKernel(meshGen.getFindFieldEdgesProgram(), "FindEdgeIntersectionInfo", ctx.getErrcode_ret());
+        int sampleScale = field.getSize() / (voxelPerChunk * LEAF_SIZE_SCALE);
+        long kFindInfoKernel = clCreateKernel(kernels.getKernel(KernelNames.FIND_DEFAULT_EDGES), "FindEdgeIntersectionInfo", ctx.getErrcode_ret());
         clSetKernelArg4i(kFindInfoKernel, 0, field.getMin().x/LEAF_SIZE_SCALE, field.getMin().y/LEAF_SIZE_SCALE, field.getMin().z/LEAF_SIZE_SCALE, 0);
         clSetKernelArg1i(kFindInfoKernel, 1, sampleScale);
         clSetKernelArg1p(kFindInfoKernel, 2, field.getEdgeIndices());

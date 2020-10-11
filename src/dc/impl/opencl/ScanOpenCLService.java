@@ -9,7 +9,7 @@ import java.nio.IntBuffer;
 import static org.lwjgl.opencl.CL10.*;
 
 public final class ScanOpenCLService {
-    private ComputeContext ctx;
+    private final ComputeContext ctx;
 
     public ScanOpenCLService(ComputeContext ctx) {
         this.ctx = ctx;
@@ -65,9 +65,7 @@ public final class ScanOpenCLService {
         int err = clEnqueueNDRangeKernel(ctx.getClQueue(), localScanKernel, dimensions, null, globWorkSize, locWorkSize, null, null);
         OCLUtils.checkCLError(err);
 
-        CL10.clFinish(ctx.getClQueue());
-
-        getIntBuffer(scanData, count);
+        //getIntBuffer(scanData, count);
         getIntBuffer(blockSizeScratchBuffer, blockSize);
         CL10.clReleaseMemObject(blockSizeScratchBuffer);
 

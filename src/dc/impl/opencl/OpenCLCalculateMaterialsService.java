@@ -19,9 +19,9 @@ public final class OpenCLCalculateMaterialsService {
         this.ctx = computeContext;
     }
 
-    public void run(MeshGenerationContext meshGen, int sampleScale, int[] result, GPUDensityField field) {
+    public void run(KernelsHolder kernels, int sampleScale, int[] result, GPUDensityField field) {
         // init kernel with constants
-        clKernel = clCreateKernel(meshGen.getDensityProgram(), "GenerateDefaultField", ctx.getErrcode_ret());
+        clKernel = clCreateKernel(kernels.getKernel(KernelNames.DENSITY), "GenerateDefaultField", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         createMemory(field);

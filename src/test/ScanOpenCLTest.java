@@ -1,14 +1,10 @@
 package test;
 
-import dc.impl.opencl.ComputeContext;
-import dc.impl.opencl.MeshGenerationContext;
-import dc.impl.opencl.OCLUtils;
-import dc.impl.opencl.ScanOpenCLService;
+import dc.impl.opencl.*;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.opencl.CL;
 import org.lwjgl.opencl.CL10;
 
-import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
 import static dc.ChunkOctree.VOXELS_PER_CHUNK;
@@ -17,18 +13,34 @@ import static org.lwjgl.opencl.CL10.CL_MEM_READ_WRITE;
 
 public final class ScanOpenCLTest {
 
+    StringBuilder createScanOpenCLTestBuildOptions(){
+        int indexShift = log2(VOXELS_PER_CHUNK) + 1;
+        int hermiteIndexSize = VOXELS_PER_CHUNK + 1;
+        int fieldSize = hermiteIndexSize + 1;
+        int indexMask = (1 << indexShift) - 1;
+
+        StringBuilder buildOptions = new StringBuilder();
+        buildOptions.append("-cl-denorms-are-zero ");
+        buildOptions.append("-cl-finite-math-only ");
+        buildOptions.append("-cl-no-signed-zeros ");
+        buildOptions.append("-cl-fast-relaxed-math ");
+        buildOptions.append("-Werror ");
+        buildOptions.append("-DFIELD_DIM=").append(fieldSize).append(" ");
+        buildOptions.append("-DFIND_EDGE_INFO_STEPS=" + 16 + " ");
+        buildOptions.append("-DFIND_EDGE_INFO_INCREMENT=" + (1.f/16.f) + " ");
+        buildOptions.append("-DVOXELS_PER_CHUNK=").append(VOXELS_PER_CHUNK).append(" ");
+        buildOptions.append("-DVOXEL_INDEX_SHIFT=").append(indexShift).append(" ");
+        buildOptions.append("-DVOXEL_INDEX_MASK=").append(indexMask).append(" ");
+        buildOptions.append("-DHERMITE_INDEX_SIZE=").append(hermiteIndexSize).append(" ");
+        return buildOptions;
+    }
+
     public void run() {
         ComputeContext ctx = OCLUtils.getOpenCLContext();
+        KernelsHolder meshGen = new KernelsHolder(ctx);
+        meshGen.buildKernel(KernelNames.SCAN, createScanOpenCLTestBuildOptions());
 
-        MeshGenerationContext meshGen = new MeshGenerationContext(ctx);
-        meshGen.setVoxelsPerChunk(VOXELS_PER_CHUNK);
-        meshGen.setHermiteIndexSize(meshGen.getVoxelsPerChunk() + 1);
-        meshGen.setFieldSize(meshGen.getHermiteIndexSize() + 1);
-        meshGen.setIndexShift(log2(VOXELS_PER_CHUNK) + 1);
-        meshGen.setIndexMask((1 << meshGen.getIndexShift()) - 1);
-        meshGen.createContext();
-
-        int[] inputArray = {0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1};
+        int[] inputArray = {0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1};
         IntBuffer intBuffer = getIntBuffer(inputArray);
         long inputData = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE | CL10.CL_MEM_COPY_HOST_PTR, intBuffer, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -36,7 +48,7 @@ public final class ScanOpenCLTest {
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         ScanOpenCLService scanOpenCLService = new ScanOpenCLService(ctx);
-        int numEdges = scanOpenCLService.exclusiveScan(meshGen.getScanProgram(), inputData, scanData, inputArray.length);
+        int numEdges = scanOpenCLService.exclusiveScan(meshGen.getKernel(KernelNames.SCAN), inputData, scanData, inputArray.length);
         System.out.println(numEdges);
         int[] outputArray = scanOpenCLService.getIntBuffer(scanData, inputArray.length);
         System.out.println(outputArray);

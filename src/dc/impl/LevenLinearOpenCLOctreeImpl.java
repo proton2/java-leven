@@ -14,7 +14,6 @@ import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
 import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
-import org.lwjgl.opencl.CL10;
 
 import java.util.HashMap;
 import java.util.List;
@@ -36,10 +35,10 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
     public static int hermiteIndexSize = VOXELS_PER_CHUNK + 1;
     public static int fieldSize = hermiteIndexSize + 1;
 
-    private final MeshGenerationContext meshGenerationContext;
+    private final KernelsHolder kernels;
 
-    public LevenLinearOpenCLOctreeImpl(MeshGenerationContext meshGenerationContext) {
-        this.meshGenerationContext = meshGenerationContext;
+    public LevenLinearOpenCLOctreeImpl(KernelsHolder meshGenerationContext) {
+        this.kernels = meshGenerationContext;
     }
 
     @Override
@@ -56,10 +55,10 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         field.setMin(chunkMin);
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, fieldSize);
-        calculateMaterialsService.run(meshGenerationContext,chunkSize / voxelsPerChunk, materials, field);
+        calculateMaterialsService.run(kernels,chunkSize / voxelsPerChunk, materials, field);
 
 //        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, new ScanOpenCLService(ctx));
-//        int compactEdgesSize = findDefEdges.run(meshGenerationContext, field);
+//        int compactEdgesSize = findDefEdges.run(kernels, field, VOXELS_PER_CHUNK, hermiteIndexSize);
 //        if(compactEdgesSize==0){
 //            return false;
 //        }
