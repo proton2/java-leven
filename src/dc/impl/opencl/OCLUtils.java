@@ -3,6 +3,7 @@ package dc.impl.opencl;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL;
+import org.lwjgl.opencl.CL10;
 import org.lwjgl.opencl.CLCapabilities;
 import org.lwjgl.opencl.CLContextCallback;
 import org.lwjgl.system.MemoryStack;
@@ -176,6 +177,13 @@ public class OCLUtils {
             openCLContext = createOpenCLContext();
         }
         return openCLContext;
+    }
+
+    public static long getMaxWorkGroupSize(long kernel) {
+        ByteBuffer rkwgs = BufferUtils.createByteBuffer(8);
+        int err = CL10.clGetKernelWorkGroupInfo(kernel, openCLContext.getClDevice(), CL10.CL_KERNEL_WORK_GROUP_SIZE, rkwgs, null);
+        OCLUtils.checkCLError(err);
+        return rkwgs.getLong(0);
     }
 
     private static ComputeContext createOpenCLContext(){
@@ -367,5 +375,34 @@ public class OCLUtils {
 
     public static void printDeviceInfo(long device, String param_name, int param) {
         System.out.println("\t" + param_name + " = " + getDeviceInfoStringUTF8(device, param));
+    }
+
+    public static IntBuffer getIntBuffer(int[] inputArray) {
+        IntBuffer aBuff = BufferUtils.createIntBuffer(inputArray.length);
+        aBuff.put(inputArray);
+        aBuff.rewind();
+        return aBuff;
+    }
+
+    public static void getIntBuffer(long buffer, int[] returnBuffer){
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(returnBuffer.length);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        OCLUtils.checkCLError(err);
+        resultBuff.get(returnBuffer);
+    }
+
+    public static int[] getIntBuffer(long buffer, int size){
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(size);
+        CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        int[] returnBuffer = new int[size];
+        resultBuff.get(returnBuffer);
+        int count = 0;
+        for (int i=0; i<size; i++){
+            if(returnBuffer[i]==1){
+                ++count;
+            }
+        }
+        System.out.println(count);
+        return returnBuffer;
     }
 }

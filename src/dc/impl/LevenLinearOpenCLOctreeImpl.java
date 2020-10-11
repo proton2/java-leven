@@ -57,17 +57,18 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, fieldSize);
         calculateMaterialsService.run(kernels,chunkSize / voxelsPerChunk, materials, field);
 
-//        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, new ScanOpenCLService(ctx));
-//        int compactEdgesSize = findDefEdges.run(kernels, field, VOXELS_PER_CHUNK, hermiteIndexSize);
-//        if(compactEdgesSize==0){
-//            return false;
-//        }
+        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, new ScanOpenCLService(ctx));
+        int compactEdgesSize = findDefEdges.run(kernels, field, VOXELS_PER_CHUNK, hermiteIndexSize);
+        if(compactEdgesSize==0){
+            return false;
+        }
 
         int edgeBufferSize = hermiteIndexSize * hermiteIndexSize * hermiteIndexSize * 3;
         boolean[] edgeOccupancy = new boolean[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
         //////////////////////////////
-        int compactEdgesSize = FindFieldEdges(materials, edgeOccupancy, edgeIndicesNonCompact);
+        //int
+                compactEdgesSize = FindFieldEdges(materials, edgeOccupancy, edgeIndicesNonCompact);
         if(compactEdgesSize==0){
             return false;
         }

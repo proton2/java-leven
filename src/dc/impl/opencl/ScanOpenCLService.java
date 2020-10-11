@@ -66,7 +66,7 @@ public final class ScanOpenCLService {
         OCLUtils.checkCLError(err);
 
         //getIntBuffer(scanData, count);
-        getIntBuffer(blockSizeScratchBuffer, blockSize);
+        OCLUtils.getIntBuffer(blockSizeScratchBuffer, blockSize);
         CL10.clReleaseMemObject(blockSizeScratchBuffer);
 
         if (blockCount > 1) {
@@ -83,21 +83,6 @@ public final class ScanOpenCLService {
         }
         CL10.clReleaseKernel(localScanKernel);
         CL10.clReleaseMemObject(blockSumsBuffer);
-    }
-
-    public int[] getIntBuffer(long buffer, int size){
-        IntBuffer resultBuff = BufferUtils.createIntBuffer(size);
-        CL10.clEnqueueReadBuffer(ctx.getClQueue(), buffer, true, 0, resultBuff, null, null);
-        int[] returnBuffer = new int[size];
-        resultBuff.get(returnBuffer);
-        int count = 0;
-        for (int i=0; i<size; i++){
-            if(returnBuffer[i]==1){
-                ++count;
-            }
-        }
-        System.out.println(count);
-        return returnBuffer;
     }
 
     private void printResults(long buffer, int size) {

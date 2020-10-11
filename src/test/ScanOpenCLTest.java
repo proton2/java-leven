@@ -41,7 +41,7 @@ public final class ScanOpenCLTest {
         meshGen.buildKernel(KernelNames.SCAN, createScanOpenCLTestBuildOptions());
 
         int[] inputArray = {0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1};
-        IntBuffer intBuffer = getIntBuffer(inputArray);
+        IntBuffer intBuffer = OCLUtils.getIntBuffer(inputArray);
         long inputData = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE | CL10.CL_MEM_COPY_HOST_PTR, intBuffer, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         long scanData = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, inputArray.length * 4, ctx.getErrcode_ret());
@@ -50,18 +50,11 @@ public final class ScanOpenCLTest {
         ScanOpenCLService scanOpenCLService = new ScanOpenCLService(ctx);
         int numEdges = scanOpenCLService.exclusiveScan(meshGen.getKernel(KernelNames.SCAN), inputData, scanData, inputArray.length);
         System.out.println(numEdges);
-        int[] outputArray = scanOpenCLService.getIntBuffer(scanData, inputArray.length);
+        int[] outputArray = OCLUtils.getIntBuffer(scanData, inputArray.length);
         System.out.println(outputArray);
 
         meshGen.destroyContext();
         CL.destroy();
-    }
-
-    private IntBuffer getIntBuffer(int[] inputArray) {
-        IntBuffer aBuff = BufferUtils.createIntBuffer(inputArray.length);
-        aBuff.put(inputArray);
-        aBuff.rewind();
-        return aBuff;
     }
 
     public static void main(String... args) {
