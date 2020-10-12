@@ -182,11 +182,7 @@ public final class NVidiaScanOpenCLService {
     void scanExclusiveLocal1(long d_Dst, long d_Src, int n, int size){
         clSetKernelArg1p(ckScanExclusiveLocal1, 0, d_Dst);
         clSetKernelArg1p(ckScanExclusiveLocal1, 1, d_Src);
-
-        long l_Data = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, 2 * WORKGROUP_SIZE * 4, ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
-        clSetKernelArg1p(ckScanExclusiveLocal1, 2, l_Data);
-
+        clSetKernelArg(ckScanExclusiveLocal1, 2, 2 * WORKGROUP_SIZE * 4);
         clSetKernelArg1i(ckScanExclusiveLocal1, 3, size);
 
         PointerBuffer localWorkSize = BufferUtils.createPointerBuffer(1).put(0, WORKGROUP_SIZE);
@@ -200,11 +196,7 @@ public final class NVidiaScanOpenCLService {
         clSetKernelArg1p(ckScanExclusiveLocal2, 0, d_Buffer);
         clSetKernelArg1p(ckScanExclusiveLocal2, 1, d_Dst);
         clSetKernelArg1p(ckScanExclusiveLocal2, 2, d_Src);
-
-        long l_Data = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, 2 * WORKGROUP_SIZE * 4, ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
-        clSetKernelArg1p(ckScanExclusiveLocal2, 3, l_Data);
-
+        clSetKernelArg(ckScanExclusiveLocal2, 3, 2 * WORKGROUP_SIZE * 4);
         clSetKernelArg1i(ckScanExclusiveLocal2, 4, elements);
         clSetKernelArg1i(ckScanExclusiveLocal2, 5, size);
 

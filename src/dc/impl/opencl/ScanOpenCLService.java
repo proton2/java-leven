@@ -26,8 +26,6 @@ public final class ScanOpenCLService {
         int lastValue = lastValueBuff.get(0);
         int lastScanValue = lastScanValueBuff.get(0);
 
-        //getBuffer(openCLContext, scan, count);
-
         CL10.clFinish(ctx.getClQueue());
         return lastValue + lastScanValue;
     }
@@ -43,17 +41,12 @@ public final class ScanOpenCLService {
         fillBufferInt(scanProgram, ctx.getClQueue(), blockSumsBuffer, blockCount, 0, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
-        //getBuffer(openCLContext, blockSumsBuffer, blockCount);
-
-        long blockSizeScratchBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, blockSize * 4, ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
-
         String scanKernelName = exclusive ? "ExclusiveLocalScan" : "InclusiveLocalScan";
         long localScanKernel = clCreateKernel(scanProgram, scanKernelName, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         clSetKernelArg1p(localScanKernel, 0, blockSumsBuffer);
-        clSetKernelArg1p(localScanKernel, 1, blockSizeScratchBuffer); //clSetKernelArg2i(localScanKernel, 1, blockSize * 4, 0);
+        clSetKernelArg(localScanKernel, 1, blockSize * 4);
         clSetKernelArg1i(localScanKernel, 2, blockSize);
         clSetKernelArg1i(localScanKernel, 3, count);
         clSetKernelArg1p(localScanKernel, 4, data);
@@ -64,10 +57,6 @@ public final class ScanOpenCLService {
         PointerBuffer locWorkSize = BufferUtils.createPointerBuffer(dimensions).put(0, blockSize);
         int err = clEnqueueNDRangeKernel(ctx.getClQueue(), localScanKernel, dimensions, null, globWorkSize, locWorkSize, null, null);
         OCLUtils.checkCLError(err);
-
-        //getIntBuffer(scanData, count);
-        OCLUtils.getIntBuffer(blockSizeScratchBuffer, blockSize);
-        CL10.clReleaseMemObject(blockSizeScratchBuffer);
 
         if (blockCount > 1) {
             scan(scanProgram, blockSumsBuffer, blockSumsBuffer, blockCount, false);
@@ -83,14 +72,6 @@ public final class ScanOpenCLService {
         }
         CL10.clReleaseKernel(localScanKernel);
         CL10.clReleaseMemObject(blockSumsBuffer);
-    }
-
-    private void printResults(long buffer, int size) {
-        IntBuffer resultBuff = BufferUtils.createIntBuffer(size);
-        CL10.clEnqueueReadBuffer(ctx.getClQueue(), buffer, true, 0, resultBuff, null, null);
-        for (int i = 0; i < resultBuff.capacity(); i++) {
-            System.out.println("result at " + i + " = " + resultBuff.get(i));
-        }
     }
 
     private void fillBufferInt(long scanProgram, long clQueue, long buffer, int count, int value, IntBuffer errcode_ret) {

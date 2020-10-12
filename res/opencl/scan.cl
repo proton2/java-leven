@@ -10,36 +10,35 @@ kernel void FillBufferInt(
 }
 
 kernel void ExclusiveLocalScan(
-	global int* block_sums, 
-	global int* scratch,
-	const uint block_size, 
-	const uint count, 
-	global int* data, 
+	global int* block_sums,
+	local int* scratch,
+	const uint block_size,
+	const uint count,
+	global int* data,
 	global int* scan_data
 	)
 {
-    //__local float scratch[block_size];
 	const uint gid = get_global_id(0);
 	const uint lid = get_local_id(0);
 
 	if (gid < count)
 	{
 		if (lid == 0)
-		{ 
+		{
 			scratch[lid] = 0;
 		}
-		else 
-		{ 
-			scratch[lid] = data[gid-1]; 
+		else
+		{
+			scratch[lid] = data[gid-1];
 		}
 	}
-	else 
+	else
 	{
 		scratch[lid] = 0;
 	}
 
 	barrier(CLK_LOCAL_MEM_FENCE);
-	
+
 	for (uint i = 1; i < block_size; i <<= 1)
 	{
 		const int x = lid >= i ? scratch[lid-i] : 0;
@@ -68,8 +67,8 @@ kernel void ExclusiveLocalScan(
 // ---------------------------------------------------------------------------
 
 kernel void InclusiveLocalScan(
-	global int* block_sums, 
-	global int* scratch,
+	global int* block_sums,
+	local int* scratch,
 	const uint block_size, 
 	const uint count, 
 	global int* data,

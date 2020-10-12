@@ -405,4 +405,12 @@ public class OCLUtils {
         System.out.println(count);
         return returnBuffer;
     }
+
+    public static void printResults(long buffer, int size) {
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(size);
+        CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        for (int i = 0; i < resultBuff.capacity(); i++) {
+            System.out.println("result at " + i + " = " + resultBuff.get(i));
+        }
+    }
 }

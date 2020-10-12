@@ -24,7 +24,7 @@
     //Allocate 2 * 'size' local memory, initialize the first half
     //with 'size' zeros avoiding if(pos >= offset) condition evaluation
     //and saving instructions
-    inline uint scan1Inclusive(uint idata, __global uint *l_Data, uint size){
+    inline uint scan1Inclusive(uint idata, __local uint *l_Data, uint size){
         uint pos = 2 * get_local_id(0) - (get_local_id(0) & (size - 1));
         l_Data[pos] = 0;
         pos += size;
@@ -40,7 +40,7 @@
         return l_Data[pos];
     }
 
-    inline uint scan1Exclusive(uint idata, __global uint *l_Data, uint size){
+    inline uint scan1Exclusive(uint idata, __local uint *l_Data, uint size){
         return scan1Inclusive(idata, l_Data, size) - idata;
     }
 
@@ -50,7 +50,7 @@
 
     //Almost the same as naive scan1Inclusive but doesn't need barriers
     //and works only for size <= WARP_SIZE
-    inline uint warpScanInclusive(uint idata, volatile __global uint *l_Data, uint size){
+    inline uint warpScanInclusive(uint idata, volatile __local uint *l_Data, uint size){
         uint pos = 2 * get_local_id(0) - (get_local_id(0) & (size - 1));
         l_Data[pos] = 0;
         pos += size;
@@ -65,11 +65,11 @@
         return l_Data[pos];
     }
 
-    inline uint warpScanExclusive(uint idata, __global uint *l_Data, uint size){
+    inline uint warpScanExclusive(uint idata, __local uint *l_Data, uint size){
         return warpScanInclusive(idata, l_Data, size) - idata;
     }
 
-    inline uint scan1Inclusive(uint idata, __global uint *l_Data, uint size){
+    inline uint scan1Inclusive(uint idata, __local uint *l_Data, uint size){
         if(size > WARP_SIZE){
             //Bottom-level inclusive warp scan
             uint warpResult = warpScanInclusive(idata, l_Data, WARP_SIZE);
@@ -97,7 +97,7 @@
         }
     }
 
-    inline uint scan1Exclusive(uint idata, __global uint *l_Data, uint size){
+    inline uint scan1Exclusive(uint idata, __local uint *l_Data, uint size){
         return scan1Inclusive(idata, l_Data, size) - idata;
     }
 #endif
@@ -105,7 +105,7 @@
 
 //Vector scan: the array to be scanned is stored
 //in work-item private memory as uint4
-inline uint4 scan4Inclusive(uint4 data4, __global uint *l_Data, uint size){
+inline uint4 scan4Inclusive(uint4 data4, __local uint *l_Data, uint size){
     //Level-0 inclusive scan
     data4.y += data4.x;
     data4.z += data4.y;
@@ -117,7 +117,7 @@ inline uint4 scan4Inclusive(uint4 data4, __global uint *l_Data, uint size){
     return (data4 + (uint4)val);
 }
 
-inline uint4 scan4Exclusive(uint4 data4, __global uint *l_Data, uint size){
+inline uint4 scan4Exclusive(uint4 data4, __local uint *l_Data, uint size){
     return scan4Inclusive(data4, l_Data, size) - data4;
 }
 
@@ -128,7 +128,7 @@ __kernel __attribute__((reqd_work_group_size(WORKGROUP_SIZE, 1, 1)))
 void scanExclusiveLocal1(
     __global uint4 *d_Dst,
     __global uint4 *d_Src,
-    __global uint *l_Data,
+    __local uint *l_Data,
     uint size
 ){
     //Load data
@@ -147,7 +147,7 @@ void scanExclusiveLocal2(
     __global uint *d_Buf,
     __global uint *d_Dst,
     __global uint *d_Src,
-    __global uint *l_Data,
+    __local uint *l_Data,
     uint N,
     uint arrayLength
 ){
@@ -157,7 +157,7 @@ void scanExclusiveLocal2(
     uint data = 0;
     if(get_global_id(0) < N)
     data =
-        d_Dst[(4 * WORKGROUP_SIZE - 1) + (4 * WORKGROUP_SIZE) * get_global_id(0)] + 
+        d_Dst[(4 * WORKGROUP_SIZE - 1) + (4 * WORKGROUP_SIZE) * get_global_id(0)] +
         d_Src[(4 * WORKGROUP_SIZE - 1) + (4 * WORKGROUP_SIZE) * get_global_id(0)];
 
     //Compute
