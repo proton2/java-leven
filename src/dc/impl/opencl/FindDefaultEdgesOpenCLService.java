@@ -48,7 +48,7 @@ public final class FindDefaultEdgesOpenCLService {
 
         long edgeScanBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        numEdges = scanOpenCLService.exclusiveScan(kernels.getKernel(KernelNames.SCAN), edgeOccupancyBuffer, edgeScanBuffer, edgeBufferSize);
+        numEdges = scanOpenCLService.exclusiveScan(edgeOccupancyBuffer, edgeScanBuffer, edgeBufferSize);
         field.setNumEdges(numEdges);
         if (field.getNumEdges() < 0) {
             System.out.println("FindDefaultEdges: ExclusiveScan error=%d\n" + field.getNumEdges());

@@ -10,12 +10,14 @@ import static org.lwjgl.opencl.CL10.*;
 
 public final class ScanOpenCLService {
     private final ComputeContext ctx;
+    private final long scanProgram;
 
-    public ScanOpenCLService(ComputeContext ctx) {
+    public ScanOpenCLService(ComputeContext ctx, long scanProgram) {
+        this.scanProgram = scanProgram;
         this.ctx = ctx;
     }
 
-    public int exclusiveScan(long scanProgram, long data, long scan, int count){
+    public int exclusiveScan(long data, long scan, int count){
         scan(scanProgram, data, scan, count, true);
 
         IntBuffer lastValueBuff = BufferUtils.createIntBuffer(1);

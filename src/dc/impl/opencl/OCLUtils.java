@@ -413,4 +413,10 @@ public class OCLUtils {
             System.out.println("result at " + i + " = " + resultBuff.get(i));
         }
     }
+
+    public static void validateExpression(boolean exp, boolean check, String message){
+        if (exp!=check){
+            throw new RuntimeException(message);
+        }
+    }
 }

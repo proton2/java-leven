@@ -47,8 +47,8 @@ public final class ScanOpenCLTest {
         long scanData = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, inputArray.length * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
-        ScanOpenCLService scanOpenCLService = new ScanOpenCLService(ctx);
-        int numEdges = scanOpenCLService.exclusiveScan(meshGen.getKernel(KernelNames.SCAN), inputData, scanData, inputArray.length);
+        ScanOpenCLService scanOpenCLService = new ScanOpenCLService(ctx, meshGen.getKernel(KernelNames.SCAN));
+        int numEdges = scanOpenCLService.exclusiveScan(inputData, scanData, inputArray.length);
         System.out.println(numEdges);
         int[] outputArray = OCLUtils.getIntBuffer(scanData, inputArray.length);
         System.out.println(outputArray);

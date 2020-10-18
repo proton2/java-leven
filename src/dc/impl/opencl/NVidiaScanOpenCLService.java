@@ -159,10 +159,10 @@ public final class NVidiaScanOpenCLService {
         //
         int log2L = 0;
         int factorizationRemainder = factorRadix2(log2L, arrayLength);
-        validateExpression(factorizationRemainder == 1, true, "Check power-of-two factorization error");
-        validateExpression( (arrayLength >= MIN_SHORT_ARRAY_SIZE) && (arrayLength <= MAX_SHORT_ARRAY_SIZE), true, "Check supported size range error");
-        validateExpression( (batchSize * arrayLength) <= MAX_BATCH_ELEMENTS, true, "Check total batch size limit error");
-        validateExpression( (batchSize * arrayLength) % (4 * WORKGROUP_SIZE) == 0, true, "Check all work-groups to be fully packed with data error");
+        OCLUtils.validateExpression(factorizationRemainder == 1, true, "Check power-of-two factorization error");
+        OCLUtils.validateExpression( (arrayLength >= MIN_SHORT_ARRAY_SIZE) && (arrayLength <= MAX_SHORT_ARRAY_SIZE), true, "Check supported size range error");
+        OCLUtils.validateExpression( (batchSize * arrayLength) <= MAX_BATCH_ELEMENTS, true, "Check total batch size limit error");
+        OCLUtils.validateExpression( (batchSize * arrayLength) % (4 * WORKGROUP_SIZE) == 0, true, "Check all work-groups to be fully packed with data error");
 
         scanExclusiveLocal1(d_Dst, d_Src, batchSize, arrayLength);
     }
@@ -170,9 +170,9 @@ public final class NVidiaScanOpenCLService {
     void scanExclusiveLarge(long d_Dst, long d_Src, int batchSize, int arrayLength) {
         int log2L = 0;
         int factorizationRemainder = factorRadix2(log2L, arrayLength);
-        validateExpression(factorizationRemainder == 1, true, "Check power-of-two factorization");
-        validateExpression((arrayLength >= MIN_LARGE_ARRAY_SIZE) && (arrayLength <= MAX_LARGE_ARRAY_SIZE), true, "Check supported size range");
-        validateExpression((batchSize * arrayLength) <= MAX_BATCH_ELEMENTS, true, "Check total batch size limit");
+        OCLUtils.validateExpression(factorizationRemainder == 1, true, "Check power-of-two factorization");
+        OCLUtils.validateExpression((arrayLength >= MIN_LARGE_ARRAY_SIZE) && (arrayLength <= MAX_LARGE_ARRAY_SIZE), true, "Check supported size range");
+        OCLUtils.validateExpression((batchSize * arrayLength) <= MAX_BATCH_ELEMENTS, true, "Check total batch size limit");
 
         scanExclusiveLocal1(d_Dst, d_Src, (batchSize * arrayLength) / (4 * WORKGROUP_SIZE), 4 * WORKGROUP_SIZE);
         scanExclusiveLocal2(d_Buffer, d_Dst, d_Src, batchSize, arrayLength / (4 * WORKGROUP_SIZE));
@@ -216,12 +216,6 @@ public final class NVidiaScanOpenCLService {
 
         int err = clEnqueueNDRangeKernel(ctx.getClQueue(), ckUniformUpdate, 1, null, globalWorkSize, localWorkSize, null, null);
         OCLUtils.checkCLError(err);
-    }
-
-    void validateExpression(boolean exp, boolean check, String message){
-        if (exp!=check){
-            throw new RuntimeException(message);
-        }
     }
 
     void scanExclusiveHost(int[] dst, int[] src, int batchSize, int arrayLength){
