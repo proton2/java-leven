@@ -59,6 +59,7 @@ public final class FindDefaultEdgesOpenCLService {
         }
 
         long compactActiveEdgesBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, field.getNumEdges() * 4, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
         long compactEdgesKernel = clCreateKernel(kernels.getKernel(KernelNames.FIND_DEFAULT_EDGES), "CompactEdges", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
@@ -68,7 +69,7 @@ public final class FindDefaultEdgesOpenCLService {
         clSetKernelArg1p(compactEdgesKernel, 3, compactActiveEdgesBuffer);
 
         PointerBuffer globalWorkEdgeBufferSize = BufferUtils.createPointerBuffer(1);
-        globalWorkSize.put(0, edgeBufferSize);
+        globalWorkEdgeBufferSize.put(0, edgeBufferSize);
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), compactEdgesKernel, 1, null, globalWorkEdgeBufferSize, null, null, null);
         OCLUtils.checkCLError(errcode);
         field.setEdgeIndices(compactActiveEdgesBuffer);
@@ -128,13 +129,6 @@ public final class FindDefaultEdgesOpenCLService {
         int[] returnBuffer = new int[edgeBufferSize];
         resultBuff.get(returnBuffer);
         CL10.clReleaseMemObject(edgeOccupancyBuffer);
-        int count = 0;
-        for (int i=0; i<edgeBufferSize; i++){
-            if(returnBuffer[i]==1){
-                ++count;
-            }
-        }
-        System.out.println(count);
         return returnBuffer;
     }
 

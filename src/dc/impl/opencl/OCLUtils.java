@@ -396,13 +396,6 @@ public class OCLUtils {
         CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
         int[] returnBuffer = new int[size];
         resultBuff.get(returnBuffer);
-        int count = 0;
-        for (int i=0; i<size; i++){
-            if(returnBuffer[i]==1){
-                ++count;
-            }
-        }
-        System.out.println(count);
         return returnBuffer;
     }
 

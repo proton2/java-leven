@@ -199,9 +199,9 @@ public class CuckooHashOpenCLService {
     public static void main(String[] args) {
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         KernelProgram cuckooKernel = new KernelProgram(KernelNames.CUCKOO, ctx, getCuckooBuildOptions());
-        KernelProgram scabKernel = new KernelProgram(KernelNames.SCAN, ctx,null);
+        KernelProgram scanKernel = new KernelProgram(KernelNames.SCAN, ctx,null);
 
-        ScanOpenCLService scanService = new ScanOpenCLService(ctx, scabKernel.getKernel());
+        ScanOpenCLService scanService = new ScanOpenCLService(ctx, scanKernel.getKernel());
 
         int KEY_COUNT = 100;
         CuckooHashOpenCLService cuckooHashService = new CuckooHashOpenCLService(OCLUtils.getOpenCLContext(), scanService, cuckooKernel, KEY_COUNT);
@@ -213,5 +213,8 @@ public class CuckooHashOpenCLService {
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         int result = cuckooHashService.insertKeys(buffer, KEY_COUNT);
         OCLUtils.validateExpression(result == CL10.CL_SUCCESS, true, "CuckooHash error");
+
+        cuckooKernel.destroyContext();
+        scanKernel.destroyContext();
     }
 }
