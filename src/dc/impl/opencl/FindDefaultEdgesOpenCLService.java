@@ -85,7 +85,7 @@ public final class FindDefaultEdgesOpenCLService {
         clSetKernelArg1p(kFindInfoKernel, 3, field.getNormals());
 
         PointerBuffer globalWorkNumEdgesSize = BufferUtils.createPointerBuffer(1);
-        globalWorkSize.put(0, field.getNumEdges());
+        globalWorkNumEdgesSize.put(0, field.getNumEdges());
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), kFindInfoKernel, 1, null, globalWorkNumEdgesSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
