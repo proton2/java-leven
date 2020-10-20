@@ -4,7 +4,9 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
 
+import java.io.File;
 import java.nio.IntBuffer;
+import java.nio.file.Paths;
 
 import static org.lwjgl.opencl.CL10.*;
 
@@ -192,7 +194,11 @@ public class CuckooHashOpenCLService {
         buildOptions.append("-DCUCKOO_STASH_HASH_INDEX=").append(CUCKOO_STASH_HASH_INDEX).append(" ");
         buildOptions.append("-DCUCKOO_HASH_FN_COUNT=").append(CUCKOO_HASH_FN_COUNT).append(" ");
         buildOptions.append("-DCUCKOO_STASH_SIZE=").append(CUCKOO_STASH_SIZE).append(" ");
-        buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(CUCKOO_MAX_ITERATIONS);
+        buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(CUCKOO_MAX_ITERATIONS).append(" ");
+        File file = new File(Paths.get("res/opencl/cuckoo.cl").toUri());
+        if(file.exists()){
+            buildOptions.append("-I ").append(file.getParent());
+        }
         return buildOptions;
     }
 
@@ -214,7 +220,41 @@ public class CuckooHashOpenCLService {
         int result = cuckooHashService.insertKeys(buffer, KEY_COUNT);
         OCLUtils.validateExpression(result == CL10.CL_SUCCESS, true, "CuckooHash error");
 
-        cuckooKernel.destroyContext();
-        scanKernel.destroyContext();
+        KernelProgram testKernel = new KernelProgram(KernelNames.TEST_CUCKOO, ctx, getCuckooBuildOptions());
+
+        int resultBufferSize = 10;
+        int inputArgument = 53;
+        long resultOutBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, resultBufferSize * 4, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        long testCuckooKernel = clCreateKernel(testKernel.getKernel(), "testCuckoo", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        clSetKernelArg1i(testCuckooKernel, 0, inputArgument);
+        clSetKernelArg1p(testCuckooKernel, 1, resultOutBuffer);
+        clSetKernelArg1p(testCuckooKernel, 2, cuckooHashService.getTable());
+        clSetKernelArg1p(testCuckooKernel, 3, cuckooHashService.getStash());
+        clSetKernelArg1i(testCuckooKernel, 4, cuckooHashService.getPrime());
+        clSetKernelArg1p(testCuckooKernel, 5, cuckooHashService.getHashParams());
+        clSetKernelArg1i(testCuckooKernel, 6, cuckooHashService.getStashUsed());
+
+        final int dimensions = 1;
+        PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(dimensions);
+        globalWorkSize.put(0, resultBufferSize);
+        int errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), testCuckooKernel, dimensions, null, globalWorkSize, null,
+                null, null);
+        OCLUtils.checkCLError(errcode);
+
+        int[] outputResult = OCLUtils.getIntBuffer(resultOutBuffer, resultBufferSize);
+        OCLUtils.validateExpression(outputResult[0] == inputArgument, true, "Cuckoo hash error");
+
+        CL10.clReleaseMemObject(resultOutBuffer);
+        int ret = CL10.clReleaseCommandQueue(ctx.getClQueue());
+        OCLUtils.checkCLError(ret);
+        ret = CL10.clReleaseProgram(cuckooKernel.getKernel());
+        OCLUtils.checkCLError(ret);
+        ret = CL10.clReleaseProgram(scanKernel.getKernel());
+        OCLUtils.checkCLError(ret);
+        ret = CL10.clReleaseProgram(testKernel.getKernel());
+        OCLUtils.checkCLError(ret);
     }
 }

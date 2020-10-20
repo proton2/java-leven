@@ -5,7 +5,8 @@ public enum KernelNames {
     DENSITY("opencl/density_simplex.cl"),
     FIND_DEFAULT_EDGES("opencl/findDefaultEdges.cl"),
     NVIDIA_SCAN("opencl/nvidia-scan.cl"),
-    CUCKOO("opencl/cuckoo.cl");
+    CUCKOO("opencl/cuckoo.cl"),
+    TEST_CUCKOO("opencl/hash_test.cl");
 
     public String getName() {
         return name;
