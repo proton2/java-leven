@@ -73,6 +73,7 @@ public final class FindDefaultEdgesOpenCLService {
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), compactEdgesKernel, 1, null, globalWorkEdgeBufferSize, null, null, null);
         OCLUtils.checkCLError(errcode);
         field.setEdgeIndices(compactActiveEdgesBuffer);
+        //int[] compact = OCLUtils.getIntBuffer(field.getEdgeIndices(), field.getNumEdges());
 
         field.setNormals(CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_WRITE_ONLY, field.getNumEdges() * 4 * 4, ctx.getErrcode_ret()));
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -89,6 +90,8 @@ public final class FindDefaultEdgesOpenCLService {
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), kFindInfoKernel, 1, null, globalWorkNumEdgesSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
+        //Vec4f[] vec4f = getNormals(field.getNormals());
+
         CL10.clReleaseMemObject(edgeScanBuffer);
         CL10.clReleaseKernel(compactEdgesKernel);
         CL10.clReleaseKernel(kFindInfoKernel);
@@ -101,14 +104,14 @@ public final class FindDefaultEdgesOpenCLService {
         FloatBuffer resultBuff = BufferUtils.createFloatBuffer(numEdges * 4);
         CL10.clEnqueueReadBuffer(ctx.getClQueue(), normBuffer, true, 0, resultBuff, null, null);
         Vec4f[] normalsBuffer = new Vec4f[numEdges];
-        for (int i = 0; i < resultBuff.capacity(); i++) {
+        for (int i = 0; i < numEdges; i++) {
+            int index = i * 4;
             Vec4f normal = new Vec4f();
-            normal.x = resultBuff.get(i);
-            normal.y = resultBuff.get(i);
-            normal.z = resultBuff.get(i);
-            normal.w = resultBuff.get(i);
-            int index = i/4;
-            normalsBuffer[index] = normal;
+            normal.x = resultBuff.get(index+0);
+            normal.y = resultBuff.get(index+1);
+            normal.z = resultBuff.get(index+2);
+            normal.w = resultBuff.get(index+3);
+            normalsBuffer[i] = normal;
         }
         return normalsBuffer;
     }

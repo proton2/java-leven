@@ -53,6 +53,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 //                chunkSize / voxelsPerChunk, MATERIAL_SOLID, materials);
         GPUDensityField field = new GPUDensityField();
         field.setMin(chunkMin);
+        field.setSize(chunkSize);
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, fieldSize);
         calculateMaterialsService.run(kernels,chunkSize / voxelsPerChunk, materials, field);
