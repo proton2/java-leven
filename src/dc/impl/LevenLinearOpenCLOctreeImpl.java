@@ -37,13 +37,12 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                         float[] densityField,
-                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer)
+                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
     {
         int[] materials = new int[meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize()];
         //////////////////////////////
 //        int materialSize = GenerateDefaultField(densityField, chunkMin, 0, fieldSize*fieldSize*fieldSize,
 //                chunkSize / voxelsPerChunk, MATERIAL_SOLID, materials);
-        GPUDensityField field = new GPUDensityField();
         field.setMin(chunkMin);
         field.setSize(chunkSize);
         ComputeContext ctx = OCLUtils.getOpenCLContext();

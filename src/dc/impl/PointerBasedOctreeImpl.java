@@ -41,7 +41,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                         float[] densityField,
-                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer) {
+                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer, GPUDensityField field) {
         this.densityField = densityField;
         boolean result;
         List<PointerBasedOctreeNode> chunkNodes = new ArrayList<>();

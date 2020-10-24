@@ -33,15 +33,15 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                         float[] densityField,
-                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer) {
+                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
 
         // usyal in serial calculating leaf nodes data. More slowly.
-        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), densityField, seamNodes, buffer);
+        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), densityField, seamNodes, buffer, field);
     }
 
     public boolean createLeafVoxelNodesTraditional(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
                                                    float[] densityField,
-                                                   List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer)
+                                                   List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
     {
         ArrayList<LinearLeafHolder> listHolder = new ArrayList<>();
         Map<Integer, Integer> octreeNodes = new HashMap<>();

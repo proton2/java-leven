@@ -2,6 +2,7 @@ package dc;
 
 import core.math.Vec3i;
 import dc.entities.MeshBuffer;
+import dc.impl.GPUDensityField;
 
 import java.util.List;
 
@@ -29,7 +30,7 @@ public interface VoxelOctree {
     int QEF_SWEEPS = 4;
 
     boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, float[] densityField,
-                                 List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer);
+                                 List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer, GPUDensityField field);
 
     void processNodesToMesh(List<PointerBasedOctreeNode> seamNodes, Vec3i min, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer);
 }

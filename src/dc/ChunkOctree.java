@@ -8,6 +8,7 @@ import core.renderer.Renderer;
 import core.utils.Constants;
 import core.utils.ImageLoader;
 import dc.entities.MeshBuffer;
+import dc.impl.GPUDensityField;
 import dc.impl.MeshGenerationContext;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
@@ -391,7 +392,8 @@ public class ChunkOctree {
         }
         List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
-        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, densityField, seamNodes, meshBuffer);
+        GPUDensityField field = new GPUDensityField();
+        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, densityField, seamNodes, meshBuffer, field);
         chunk.seamNodes = seamNodes;
         if(!chunk.active){
             return false;
