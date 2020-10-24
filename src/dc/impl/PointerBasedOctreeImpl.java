@@ -12,7 +12,6 @@ import dc.entities.MeshBuffer;
 import dc.entities.VoxelTypes;
 import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
-import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.ArrayList;
@@ -23,29 +22,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
-import static dc.ChunkOctree.VOXELS_PER_CHUNK;
-import static dc.ChunkOctree.log2;
 import static dc.OctreeNodeType.Node_Leaf;
 
 public class PointerBasedOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-    private boolean multiThreadCalculation;
+    private final boolean multiThreadCalculation;
     private float[] densityField;
 
-    public PointerBasedOctreeImpl(){
-    }
-
-    public PointerBasedOctreeImpl(boolean multiThreadCalculation) {
+    public PointerBasedOctreeImpl(boolean multiThreadCalculation, MeshGenerationContext meshGenerationContext) {
+        super(meshGenerationContext);
         this.multiThreadCalculation = multiThreadCalculation;
     }
 
     private boolean nodeIsSeam(int zi, int yi, int xi) {
         //return (leafMin.x==1016 || leafMin.x==1024) && (leafMin.z < -395 && leafMin.z >-433); //show path of seams to debug
-        return xi==0||xi==VOXELS_PER_CHUNK-1 || yi==0||yi==VOXELS_PER_CHUNK-1 || zi==0||zi==VOXELS_PER_CHUNK-1;
+        return xi==0||xi==meshGen.getVoxelsPerChunk()-1 || yi==0||yi==meshGen.getVoxelsPerChunk()-1 || zi==0||zi==meshGen.getVoxelsPerChunk()-1;
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                        int clipmapLeafSize, int leafSizeScale,
+    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                         float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer) {
         this.densityField = densityField;
@@ -54,12 +48,12 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
 
         if (multiThreadCalculation) {
             try {
-                result = multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, chunkNodes, seamNodes);
+                result = multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, chunkNodes, seamNodes);
             } catch (Exception e) {
                 result = false;
             }
         } else {
-            result = simpleDebugCreateLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, chunkNodes, seamNodes);
+            result = simpleDebugCreateLeafVoxelNodes(chunkSize, chunkMin, chunkNodes, seamNodes);
         }
         if (!result){
             return false;
@@ -68,15 +62,15 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         return true;
     }
 
-    private boolean simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale,
+    private boolean simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                    List<PointerBasedOctreeNode> chunkNodes, List<PointerBasedOctreeNode> seamNodes) {
-        for (int zi = 0; zi < voxelsPerChunk; zi++) {
-            for (int yi = 0; yi < voxelsPerChunk; yi++) {
-                for (int xi = 0; xi < voxelsPerChunk; xi++) {
+        for (int zi = 0; zi < meshGen.getVoxelsPerChunk(); zi++) {
+            for (int yi = 0; yi < meshGen.getVoxelsPerChunk(); yi++) {
+                for (int xi = 0; xi < meshGen.getVoxelsPerChunk(); xi++) {
                     Vec3i pos = new Vec3i(xi, yi, zi);
-                    int leafSize = (chunkSize / voxelsPerChunk);
+                    int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
                     Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
-                    PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, leafSizeScale);
+                    PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, meshGen.leafSizeScale);
                     if (leaf != null) {
                         if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                             chunkNodes.add(leaf);
@@ -92,21 +86,20 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     private EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> createPathLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                                                                      int voxelsPerChunk, int clipmapLeafSize, int leafSizeScale,
                                                                                       int from, int to) {
         List<PointerBasedOctreeNode> voxels = new ArrayList<>();
         List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
 
         for (int i=from; i < to; i++){
-            int indexShift = log2(voxelsPerChunk); // max octree depth
-            int x = (i >> (indexShift * 0)) & voxelsPerChunk-1;
-            int y = (i >> (indexShift * 1)) & voxelsPerChunk-1;
-            int z = (i >> (indexShift * 2)) & voxelsPerChunk-1;
+            int indexShift = VoxelHelperUtils.log2(meshGen.getVoxelsPerChunk()); // max octree depth
+            int x = (i >> (indexShift * 0)) & meshGen.getVoxelsPerChunk()-1;
+            int y = (i >> (indexShift * 1)) & meshGen.getVoxelsPerChunk()-1;
+            int z = (i >> (indexShift * 2)) & meshGen.getVoxelsPerChunk()-1;
 
             Vec3i pos = new Vec3i(x,y,z);
-            int leafSize = (chunkSize / clipmapLeafSize) * leafSizeScale;
+            int leafSize = (chunkSize / meshGen.clipmapLeafSize) * meshGen.leafSizeScale;
             Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
-            PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, leafSizeScale);
+            PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, meshGen.leafSizeScale);
             if (leaf != null) {
                 if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                     voxels.add(leaf);
@@ -122,12 +115,11 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         return res;
     }
 
-    private boolean multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                    int clipmapLeafSize, int leafSizeScale,
+    private boolean multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                     List<PointerBasedOctreeNode> chunkNodes,
                                                     List<PointerBasedOctreeNode> seamNodes) throws Exception {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
-        int threadBound = (voxelsPerChunk*voxelsPerChunk*voxelsPerChunk) / availableProcessors;
+        int threadBound = (meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()) / availableProcessors;
 
         ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
         List<Callable<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>>> tasks = new ArrayList<>();
@@ -136,7 +128,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             Callable<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>> task = () -> {
                 int from = finalI * threadBound;
                 int to = from + threadBound;
-                return createPathLeafVoxelNodes(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, from, to);
+                return createPathLeafVoxelNodes(chunkSize, chunkMin, from, to);
             };
             tasks.add(task);
         }
@@ -155,7 +147,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
-            float density = Density.getNoise(cornerPos, densityField);
+            float density = getNoise(cornerPos, densityField);
 		    int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
             corners |= (material << i);
         }
@@ -168,7 +160,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             } else {
                 leaf.drawInfo = new OctreeDrawInfo();
                 leaf.drawInfo.position = nodePos.getVec3f();
-                leaf.drawInfo.averageNormal = VoxelHelperUtils.CalculateSurfaceNormal(nodePos, densityField).getVec3f();
+                leaf.drawInfo.averageNormal = CalculateSurfaceNormal(nodePos, densityField).getVec3f();
                 leaf.drawInfo.corners = corners;
                 leaf.drawInfo.color = Constants.Blue;
                 leaf.Type = Node_Leaf;
@@ -193,8 +185,8 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             }
             Vec3f p1 = leaf.min.add(CHILD_MIN_OFFSETS[c1].mul(leaf.size)).toVec3f();
             Vec3f p2 = leaf.min.add(CHILD_MIN_OFFSETS[c2].mul(leaf.size)).toVec3f();
-            Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
-            Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
+            Vec4f p = ApproximateZeroCrossingPosition(p1, p2, densityField);
+            Vec4f n = CalculateSurfaceNormal(p, densityField);
             edgePositions[edgeCount] = p;
             edgeNormals[edgeCount] = n;
             averageNormal = averageNormal.add(n.getVec3f());

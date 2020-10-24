@@ -1,22 +1,23 @@
 package dc.impl.opencl;
 
 import dc.impl.GPUDensityField;
+import dc.impl.MeshGenerationContext;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
 
 import java.nio.IntBuffer;
 
-import static dc.ChunkOctree.LEAF_SIZE_SCALE;
-import static dc.ChunkOctree.VOXELS_PER_CHUNK;
 import static org.lwjgl.opencl.CL10.*;
 
 public final class OpenCLCalculateMaterialsService {
     private long clKernel;
     private final int size;
     private ComputeContext ctx;
+    private final MeshGenerationContext meshGen;
 
-    public OpenCLCalculateMaterialsService(ComputeContext computeContext, int size) {
+    public OpenCLCalculateMaterialsService(ComputeContext computeContext, int size, MeshGenerationContext meshGenerationContext) {
+        this.meshGen = meshGenerationContext;
         this.size = size;
         this.ctx = computeContext;
     }
@@ -25,11 +26,15 @@ public final class OpenCLCalculateMaterialsService {
         // init kernel with constants
         clKernel = clCreateKernel(kernels.getKernel(KernelNames.DENSITY), "GenerateDefaultField", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        int sampleScale = field.getSize() / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
+        int sampleScale = field.getSize() / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
 
         createMemory(field);
 
-        clSetKernelArg4i(clKernel, 0, field.getMin().x/LEAF_SIZE_SCALE, field.getMin().y/LEAF_SIZE_SCALE, field.getMin().z/LEAF_SIZE_SCALE, 0);
+        clSetKernelArg4i(clKernel, 0,
+                field.getMin().x/meshGen.leafSizeScale,
+                field.getMin().y/meshGen.leafSizeScale,
+                field.getMin().z/meshGen.leafSizeScale,
+                0);
         clSetKernelArg1i(clKernel, 1, sampleScale);
         clSetKernelArg1p(clKernel, 2, field.getMaterials());
 

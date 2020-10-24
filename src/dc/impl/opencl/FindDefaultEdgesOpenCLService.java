@@ -2,6 +2,7 @@ package dc.impl.opencl;
 
 import core.math.Vec4f;
 import dc.impl.GPUDensityField;
+import dc.impl.MeshGenerationContext;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
@@ -9,7 +10,6 @@ import org.lwjgl.opencl.CL10;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
-import static dc.ChunkOctree.LEAF_SIZE_SCALE;
 import static org.lwjgl.opencl.CL10.*;
 
 public final class FindDefaultEdgesOpenCLService {
@@ -17,8 +17,10 @@ public final class FindDefaultEdgesOpenCLService {
     private final ScanOpenCLService scanOpenCLService;
     private int numEdges, edgeBufferSize;
     private ComputeContext ctx;
+    private final MeshGenerationContext meshGen;
 
-    public FindDefaultEdgesOpenCLService(ComputeContext computeContext, ScanOpenCLService scanOpenCLService) {
+    public FindDefaultEdgesOpenCLService(ComputeContext computeContext, ScanOpenCLService scanOpenCLService, MeshGenerationContext meshGenerationContext) {
+        this.meshGen = meshGenerationContext;
         this.scanOpenCLService = scanOpenCLService;
         this.ctx = computeContext;
     }
@@ -78,9 +80,13 @@ public final class FindDefaultEdgesOpenCLService {
         field.setNormals(CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_WRITE_ONLY, field.getNumEdges() * 4 * 4, ctx.getErrcode_ret()));
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
-        int sampleScale = field.getSize() / (voxelPerChunk * LEAF_SIZE_SCALE);
+        int sampleScale = field.getSize() / (voxelPerChunk * meshGen.leafSizeScale);
         long kFindInfoKernel = clCreateKernel(kernels.getKernel(KernelNames.FIND_DEFAULT_EDGES), "FindEdgeIntersectionInfo", ctx.getErrcode_ret());
-        clSetKernelArg4i(kFindInfoKernel, 0, field.getMin().x/LEAF_SIZE_SCALE, field.getMin().y/LEAF_SIZE_SCALE, field.getMin().z/LEAF_SIZE_SCALE, 0);
+        clSetKernelArg4i(kFindInfoKernel, 0,
+                field.getMin().x/meshGen.leafSizeScale,
+                field.getMin().y/meshGen.leafSizeScale,
+                field.getMin().z/meshGen.leafSizeScale,
+                0);
         clSetKernelArg1i(kFindInfoKernel, 1, sampleScale);
         clSetKernelArg1p(kFindInfoKernel, 2, field.getEdgeIndices());
         clSetKernelArg1p(kFindInfoKernel, 3, field.getNormals());
@@ -90,7 +96,7 @@ public final class FindDefaultEdgesOpenCLService {
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), kFindInfoKernel, 1, null, globalWorkNumEdgesSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
-        //Vec4f[] vec4f = getNormals(field.getNormals());
+        Vec4f[] vec4f = getNormals(field.getNormals());
 
         CL10.clReleaseMemObject(edgeScanBuffer);
         CL10.clReleaseKernel(compactEdgesKernel);

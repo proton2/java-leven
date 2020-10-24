@@ -12,16 +12,18 @@ import java.util.Random;
 
 import static dc.VoxelOctree.MATERIAL_AIR;
 import static dc.VoxelOctree.MATERIAL_SOLID;
-import static dc.impl.LevenLinearOctreeImpl.fieldSize;
 
 public class CalculateMaterialService {
     CalculateMaterialComputeShader shader;
+    private MeshGenerationContext meshGen;
     private ComputeBuffer fieldMaterialsComputeBuffer, permComputeBuffer, densityPrimitiveComputeBuffer;
 
     static int[] permutations = new int[512];
     private DensityPrimitive[] primitiveMods;
 
-    public CalculateMaterialService(){}
+    public CalculateMaterialService(MeshGenerationContext meshGenerationContext){
+        this.meshGen = meshGenerationContext;
+    }
 
     public void calculate(Vec3i offset, int sampleScale, int[] fieldMaterials) {
         InitPermutations(1200, permutations);
@@ -59,13 +61,13 @@ public class CalculateMaterialService {
     }
 
     protected int field_index(Vec3i pos) {
-        return pos.x + (pos.y * fieldSize) + (pos.z * fieldSize * fieldSize);
+        return pos.x + (pos.y * meshGen.getFieldSize()) + (pos.z * meshGen.getFieldSize() * meshGen.getFieldSize());
     }
 
     void calculateTest(Vec3i offset, int sampleScale, int[] fieldMaterials) {
-        for (int z = 0; z < fieldSize; z++) {
-            for (int y = 0; y < fieldSize; y++) {
-                for (int x = 0; x < fieldSize; x++) {
+        for (int z = 0; z < meshGen.getFieldSize(); z++) {
+            for (int y = 0; y < meshGen.getFieldSize(); y++) {
+                for (int x = 0; x < meshGen.getFieldSize(); x++) {
                     Vec3i local_pos = new Vec3i(x, y, z);
                     Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
                     float density = Density_Func(world_pos);

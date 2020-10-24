@@ -1,23 +1,28 @@
 package dc;
 
+import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.utils.Density;
+import dc.impl.MeshGenerationContext;
+import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
 
-import static dc.ChunkOctree.*;
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
 import static dc.VoxelOctree.MATERIAL_AIR;
 import static dc.VoxelOctree.edgevmap;
-import static dc.impl.LevenLinearOctreeImpl.fieldSize;
 
 public abstract class AbstractDualContouring implements DualContouring{
+    protected MeshGenerationContext meshGen;
+
+    public AbstractDualContouring(MeshGenerationContext meshGenerationContext) {
+        this.meshGen = meshGenerationContext;
+    }
 
     private List<PointerBasedOctreeNode> constructParents(List<PointerBasedOctreeNode> nodes, Vec3i rootMin, int parentSize, int chunkSize) {
         Map<Vec3i, PointerBasedOctreeNode> parentsHash = new HashMap<>();
@@ -146,7 +151,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         if(isSeam) {
             Set<Vec3i> chunks = new HashSet<>();
             for (int i = 0; i < 4; i++) {
-                chunks.add(ChunkOctree.chunkMinForPosition(node[i]));
+                chunks.add(ChunkOctree.chunkMinForPosition(node[i], meshGen.clipmapLeafSize));
             }
             if (chunks.size() == 1)
                 return;
@@ -192,7 +197,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         }
 
         // bit of a hack but it works: prevent overlapping seams by only processing edges that stradle multiple chunks
-        if (isSeam && ChunkOctree.chunkMinForPosition(node[0]).equals(ChunkOctree.chunkMinForPosition(node[1]))) {
+        if (isSeam && ChunkOctree.chunkMinForPosition(node[0], meshGen.clipmapLeafSize).equals(ChunkOctree.chunkMinForPosition(node[1], meshGen.clipmapLeafSize))) {
             return;
         }
 
@@ -319,17 +324,17 @@ public abstract class AbstractDualContouring implements DualContouring{
 
     protected Vec3i decodeVoxelIndex(int index) {
         Vec3i p = new Vec4i(0);
-        p.x = (index >> (VOXEL_INDEX_SHIFT * 0)) & VOXEL_INDEX_MASK;
-        p.y = (index >> (VOXEL_INDEX_SHIFT * 1)) & VOXEL_INDEX_MASK;
-        p.z = (index >> (VOXEL_INDEX_SHIFT * 2)) & VOXEL_INDEX_MASK;
+        p.x = (index >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask();
+        p.y = (index >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask();
+        p.z = (index >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask();
         return p;
     }
 
     protected int encodeVoxelIndex(Vec3i pos) {
         int encoded = 0;
-        encoded |= pos.x << (VOXEL_INDEX_SHIFT * 0);
-        encoded |= pos.y << (VOXEL_INDEX_SHIFT * 1);
-        encoded |= pos.z << (VOXEL_INDEX_SHIFT * 2);
+        encoded |= pos.x << (meshGen.getIndexShift() * 0);
+        encoded |= pos.y << (meshGen.getIndexShift() * 1);
+        encoded |= pos.z << (meshGen.getIndexShift() * 2);
         return encoded;
     }
 
@@ -394,17 +399,17 @@ public abstract class AbstractDualContouring implements DualContouring{
         // checks which side this node is facing
         if (pos.x == 0)
             faces.x = -1;
-        else if (pos.x == VOXELS_PER_CHUNK-1)
+        else if (pos.x == meshGen.getVoxelsPerChunk()-1)
             faces.x = 1;
 
         if (pos.y == 0)
             faces.y = -1;
-        else if (pos.y == VOXELS_PER_CHUNK-1)
+        else if (pos.y == meshGen.getVoxelsPerChunk()-1)
             faces.y = 1;
 
         if (pos.z == 0)
             faces.z = -1;
-        else if (pos.z == VOXELS_PER_CHUNK-1)
+        else if (pos.z == meshGen.getVoxelsPerChunk()-1)
             faces.z = 1;
         return faces;
     }
@@ -426,7 +431,7 @@ public abstract class AbstractDualContouring implements DualContouring{
                 int z = leafMin.z + (EDGE_OFFSETS[i].z) * leafSize / 2;
 
                 Vec4f nodePos = new Vec4f(x,y,z);
-                float density = Density.getNoise(nodePos, densityField);
+                float density = getNoise(nodePos, densityField);
                 if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
                     return nodePos;
                 }
@@ -435,7 +440,84 @@ public abstract class AbstractDualContouring implements DualContouring{
         return null;    // voxel is full inside or outside the volume
     }
 
+    protected float getNoise(Vec4f pos, float[] densityField) {
+        float MAX_TERRAIN_HEIGHT = 900.f;
+        int x = ((int) pos.x + meshGen.worldSizeXZ /2) & meshGen.worldSizeXZ -1;
+        int z = ((int) pos.z + meshGen.worldSizeXZ /2) & meshGen.worldSizeXZ -1;
+        float height = densityField[z + x * meshGen.worldSizeXZ];
+        return pos.y - (MAX_TERRAIN_HEIGHT * height) + 800;
+    }
+
+    protected float getNoise(Vec3f pos, float[] densityField) {
+        float MAX_TERRAIN_HEIGHT = 900.f;
+        int x = ((int) pos.X + meshGen.worldSizeXZ /2) & meshGen.worldSizeXZ -1;
+        int z = ((int) pos.Z + meshGen.worldSizeXZ /2) & meshGen.worldSizeXZ -1;
+        float height = densityField[z + x * meshGen.worldSizeXZ];
+        return pos.Y - (MAX_TERRAIN_HEIGHT * height) + 800;
+    }
+
     protected int field_index(Vec3i pos) {
-        return pos.x + (pos.y * fieldSize) + (pos.z * fieldSize * fieldSize);
+        return pos.x + (pos.y * meshGen.getFieldSize()) + (pos.z * meshGen.getFieldSize() * meshGen.getFieldSize());
+    }
+
+    public Vec4f CalculateSurfaceNormal(Vec4f p, float[] densityField) {
+//	    float H = 0.001f;
+//	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField);
+//	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)), densityField);
+//	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)), densityField);
+
+        float H = 1f;
+        Vec4f xOffcet = new Vec4f(H, 0.f, 0.f, 0.f);
+        Vec4f yOffcet = new Vec4f(0.f, H, 0.f, 0.f);
+        Vec4f zOffcet = new Vec4f(0.f, 0.f, H, 0.f);
+        float dx = getNoise(p.add(xOffcet), densityField) - getNoise(p.sub(xOffcet), densityField);
+        float dy = getNoise(p.add(yOffcet), densityField) - getNoise(p.sub(yOffcet), densityField);
+        float dz = getNoise(p.add(zOffcet), densityField) - getNoise(p.sub(zOffcet), densityField);
+
+        Vec4f v = new Vec4f(dx, dy, dz);
+        v.normalize();
+        return v;
+    }
+
+    public Vec4f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1, float[] densityField) {
+        // approximate the zero crossing by finding the min value along the edge
+        float minValue = 100000.f;
+        float t = 0.f;
+        float currentT = 0.f;
+        int steps = 8;
+        float increment = 1.f / (float)steps;
+        while (currentT <= 1.f) {
+            Vec3f p = VoxelHelperUtils.mix(p0, p1, currentT);
+            float density = Math.abs(getNoise(p, densityField));
+            if (density < minValue) {
+                minValue = density;
+                t = currentT;
+            }
+            currentT += increment;
+        }
+        return new Vec4f(VoxelHelperUtils.mix(p0, p1, t), t);
+    }
+
+    public Vec4f ApproximateLevenCrossingPosition(Vec3f p0, Vec3f p1, float[] densityField) {
+        float FIND_EDGE_INFO_INCREMENT = 1.f / 16.f;
+        int FIND_EDGE_INFO_STEPS = 16;
+        float minValue = 100000.f;;
+        float currentT = 0.f;
+        float t = 0.f;
+        for (int i = 0; i <= FIND_EDGE_INFO_STEPS; i++) {
+            Vec3f p = VoxelHelperUtils.mix(p0, p1, currentT);
+            float d = Math.abs(getNoise(p, densityField));
+            if (d < minValue) {
+                t = currentT;
+                minValue = d;
+            }
+            currentT += FIND_EDGE_INFO_INCREMENT;
+        }
+        return new Vec4f(VoxelHelperUtils.mix(p0, p1, t), t);
+    }
+
+    private int getOctreeSizeByChunkSize(int chunkSize){
+        int chunkScaleSize = chunkSize / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
+        return chunkScaleSize * meshGen.leafSizeScale;
     }
 }

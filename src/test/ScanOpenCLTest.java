@@ -1,21 +1,20 @@
 package test;
 
 import dc.impl.opencl.*;
-import org.lwjgl.BufferUtils;
+import dc.utils.VoxelHelperUtils;
 import org.lwjgl.opencl.CL;
 import org.lwjgl.opencl.CL10;
 
 import java.nio.IntBuffer;
 
-import static dc.ChunkOctree.VOXELS_PER_CHUNK;
-import static dc.ChunkOctree.log2;
 import static org.lwjgl.opencl.CL10.CL_MEM_READ_WRITE;
 
 public final class ScanOpenCLTest {
 
     StringBuilder createScanOpenCLTestBuildOptions(){
-        int indexShift = log2(VOXELS_PER_CHUNK) + 1;
-        int hermiteIndexSize = VOXELS_PER_CHUNK + 1;
+        int voxelsPerChunk = 64;
+        int indexShift = VoxelHelperUtils.log2(voxelsPerChunk) + 1;
+        int hermiteIndexSize = voxelsPerChunk + 1;
         int fieldSize = hermiteIndexSize + 1;
         int indexMask = (1 << indexShift) - 1;
 
@@ -28,7 +27,7 @@ public final class ScanOpenCLTest {
         buildOptions.append("-DFIELD_DIM=").append(fieldSize).append(" ");
         buildOptions.append("-DFIND_EDGE_INFO_STEPS=" + 16 + " ");
         buildOptions.append("-DFIND_EDGE_INFO_INCREMENT=" + (1.f/16.f) + " ");
-        buildOptions.append("-DVOXELS_PER_CHUNK=").append(VOXELS_PER_CHUNK).append(" ");
+        buildOptions.append("-DVOXELS_PER_CHUNK=").append(voxelsPerChunk).append(" ");
         buildOptions.append("-DVOXEL_INDEX_SHIFT=").append(indexShift).append(" ");
         buildOptions.append("-DVOXEL_INDEX_MASK=").append(indexMask).append(" ");
         buildOptions.append("-DHERMITE_INDEX_SIZE=").append(hermiteIndexSize).append(" ");

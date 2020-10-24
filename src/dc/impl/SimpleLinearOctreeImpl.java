@@ -10,7 +10,6 @@ import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
-import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.ArrayList;
@@ -18,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static dc.ChunkOctree.*;
 import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
 
 /*
@@ -28,18 +26,20 @@ import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
 
 public class SimpleLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
 
+    public SimpleLinearOctreeImpl(MeshGenerationContext meshGenerationContext) {
+        super(meshGenerationContext);
+    }
+
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                        int clipmapLeafSize, int leafSizeScale,
+    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                         float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer) {
 
         // usyal in serial calculating leaf nodes data. More slowly.
-        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, voxelsPerChunk, clipmapLeafSize, leafSizeScale, densityField, seamNodes, buffer);
+        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), densityField, seamNodes, buffer);
     }
 
     public boolean createLeafVoxelNodesTraditional(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                   int clipmapLeafSize, int leafSizeScale,
                                                    float[] densityField,
                                                    List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer)
     {
@@ -48,7 +48,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
         int current = 0;
         for (int i = 0; i < voxelsPerChunk*voxelsPerChunk*voxelsPerChunk; i++) {
-            int indexShift = log2(voxelsPerChunk); // max octree depth
+            int indexShift = VoxelHelperUtils.log2(voxelsPerChunk); // max octree depth
             int x = (i >> (indexShift * 0)) & voxelsPerChunk - 1;
             int y = (i >> (indexShift * 1)) & voxelsPerChunk - 1;
             int z = (i >> (indexShift * 2)) & voxelsPerChunk - 1;
@@ -117,13 +117,13 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     private LinearLeafHolder constructLeaf(Vec3i pos, Vec3i chunkMin, int chunkSize, float[] densityField) {
-        int leafSize = (chunkSize / VOXELS_PER_CHUNK);
+        int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
         Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
         int[] cornerMaterials = new int[8];
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize)).toVec3f();
-            float density = Density.getNoise(cornerPos, densityField);
+            float density = getNoise(cornerPos, densityField);
             int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
             cornerMaterials[i] = material;
             corners |= (material << i);
@@ -131,7 +131,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, LEAF_SIZE_SCALE, densityField);
+            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale, densityField);
             if(nodePos==null){
                 return null;
             } else {
@@ -141,7 +141,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 leafHolder.materialIndex = (materialIndex << 8) | corners;
                 leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);
                 leafHolder.voxelEdgeInfo = corners;//edgeList;
-                leafHolder.averageNormal = VoxelHelperUtils.CalculateSurfaceNormal(nodePos, densityField);
+                leafHolder.averageNormal = CalculateSurfaceNormal(nodePos, densityField);
                 return leafHolder;
             }
         }
@@ -166,8 +166,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             }
             Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
             Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
-            Vec4f p = VoxelHelperUtils.ApproximateZeroCrossingPosition(p1, p2, densityField);
-            Vec4f n = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
+            Vec4f p = ApproximateZeroCrossingPosition(p1, p2, densityField);
+            Vec4f n = CalculateSurfaceNormal(p, densityField);
             edgePositions[edgeCount] = p;
             edgeNormals[edgeCount] = n;
             averageNormal = averageNormal.add(n);
@@ -191,9 +191,9 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         for (int index = from; index < to; index++) {
             int code = nodeCodes[index];
             Vec3i position = LinearOctreeTest.positionForCode(code);
-            boolean xSeam = position.x == 0 || position.x == (VOXELS_PER_CHUNK - 1);
-            boolean ySeam = position.y == 0 || position.y == (VOXELS_PER_CHUNK - 1);
-            boolean zSeam = position.z == 0 || position.z == (VOXELS_PER_CHUNK - 1);
+            boolean xSeam = position.x == 0 || position.x == (meshGen.getVoxelsPerChunk() - 1);
+            boolean ySeam = position.y == 0 || position.y == (meshGen.getVoxelsPerChunk() - 1);
+            boolean zSeam = position.z == 0 || position.z == (meshGen.getVoxelsPerChunk() - 1);
             boolean isSeam = xSeam | ySeam | zSeam;
             if (isSeam) {
                 ++res;
@@ -229,7 +229,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
                 int a = pos[(axis + 1) % 3];
                 int b = pos[(axis + 2) % 3];
-                boolean isEdgeVoxel = a == (VOXELS_PER_CHUNK - 1) || b == (VOXELS_PER_CHUNK - 1);
+                boolean isEdgeVoxel = a == (meshGen.getVoxelsPerChunk() - 1) || b == (meshGen.getVoxelsPerChunk() - 1);
                 if (isEdgeVoxel) {
                     continue;
                 }

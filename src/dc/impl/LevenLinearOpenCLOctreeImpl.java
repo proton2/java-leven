@@ -12,14 +12,12 @@ import dc.entities.MeshVertex;
 import dc.impl.opencl.*;
 import dc.solver.GlslSvd;
 import dc.solver.QefSolver;
-import dc.utils.Density;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static dc.ChunkOctree.*;
 import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
 
 /*
@@ -29,25 +27,19 @@ import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
  */
 
 public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-
-//    int MATERIAL_NONE = 200;
-//    int MATERIAL_AIR  = 201;
-    public static int hermiteIndexSize = VOXELS_PER_CHUNK + 1;
-    public static int fieldSize = hermiteIndexSize + 1;
-
     private final KernelsHolder kernels;
 
-    public LevenLinearOpenCLOctreeImpl(KernelsHolder meshGenerationContext) {
-        this.kernels = meshGenerationContext;
+    public LevenLinearOpenCLOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext) {
+        super(meshGenerationContext);
+        this.kernels = kernels;
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                        int clipmapLeafSize, int leafSizeScale,
+    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                         float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer)
     {
-        int[] materials = new int[fieldSize*fieldSize*fieldSize];
+        int[] materials = new int[meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize()];
         //////////////////////////////
 //        int materialSize = GenerateDefaultField(densityField, chunkMin, 0, fieldSize*fieldSize*fieldSize,
 //                chunkSize / voxelsPerChunk, MATERIAL_SOLID, materials);
@@ -55,12 +47,12 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         field.setMin(chunkMin);
         field.setSize(chunkSize);
         ComputeContext ctx = OCLUtils.getOpenCLContext();
-        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, fieldSize);
+        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen);
         calculateMaterialsService.run(kernels, materials, field);
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
-        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, scanService);
-        int compactEdgesSize = findDefEdges.run(kernels, field, VOXELS_PER_CHUNK, hermiteIndexSize);
+        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, scanService, meshGen);
+        int compactEdgesSize = findDefEdges.run(kernels, field, meshGen.getVoxelsPerChunk(), meshGen.getHermiteIndexSize());
         if(compactEdgesSize==0){
             return false;
         }
@@ -68,7 +60,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 //        CuckooHashOpenCLService cuckooHashService = new CuckooHashOpenCLService(OCLUtils.getOpenCLContext(), scanService, cuckooKernel, field.getNumEdges());
 //        cuckooHashService.insertKeys(field.getEdgeIndices(), field.getNumEdges());
 
-        int edgeBufferSize = hermiteIndexSize * hermiteIndexSize * hermiteIndexSize * 3;
+        int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         boolean[] edgeOccupancy = new boolean[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
         //////////////////////////////
@@ -85,17 +77,17 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 
         Vec4f[] normals = new Vec4f[compactEdgesSize];
         //////////////////////////////
-        FindEdgeIntersectionInfo(chunkMin, chunkSize / VOXELS_PER_CHUNK, 0, compactEdgesSize, densityField,
+        FindEdgeIntersectionInfo(chunkMin, chunkSize / meshGen.getVoxelsPerChunk(), 0, compactEdgesSize, densityField,
                 edgeIndicesCompact,
                 normals);
 
-        boolean[] d_leafOccupancy = new boolean [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
-        int[] d_leafEdgeInfo = new int [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
-        int[] d_leafCodes = new int [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
-        int[] d_leafMaterials = new int [voxelsPerChunk*voxelsPerChunk*voxelsPerChunk];
+        boolean[] d_leafOccupancy = new boolean [meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()];
+        int[] d_leafEdgeInfo = new int [meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()];
+        int[] d_leafCodes = new int [meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()];
+        int[] d_leafMaterials = new int [meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()];
         //////////////////////////////
-        int activeLeafsSize = FindActiveVoxels(0, voxelsPerChunk*voxelsPerChunk*voxelsPerChunk, voxelsPerChunk, materials,
-                d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
+        int activeLeafsSize = FindActiveVoxels(0, meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk(),
+                meshGen.getVoxelsPerChunk(), materials, d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
         if (activeLeafsSize==0){
             return false;
         }
@@ -117,14 +109,14 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 //                qefs, edgeIndicatesMap,
 //                d_vertexNormals);
 
-        createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / voxelsPerChunk, d_nodeCodes,
+        createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / meshGen.getVoxelsPerChunk(), d_nodeCodes,
                 d_compactLeafEdgeInfo, normals,
                 qefs, edgeIndicatesMap,
                 d_vertexNormals);
 
         Vec3f[] d_vertexPositions = new Vec3f[numVertices];
         //////////////////////////////
-        solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, 0, numVertices, qefs,
+        solveQEFs(d_nodeCodes, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices, qefs,
                 d_vertexPositions);
 
         int indexBufferSize = numVertices * 6 * 3;
@@ -153,7 +145,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         int seamSize = findSeamNodes(d_nodeCodes, isSeamNode, 0, d_nodeCodes.length);
 
         extractNodeInfo(isSeamNode, Constants.Yellow,
-                chunkSize / voxelsPerChunk, chunkMin, 0, numVertices,
+                chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
 //        CL10.clReleaseMemObject(field.getEdgeIndices());
@@ -163,15 +155,14 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
     }
 
     int GenerateDefaultField(float[] densityField, Vec3i offset, int from, int to, int sampleScale, int defaultMaterialIndex,
-                              int[] field_materials)
-    {
+                              int[] field_materials) {
         int size = 0;
-        for (int z = 0; z < fieldSize; z++) {
-            for (int y = 0; y < fieldSize; y++) {
-                for (int x = 0; x < fieldSize; x++) {
+        for (int z = 0; z < meshGen.getFieldSize(); z++) {
+            for (int y = 0; y < meshGen.getFieldSize(); y++) {
+                for (int x = 0; x < meshGen.getFieldSize(); x++) {
                     Vec3i local_pos = new Vec3i(x, y, z);
                     Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
-                    float density = Density.getNoise(world_pos, densityField);
+                    float density = getNoise(world_pos, densityField);
                     int index = field_index(local_pos);
                     int material = density < 0.f ? defaultMaterialIndex : MATERIAL_AIR;
                     field_materials[index] = material;
@@ -185,12 +176,12 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
     int FindFieldEdges(int[] materials,
                         boolean[] edgeOccupancy, int[] edgeIndices) {
         int size = 0;
-        for (int z = 0; z < hermiteIndexSize; z++) {
-            for (int y = 0; y < hermiteIndexSize; y++) {
-                for (int x = 0; x < hermiteIndexSize; x++)
+        for (int z = 0; z < meshGen.getHermiteIndexSize(); z++) {
+            for (int y = 0; y < meshGen.getHermiteIndexSize(); y++) {
+                for (int x = 0; x < meshGen.getHermiteIndexSize(); x++)
                 {
                     Vec4i pos = new Vec4i(x, y, z, 0);
-                    int index = (x + (y * hermiteIndexSize) + (z * hermiteIndexSize * hermiteIndexSize));
+                    int index = (x + (y * meshGen.getHermiteIndexSize()) + (z * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize()));
                     int edgeIndex = index * 3;
 
                     int[] CORNER_MATERIALS = {
@@ -200,7 +191,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
                             materials[field_index(pos.add(new Vec4i(0, 0, 1, 0)))],
                     };
 
-                    int voxelIndex = pos.x | (pos.y << VOXEL_INDEX_SHIFT) | (pos.z << (VOXEL_INDEX_SHIFT * 2));
+                    int voxelIndex = pos.x | (pos.y << meshGen.getIndexShift()) | (pos.z << (meshGen.getIndexShift() * 2));
 
                     for (int i = 0; i < 3; i++) {
                         int e = 1 + i;
@@ -245,15 +236,15 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
             int axisIndex = edge & 3;
             int hermiteIndex = edge >> 2;
 
-            int x = (hermiteIndex >> (VOXEL_INDEX_SHIFT * 0)) & VOXEL_INDEX_MASK;
-            int y = (hermiteIndex >> (VOXEL_INDEX_SHIFT * 1)) & VOXEL_INDEX_MASK;
-            int z = (hermiteIndex >> (VOXEL_INDEX_SHIFT * 2)) & VOXEL_INDEX_MASK;
+            int x = (hermiteIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask();
+            int y = (hermiteIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask();
+            int z = (hermiteIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask();
 
             Vec3f p0 = new Vec3i(x, y, z).mul(sampleScale).add(chunkMin).toVec3f();
             Vec3f p1 = p0.add(EDGE_END_OFFSETS[axisIndex].mul(sampleScale).toVec3f());
 
-            Vec4f p = VoxelHelperUtils.ApproximateLevenCrossingPosition(p0, p1, densityField);
-            Vec4f normal = VoxelHelperUtils.CalculateSurfaceNormal(p, densityField);
+            Vec4f p = ApproximateLevenCrossingPosition(p0, p1, densityField);
+            Vec4f normal = CalculateSurfaceNormal(p, densityField);
 
             edgeInfo[index] = new Vec4f(normal.getVec3f(), p.w);
         }
@@ -266,12 +257,12 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
                          int[] voxelMaterials) {
         int size = 0;
         for (int k = from; k < to; k++) {
-            int indexShift = log2(VOXELS_PER_CHUNK); // max octree depth
-            int x = (k >> (indexShift * 0)) & VOXELS_PER_CHUNK - 1;
-            int y = (k >> (indexShift * 1)) & VOXELS_PER_CHUNK - 1;
-            int z = (k >> (indexShift * 2)) & VOXELS_PER_CHUNK - 1;
+            int indexShift = VoxelHelperUtils.log2(meshGen.getVoxelsPerChunk()); // max octree depth
+            int x = (k >> (indexShift * 0)) & meshGen.getVoxelsPerChunk() - 1;
+            int y = (k >> (indexShift * 1)) & meshGen.getVoxelsPerChunk() - 1;
+            int z = (k >> (indexShift * 2)) & meshGen.getVoxelsPerChunk() - 1;
 
-            int index = x + (y * VOXELS_PER_CHUNK) + (z * VOXELS_PER_CHUNK * VOXELS_PER_CHUNK);
+            int index = x + (y * meshGen.getVoxelsPerChunk()) + (z * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk());
             Vec3i pos = new Vec3i(x, y, z);
 
             int[] cornerMaterials = {
@@ -417,9 +408,9 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         for (int index = from; index < to; index++) {
             int code = nodeCodes[index];
             Vec3i position = LinearOctreeTest.positionForCode(code);
-            boolean xSeam = position.x == 0 || position.x == (VOXELS_PER_CHUNK - 1);
-            boolean ySeam = position.y == 0 || position.y == (VOXELS_PER_CHUNK - 1);
-            boolean zSeam = position.z == 0 || position.z == (VOXELS_PER_CHUNK - 1);
+            boolean xSeam = position.x == 0 || position.x == (meshGen.getVoxelsPerChunk() - 1);
+            boolean ySeam = position.y == 0 || position.y == (meshGen.getVoxelsPerChunk() - 1);
+            boolean zSeam = position.z == 0 || position.z == (meshGen.getVoxelsPerChunk() - 1);
             boolean isSeam = xSeam | ySeam | zSeam;
             if(isSeam) {
                 ++res;
@@ -455,7 +446,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 
                 int a = pos[(axis + 1) % 3];
                 int b = pos[(axis + 2) % 3];
-                boolean isEdgeVoxel = a == (VOXELS_PER_CHUNK - 1) || b == (VOXELS_PER_CHUNK - 1);
+                boolean isEdgeVoxel = a == (meshGen.getVoxelsPerChunk() - 1) || b == (meshGen.getVoxelsPerChunk() - 1);
                 if (isEdgeVoxel) {
                     continue;
                 }

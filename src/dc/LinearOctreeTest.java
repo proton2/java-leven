@@ -1,15 +1,14 @@
 package dc;
 
 import core.math.Vec3i;
+import dc.utils.VoxelHelperUtils;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import static dc.ChunkOctree.VOXELS_PER_CHUNK;
-import static dc.ChunkOctree.log2;
-
 public class LinearOctreeTest {
-    public static int MAX_OCTREE_DEPTH = log2(VOXELS_PER_CHUNK);
+    private static int voxelsPerChunk = 64;
+    public static int MAX_OCTREE_DEPTH = VoxelHelperUtils.log2(voxelsPerChunk);
     static class LinearOctreeNode {
         private int nodeCode;
         private boolean childExists;

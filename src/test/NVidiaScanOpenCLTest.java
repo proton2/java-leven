@@ -1,15 +1,7 @@
 package test;
 
 import dc.impl.opencl.*;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opencl.CL;
-import org.lwjgl.opencl.CL10;
-
-import java.nio.IntBuffer;
-
-import static dc.ChunkOctree.VOXELS_PER_CHUNK;
-import static dc.ChunkOctree.log2;
-import static org.lwjgl.opencl.CL10.CL_MEM_READ_WRITE;
 
 public final class NVidiaScanOpenCLTest {
 

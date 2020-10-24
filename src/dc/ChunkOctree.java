@@ -8,7 +8,11 @@ import core.renderer.Renderer;
 import core.utils.Constants;
 import core.utils.ImageLoader;
 import dc.entities.MeshBuffer;
-import dc.utils.*;
+import dc.impl.MeshGenerationContext;
+import dc.utils.Aabb;
+import dc.utils.Frustum;
+import dc.utils.SimplexNoise;
+import dc.utils.VoxelHelperUtils;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,29 +25,23 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ChunkOctree {
-    static int LEAF_SIZE_LOG2 = 2;
-    public static int LEAF_SIZE_SCALE = 1 << LEAF_SIZE_LOG2;
-    public static int VOXELS_PER_CHUNK = 64;
-    public static int CLIPMAP_LEAF_SIZE = LEAF_SIZE_SCALE * VOXELS_PER_CHUNK;
-    public static int VOXEL_INDEX_SHIFT = log2(VOXELS_PER_CHUNK) + 1;
-    public static int VOXEL_INDEX_MASK = (1 << VOXEL_INDEX_SHIFT) - 1;
 
-    int NUM_LODS = 6;
-    int LOD_MAX_NODE_SIZE = CLIPMAP_LEAF_SIZE * (1 << (NUM_LODS - 1));
-
-    static int worldBrickCountXZ = 4;//2
-    static int BRICK_SIZE = 8;
-    public static int worldSizeXZ = worldBrickCountXZ * BRICK_SIZE * CLIPMAP_LEAF_SIZE;
-    int worldSizeY = 4 * BRICK_SIZE * CLIPMAP_LEAF_SIZE;
-    Vec3i worldSize = new Vec3i(worldSizeXZ, worldSizeY, worldSizeXZ);
-    Vec3i worldOrigin = new Vec3i(0);
-    Vec3i worldBoundsMin = worldOrigin.sub(worldSize.div(2));
-    Vec3i worldBoundsMax = worldOrigin.add(worldSize.div(2));
     private final ExecutorService service;
     private ChunkNode root;
     private Camera camera;
-
+    VoxelOctree voxelOctree;
+    private float[] densityField;
+    private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
+
+    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen) {
+        this.meshGen = meshGen;
+        this.voxelOctree = voxelOctree;
+        service = Executors.newFixedThreadPool(1);
+        buildChunkOctree();
+        update(Camera.getInstance());
+    }
+
     public List<RenderMesh> getRenderMeshes(boolean frustumCulling) {
         if (!frustumCulling){
             return renderMeshes;
@@ -60,38 +58,22 @@ public class ChunkOctree {
         }
     }
 
-    private final float[] LOD_ACTIVE_DISTANCES = {0.f,
-            CLIPMAP_LEAF_SIZE * 1.5f,
-            CLIPMAP_LEAF_SIZE * 3.5f,
-            CLIPMAP_LEAF_SIZE * 5.5f,
-            CLIPMAP_LEAF_SIZE * 7.5f,
-            CLIPMAP_LEAF_SIZE * 13.5f
-    };
-
-    VoxelOctree voxelOctree;
-    private float[] densityField;
-
-    public ChunkOctree(VoxelOctree voxelOctree) {
-        this.voxelOctree = voxelOctree;
-        service = Executors.newFixedThreadPool(1);
-        buildChunkOctree();
-        update(Camera.getInstance());
-    }
-
-    public static int log2(int N) {
-        return (int) (Math.log(N) / Math.log(2));
-    }
-
     private void buildChunkOctree() {
         root = new ChunkNode();
+
+        Vec3i worldSize = new Vec3i(meshGen.worldSizeXZ, meshGen.worldSizeY, meshGen.worldSizeXZ);
+        Vec3i worldOrigin = new Vec3i(0);
+        Vec3i worldBoundsMin = worldOrigin.sub(worldSize.div(2));
+        Vec3i worldBoundsMax = worldOrigin.add(worldSize.div(2));
+
         Vec3i boundsSize = worldBoundsMax.sub(worldBoundsMin);
         float maxSize = Math.max(boundsSize.x, Math.max(boundsSize.y, boundsSize.z));
-        int factor = (int) maxSize / CLIPMAP_LEAF_SIZE;
-        factor = 1 << log2(factor);
-        while ((factor * CLIPMAP_LEAF_SIZE) < maxSize) {
+        int factor = (int) maxSize / meshGen.clipmapLeafSize;
+        factor = 1 << VoxelHelperUtils.log2(factor);
+        while ((factor * meshGen.clipmapLeafSize) < maxSize) {
             factor *= 2;
         }
-        root.size = factor * CLIPMAP_LEAF_SIZE;
+        root.size = factor * meshGen.clipmapLeafSize;
         Vec3i boundsCentre = worldBoundsMin.add(boundsSize.div(2));
         //root.min = (boundsCentre.sub(new Vec3f(root.size / 2))) & ~(factor - 1);
         root.min = boundsCentre.sub(new Vec3i(root.size / 2));
@@ -114,12 +96,11 @@ public class ChunkOctree {
             }
             ImageLoader.saveImageToFloat(densityField, filename);
         }
-
         constructChildrens(root);
     }
 
     private void constructChildrens(ChunkNode node) {
-        if (node.size == CLIPMAP_LEAF_SIZE) {
+        if (node.size == meshGen.clipmapLeafSize) {
             return;
         }
         for (int i = 0; i < 8; i++) {
@@ -134,13 +115,22 @@ public class ChunkOctree {
     }
 
     private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
+        float[] LOD_ACTIVE_DISTANCES = {0.f,
+                meshGen.clipmapLeafSize * 1.5f,
+                meshGen.clipmapLeafSize * 3.5f,
+                meshGen.clipmapLeafSize * 5.5f,
+                meshGen.clipmapLeafSize * 7.5f,
+                meshGen.clipmapLeafSize * 13.5f
+        };
+
         if (node==null) {
             return;
         }
         boolean nodeActive = false;
-        if (!parentActive && node.size <= LOD_MAX_NODE_SIZE) {
-            int size = node.size / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
-            int distanceIndex = log2(size);
+        int lodMaxNodeSize = meshGen.clipmapLeafSize * (1 << (meshGen.numLods - 1));
+        if (!parentActive && node.size <= lodMaxNodeSize) {
+            int size = node.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
+            int distanceIndex = VoxelHelperUtils.log2(size);
             float d = LOD_ACTIVE_DISTANCES[distanceIndex];
             float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
             if (nodeDistance >= d) {
@@ -314,11 +304,11 @@ public class ChunkOctree {
     private List<PointerBasedOctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
         Vec3i chunkMax = node.min.add(node.size);
         Aabb aabb = new Aabb(node.min, node.size * 2);
-        int neighbourScaleSize = neighbour.size / (VOXELS_PER_CHUNK * LEAF_SIZE_SCALE);
+        int neighbourScaleSize = neighbour.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
         List<PointerBasedOctreeNode> selectedSeamNodes = new ArrayList<>();
         for (PointerBasedOctreeNode octreeSeamNode : neighbour.seamNodes) {
-            Vec3i max = octreeSeamNode.min.add(neighbourScaleSize * LEAF_SIZE_SCALE);
-            if (octreeSeamNode.size!=neighbourScaleSize * LEAF_SIZE_SCALE){
+            Vec3i max = octreeSeamNode.min.add(neighbourScaleSize * meshGen.leafSizeScale);
+            if (octreeSeamNode.size!=neighbourScaleSize * meshGen.leafSizeScale){
                 int t=4; // for breakpoint during debugging
             }
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
@@ -373,7 +363,7 @@ public class ChunkOctree {
             if (node.active) {
                 neighbourActiveNodes.add(node);
             }
-            else if (node.size > CLIPMAP_LEAF_SIZE) {
+            else if (node.size > meshGen.clipmapLeafSize) {
                 for (int i = 0; i < 8; i++) {
                     findActiveNodes(node.children[i], referenceNode, neighbourActiveNodes);
                 }
@@ -381,9 +371,9 @@ public class ChunkOctree {
         }
     }
 
-    static Vec3i chunkMinForPosition(PointerBasedOctreeNode p) {
+    static Vec3i chunkMinForPosition(PointerBasedOctreeNode p, int clipmapLeafSize) {
         //int mask = ~(p.chunkSize-1);
-	    int mask = ~(CLIPMAP_LEAF_SIZE-1);
+	    int mask = ~(clipmapLeafSize-1);
         return new Vec3i(p.min.x & mask, p.min.y & mask, p.min.z & mask);
     }
 
@@ -401,8 +391,7 @@ public class ChunkOctree {
         }
         List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
-        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min,
-                VOXELS_PER_CHUNK, CLIPMAP_LEAF_SIZE, LEAF_SIZE_SCALE, densityField, seamNodes, meshBuffer);
+        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, densityField, seamNodes, meshBuffer);
         chunk.seamNodes = seamNodes;
         if(!chunk.active){
             return false;
