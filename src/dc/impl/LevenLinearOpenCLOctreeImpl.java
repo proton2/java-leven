@@ -56,7 +56,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         field.setSize(chunkSize);
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, fieldSize);
-        calculateMaterialsService.run(kernels,chunkSize / voxelsPerChunk, materials, field);
+        calculateMaterialsService.run(kernels, materials, field);
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
         FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, scanService);
