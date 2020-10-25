@@ -148,7 +148,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
             float density = getNoise(cornerPos, densityField);
-		    int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
+		    int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
             corners |= (material << i);
         }
         if (corners == 0 || corners == 255) {
@@ -180,7 +180,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
 		    int c2 = edgevmap[i][1];
 		    int m1 = (corners >> c1) & 1;
 		    int m2 = (corners >> c2) & 1;
-            if ((m1 == MATERIAL_AIR && m2 == MATERIAL_AIR) || (m1 == MATERIAL_SOLID && m2 == MATERIAL_SOLID)) {
+            if ((m1 == meshGen.MATERIAL_AIR && m2 == meshGen.MATERIAL_AIR) || (m1 == meshGen.MATERIAL_SOLID && m2 == meshGen.MATERIAL_SOLID)) {
                 continue; // no zero crossing on this edge
             }
             Vec3f p1 = leaf.min.add(CHILD_MIN_OFFSETS[c1].mul(leaf.size)).toVec3f();

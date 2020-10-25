@@ -10,7 +10,8 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.*;
+import dc.impl.LevenLinearOpenCLOctreeImpl;
+import dc.impl.MeshGenerationContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
 import dc.impl.opencl.OCLUtils;
@@ -45,9 +46,17 @@ public class ChunkOctreeWrapper extends GameObject {
         buildOptions.append("-DFIND_EDGE_INFO_STEPS=" + 16 + " ");
         buildOptions.append("-DFIND_EDGE_INFO_INCREMENT=" + (1.f/16.f) + " ");
         buildOptions.append("-DVOXELS_PER_CHUNK=").append(meshGenCtx.getVoxelsPerChunk()).append(" ");
+        buildOptions.append("-DMAX_OCTREE_DEPTH=").append(VoxelHelperUtils.log2(meshGenCtx.getVoxelsPerChunk())).append(" ");
         buildOptions.append("-DVOXEL_INDEX_SHIFT=").append(meshGenCtx.getIndexShift()).append(" ");
         buildOptions.append("-DVOXEL_INDEX_MASK=").append(meshGenCtx.getIndexMask()).append(" ");
         buildOptions.append("-DHERMITE_INDEX_SIZE=").append(meshGenCtx.getHermiteIndexSize()).append(" ");
+        buildOptions.append("-DLEAF_SIZE_SCALE=").append(meshGenCtx.leafSizeScale).append(" ");
+        buildOptions.append("-DCUCKOO_STASH_HASH_INDEX=").append(meshGenCtx.CUCKOO_STASH_HASH_INDEX).append(" ");
+        buildOptions.append("-DCUCKOO_EMPTY_VALUE=").append(meshGenCtx.CUCKOO_EMPTY_VALUE).append(" ");
+        buildOptions.append("-DCUCKOO_STASH_SIZE=").append(meshGenCtx.CUCKOO_STASH_SIZE).append(" ");
+        buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(meshGenCtx.CUCKOO_MAX_ITERATIONS).append(" ");
+        buildOptions.append("-DMATERIAL_AIR=").append(meshGenCtx.MATERIAL_AIR).append(" ");
+        buildOptions.append("-DMATERIAL_NONE=").append(meshGenCtx.MATERIAL_SOLID).append(" ");
         File file = new File(Paths.get("res/opencl/scan.cl").toUri());
         if(file.exists()){
             buildOptions.append("-I ").append(file.getParent());
@@ -57,23 +66,14 @@ public class ChunkOctreeWrapper extends GameObject {
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
-        int voxelsPerChunk = 64;
-        int indexShift = VoxelHelperUtils.log2(voxelsPerChunk) + 1;
-        int hermiteIndexSize = voxelsPerChunk + 1;
-        int fieldSize = hermiteIndexSize + 1;
-        int indexMask = (1 << indexShift) - 1;
-
-        meshGenCtx = new MeshGenerationContext(voxelsPerChunk);
-        meshGenCtx.setHermiteIndexSize(hermiteIndexSize);
-        meshGenCtx.setFieldSize(fieldSize);
-        meshGenCtx.setIndexMask(indexMask);
-        meshGenCtx.setIndexShift(indexShift);
+        meshGenCtx = new MeshGenerationContext(64);
 
         StringBuilder kernelBuildOptions = createMainBuildOptions(meshGenCtx);
         kernelHolder = new KernelsHolder(OCLUtils.getOpenCLContext());
         kernelHolder.buildKernel(KernelNames.DENSITY, kernelBuildOptions);
         kernelHolder.buildKernel(KernelNames.FIND_DEFAULT_EDGES, kernelBuildOptions);
         kernelHolder.buildKernel(KernelNames.SCAN, null);
+        kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
 
         //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);

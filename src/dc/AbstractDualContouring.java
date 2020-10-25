@@ -14,7 +14,6 @@ import java.util.*;
 
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
-import static dc.VoxelOctree.MATERIAL_AIR;
 import static dc.VoxelOctree.edgevmap;
 
 public abstract class AbstractDualContouring implements DualContouring{
@@ -113,8 +112,8 @@ public abstract class AbstractDualContouring implements DualContouring{
                 indices[i] = node[i].drawInfo.index;
                 //signChange[i] = (m0 && !m1) || (!m0 && m1);
                 signChange[i] =
-                        (m0 == MATERIAL_AIR && m1 != MATERIAL_AIR) ||
-                                (m0 != MATERIAL_AIR && m1 == MATERIAL_AIR);
+                        (m0 == meshGen.MATERIAL_AIR && m1 != meshGen.MATERIAL_AIR) ||
+                                (m0 != meshGen.MATERIAL_AIR && m1 == meshGen.MATERIAL_AIR);
             }
         }
 

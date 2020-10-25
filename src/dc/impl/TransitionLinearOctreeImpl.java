@@ -18,8 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 
-import static dc.LinearOctreeTest.MAX_OCTREE_DEPTH;
-
 /*
     Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation
     Some holes in seams is not fixed.
@@ -82,7 +80,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                     Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
                     float density = getNoise(world_pos, densityField);
                     int index = field_index(local_pos);
-                    int material = density < 0.f ? defaultMaterialIndex : MATERIAL_AIR;
+                    int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
                     field_materials[index] = material;
                     if(material==defaultMaterialIndex) size++;
                 }
@@ -99,7 +97,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 
         int[] materials = new int[meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize()];
         GenerateDefaultField(densityField, chunkMin, 0, meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize(),
-                chunkSize / meshGen.getVoxelsPerChunk(), MATERIAL_SOLID, materials);
+                chunkSize / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID, materials);
 //        CalculateMaterialService calculateMaterialService = new CalculateMaterialService();
 //        calculateMaterialService.calculate(chunkMin, chunkSize / voxelsPerChunk, materials);
 
@@ -212,14 +210,14 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 
             // record the on/off values at the corner of each voxel
             int cornerValues = 0;
-            cornerValues |= (((cornerMaterials[0]) == MATERIAL_AIR ? 0 : 1) << 0);
-            cornerValues |= (((cornerMaterials[1]) == MATERIAL_AIR ? 0 : 1) << 1);
-            cornerValues |= (((cornerMaterials[2]) == MATERIAL_AIR ? 0 : 1) << 2);
-            cornerValues |= (((cornerMaterials[3]) == MATERIAL_AIR ? 0 : 1) << 3);
-            cornerValues |= (((cornerMaterials[4]) == MATERIAL_AIR ? 0 : 1) << 4);
-            cornerValues |= (((cornerMaterials[5]) == MATERIAL_AIR ? 0 : 1) << 5);
-            cornerValues |= (((cornerMaterials[6]) == MATERIAL_AIR ? 0 : 1) << 6);
-            cornerValues |= (((cornerMaterials[7]) == MATERIAL_AIR ? 0 : 1) << 7);
+            cornerValues |= (((cornerMaterials[0]) == meshGen.MATERIAL_AIR ? 0 : 1) << 0);
+            cornerValues |= (((cornerMaterials[1]) == meshGen.MATERIAL_AIR ? 0 : 1) << 1);
+            cornerValues |= (((cornerMaterials[2]) == meshGen.MATERIAL_AIR ? 0 : 1) << 2);
+            cornerValues |= (((cornerMaterials[3]) == meshGen.MATERIAL_AIR ? 0 : 1) << 3);
+            cornerValues |= (((cornerMaterials[4]) == meshGen.MATERIAL_AIR ? 0 : 1) << 4);
+            cornerValues |= (((cornerMaterials[5]) == meshGen.MATERIAL_AIR ? 0 : 1) << 5);
+            cornerValues |= (((cornerMaterials[6]) == meshGen.MATERIAL_AIR ? 0 : 1) << 6);
+            cornerValues |= (((cornerMaterials[7]) == meshGen.MATERIAL_AIR ? 0 : 1) << 7);
 
             // record which of the 12 voxel edges are on/off
             int edgeList = 0;
@@ -232,7 +230,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 edgeList |= (signChange << i);
             }
 
-            int codePos = LinearOctreeTest.codeForPosition(pos, MAX_OCTREE_DEPTH);
+            int codePos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
             Vec4f borderNodePos = null;
             if (cornerValues == 0 || cornerValues == 255) {
                 int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
@@ -399,7 +397,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 nodeIndices[0] = index;
                 for (int n = 1; n < 4; n++) {
                     Vec3i p = offset.add(EDGE_NODE_OFFSETS[axis][n]);
-                    int c = LinearOctreeTest.codeForPosition(p, MAX_OCTREE_DEPTH);
+                    int c = LinearOctreeTest.codeForPosition(p, meshGen.MAX_OCTREE_DEPTH);
                     nodeIndices[n] = nodes.get(c);
                 }
 
@@ -423,7 +421,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         int m1 = (corners >> c1) & 1;
         int m2 = (corners >> c2) & 1;
 
-        boolean signChange = (m1 == MATERIAL_AIR && m2 != MATERIAL_AIR) || (m1 != MATERIAL_AIR && m2 == MATERIAL_AIR);
+        boolean signChange = (m1 == meshGen.MATERIAL_AIR && m2 != meshGen.MATERIAL_AIR) || (m1 != meshGen.MATERIAL_AIR && m2 == meshGen.MATERIAL_AIR);
         if (!signChange) {
             return 0;
         }

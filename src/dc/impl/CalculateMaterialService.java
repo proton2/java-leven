@@ -10,9 +10,6 @@ import modules.DensityPrimitive;
 
 import java.util.Random;
 
-import static dc.VoxelOctree.MATERIAL_AIR;
-import static dc.VoxelOctree.MATERIAL_SOLID;
-
 public class CalculateMaterialService {
     CalculateMaterialComputeShader shader;
     private MeshGenerationContext meshGen;
@@ -72,7 +69,7 @@ public class CalculateMaterialService {
                     Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
                     float density = Density_Func(world_pos);
                     int index = field_index(local_pos);
-                    int material = density < 0.f ? MATERIAL_SOLID : MATERIAL_AIR;
+                    int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
                     fieldMaterials[index] = material;
                 }
             }

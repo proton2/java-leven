@@ -1,14 +1,13 @@
 package dc;
 
 import core.math.Vec3i;
-import dc.utils.VoxelHelperUtils;
+import dc.impl.MeshGenerationContext;
 
 import java.util.HashMap;
 import java.util.Map;
 
 public class LinearOctreeTest {
-    private static int voxelsPerChunk = 64;
-    public static int MAX_OCTREE_DEPTH = VoxelHelperUtils.log2(voxelsPerChunk);
+    static MeshGenerationContext meshGen = new MeshGenerationContext(64);
     static class LinearOctreeNode {
         private int nodeCode;
         private boolean childExists;
@@ -83,7 +82,7 @@ public class LinearOctreeTest {
     public static Vec3i positionForCode(int code) {
         int nodeDepth = getMsb(code)/3;
         Vec3i pos = new Vec3i();
-        for (int i = MAX_OCTREE_DEPTH - nodeDepth; i < MAX_OCTREE_DEPTH; i++) {
+        for (int i = meshGen.MAX_OCTREE_DEPTH - nodeDepth; i < meshGen.MAX_OCTREE_DEPTH; i++) {
             int c = code & 7;
             code >>= 3;
 
@@ -100,7 +99,7 @@ public class LinearOctreeTest {
 
     public static int codeForPosition(Vec3i p, int nodeDepth) {
         int code = 1;
-        for (int depth = MAX_OCTREE_DEPTH - 1; depth >= (MAX_OCTREE_DEPTH - nodeDepth); depth--) {
+        for (int depth = meshGen.MAX_OCTREE_DEPTH - 1; depth >= (meshGen.MAX_OCTREE_DEPTH - nodeDepth); depth--) {
             int x = (p.x >> depth) & 1;
             int y = (p.y >> depth) & 1;
             int z = (p.z >> depth) & 1;
@@ -121,7 +120,7 @@ public class LinearOctreeTest {
 
     public static void main(String[] args) {
         Vec3i pos = new Vec3i(48, 0, 63);
-        int code = codeForPosition(pos, MAX_OCTREE_DEPTH);
+        int code = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
         Vec3i decodedPos = positionForCode(code);
         System.out.println(decodedPos);
         int parentCode = getParentCode(code);

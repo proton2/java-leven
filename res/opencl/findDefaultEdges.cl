@@ -1,7 +1,4 @@
 #include "density_simplex.cl"
-  //constant int FIELD_DIM = 66;
-    constant int MATERIAL_AIR = 0;
-  constant int MATERIAL_SOLID = 1;
 
 //  int field_index(const int4 pos)
 //  {

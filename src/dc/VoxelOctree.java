@@ -23,8 +23,6 @@ public interface VoxelOctree {
             new Vec3i( 1, 1, 0 ),
             new Vec3i( 1, 1, 1 ),
     };
-    int MATERIAL_AIR = 0;
-    int MATERIAL_SOLID = 1;
 
     float QEF_ERROR = 1e-6f;
     int QEF_SWEEPS = 4;
