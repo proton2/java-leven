@@ -1,5 +1,6 @@
 package dc.impl.opencl;
 
+import core.math.Vec4f;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL;
@@ -8,7 +9,9 @@ import org.lwjgl.opencl.CLCapabilities;
 import org.lwjgl.opencl.CLContextCallback;
 import org.lwjgl.system.MemoryStack;
 
+import java.lang.instrument.Instrumentation;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
 
@@ -416,5 +419,56 @@ public class OCLUtils {
         if (exp!=check){
             throw new RuntimeException(message);
         }
+    }
+
+    public static Vec4f[] getNormals(long normBuffer, int size){
+        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(size * Integer.BYTES);
+        CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), normBuffer, true, 0, resultBuff, null, null);
+        Vec4f[] normalsBuffer = new Vec4f[size];
+        for (int i = 0; i < size; i++) {
+            int index = i * 4;
+            Vec4f normal = new Vec4f();
+            normal.x = resultBuff.get(index+0);
+            normal.y = resultBuff.get(index+1);
+            normal.z = resultBuff.get(index+2);
+            normal.w = resultBuff.get(index+3);
+            normalsBuffer[i] = normal;
+        }
+        return normalsBuffer;
+    }
+
+    static class QEFData{
+        float[] mat3x3_tri_ATA = new float[6];
+        float[] pad = new float[2];
+        Vec4f ATb = new Vec4f();
+        Vec4f massPoint = new Vec4f();
+    }
+
+    public static QEFData[] getQEFData(long buffer, int size){
+        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(size * Float.BYTES * 16);
+        CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        QEFData[] qefData = new QEFData[size];
+        for (int i = 0; i < size; i++) {
+            int index = i * 4;
+            QEFData q = new QEFData();
+            q.mat3x3_tri_ATA[0] = resultBuff.get(index+0);
+            q.mat3x3_tri_ATA[1] = resultBuff.get(index+1);
+            q.mat3x3_tri_ATA[2] = resultBuff.get(index+2);
+            q.mat3x3_tri_ATA[3] = resultBuff.get(index+3);
+            q.mat3x3_tri_ATA[4] = resultBuff.get(index+4);
+            q.mat3x3_tri_ATA[5] = resultBuff.get(index+5);
+            q.pad[0] = resultBuff.get(index+6);
+            q.pad[1] = resultBuff.get(index+7);
+            q.ATb.x = resultBuff.get(index+8);
+            q.ATb.y = resultBuff.get(index+9);
+            q.ATb.z = resultBuff.get(index+10);
+            q.ATb.w = resultBuff.get(index+11);
+            q.massPoint.x = resultBuff.get(index+12);
+            q.massPoint.y = resultBuff.get(index+13);
+            q.massPoint.z = resultBuff.get(index+14);
+            q.massPoint.w = resultBuff.get(index+15);
+            qefData[i] = q;
+        }
+        return qefData;
     }
 }

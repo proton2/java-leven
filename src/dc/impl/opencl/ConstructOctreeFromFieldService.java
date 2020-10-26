@@ -95,7 +95,7 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(errcode);
 
 
-        long d_qefsBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * 64, ctx.getErrcode_ret());
+        long d_qefsBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Float.BYTES * 16, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         CuckooHashOpenCLService edgeHashTable = new CuckooHashOpenCLService(ctx, meshGen, scanService, kernels, field.getNumEdges());
@@ -122,6 +122,7 @@ public class ConstructOctreeFromFieldService {
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), createLeafNodesKernel, 1, null, createLeafNodesWorkSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
+        //OCLUtils.QEFData[] qefData = OCLUtils.getQEFData(d_qefsBuf, octree.getNumNodes());
 
         long solveQEFsKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "SolveQEFs", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());

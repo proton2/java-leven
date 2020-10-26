@@ -113,22 +113,6 @@ public final class FindDefaultEdgesOpenCLService {
         OCLUtils.checkCLError(err);
     }
 
-    public Vec4f[] getNormals(long normBuffer){
-        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(numEdges * 4);
-        CL10.clEnqueueReadBuffer(ctx.getClQueue(), normBuffer, true, 0, resultBuff, null, null);
-        Vec4f[] normalsBuffer = new Vec4f[numEdges];
-        for (int i = 0; i < numEdges; i++) {
-            int index = i * 4;
-            Vec4f normal = new Vec4f();
-            normal.x = resultBuff.get(index+0);
-            normal.y = resultBuff.get(index+1);
-            normal.z = resultBuff.get(index+2);
-            normal.w = resultBuff.get(index+3);
-            normalsBuffer[i] = normal;
-        }
-        return normalsBuffer;
-    }
-
     public int[] getEdgeIndicesCompact(long compactEdgeIndicates){
         IntBuffer resultBuff = BufferUtils.createIntBuffer(numEdges);
         CL10.clEnqueueReadBuffer(ctx.getClQueue(), compactEdgeIndicates, true, 0, resultBuff,
