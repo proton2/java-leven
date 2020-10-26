@@ -11,7 +11,6 @@ import java.nio.IntBuffer;
 import static org.lwjgl.opencl.CL10.*;
 
 public final class OpenCLCalculateMaterialsService {
-    private long clKernel;
     private final int size;
     private ComputeContext ctx;
     private final MeshGenerationContext meshGen;
@@ -24,7 +23,7 @@ public final class OpenCLCalculateMaterialsService {
 
     public void run(KernelsHolder kernels, int[] result, GPUDensityField field) {
         // init kernel with constants
-        clKernel = clCreateKernel(kernels.getKernel(KernelNames.DENSITY), "GenerateDefaultField", ctx.getErrcode_ret());
+        long clKernel = clCreateKernel(kernels.getKernel(KernelNames.DENSITY), "GenerateDefaultField", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         int sampleScale = field.getSize() / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
 
@@ -51,7 +50,7 @@ public final class OpenCLCalculateMaterialsService {
         CL10.clFinish(ctx.getClQueue());
 
         getResults(result, field);
-        cleanup();
+        CL10.clReleaseKernel(clKernel);
     }
 
     private void getResults(int[] result, GPUDensityField field) {
@@ -69,9 +68,5 @@ public final class OpenCLCalculateMaterialsService {
         long resultMemory = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, size * size * size * 4, ctx.getErrcode_ret());
         field.setMaterials(resultMemory);
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-    }
-
-    private void cleanup() {
-        CL10.clReleaseKernel(clKernel);
     }
 }

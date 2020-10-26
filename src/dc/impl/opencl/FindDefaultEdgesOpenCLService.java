@@ -96,7 +96,7 @@ public final class FindDefaultEdgesOpenCLService {
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), kFindInfoKernel, 1, null, globalWorkNumEdgesSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
-        Vec4f[] vec4f = getNormals(field.getNormals());
+        //Vec4f[] vec4f = getNormals(field.getNormals());
 
         CL10.clReleaseMemObject(edgeScanBuffer);
         CL10.clReleaseKernel(compactEdgesKernel);
@@ -104,6 +104,13 @@ public final class FindDefaultEdgesOpenCLService {
         CL10.clReleaseKernel(findFieldEdgesKernel);
         CL10.clFinish(ctx.getClQueue());
         return field.getNumEdges();
+    }
+
+    public void destroy(){
+        int err = CL10.clReleaseMemObject(edgeOccupancyBuffer);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseMemObject(edgeIndicesNonCompactBuffer);
+        OCLUtils.checkCLError(err);
     }
 
     public Vec4f[] getNormals(long normBuffer){
