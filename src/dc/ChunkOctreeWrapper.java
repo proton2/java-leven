@@ -34,46 +34,19 @@ public class ChunkOctreeWrapper extends GameObject {
     protected boolean drawNodeBounds = false;
     private final MeshGenerationContext meshGenCtx;
 
-    StringBuilder createMainBuildOptions(MeshGenerationContext meshGenCtx) {
-        StringBuilder buildOptions = new StringBuilder();
-        buildOptions.append("-cl-denorms-are-zero ");
-        buildOptions.append("-cl-finite-math-only ");
-        buildOptions.append("-cl-no-signed-zeros ");
-        buildOptions.append("-cl-fast-relaxed-math ");
-        buildOptions.append("-Werror ");
 
-        buildOptions.append("-DFIELD_DIM=").append(meshGenCtx.getFieldSize()).append(" ");
-        buildOptions.append("-DFIND_EDGE_INFO_STEPS=" + 16 + " ");
-        buildOptions.append("-DFIND_EDGE_INFO_INCREMENT=" + (1.f/16.f) + " ");
-        buildOptions.append("-DVOXELS_PER_CHUNK=").append(meshGenCtx.getVoxelsPerChunk()).append(" ");
-        buildOptions.append("-DMAX_OCTREE_DEPTH=").append(VoxelHelperUtils.log2(meshGenCtx.getVoxelsPerChunk())).append(" ");
-        buildOptions.append("-DVOXEL_INDEX_SHIFT=").append(meshGenCtx.getIndexShift()).append(" ");
-        buildOptions.append("-DVOXEL_INDEX_MASK=").append(meshGenCtx.getIndexMask()).append(" ");
-        buildOptions.append("-DHERMITE_INDEX_SIZE=").append(meshGenCtx.getHermiteIndexSize()).append(" ");
-        buildOptions.append("-DLEAF_SIZE_SCALE=").append(meshGenCtx.leafSizeScale).append(" ");
-        buildOptions.append("-DCUCKOO_STASH_HASH_INDEX=").append(meshGenCtx.CUCKOO_STASH_HASH_INDEX).append(" ");
-        buildOptions.append("-DCUCKOO_EMPTY_VALUE=").append(meshGenCtx.CUCKOO_EMPTY_VALUE).append(" ");
-        buildOptions.append("-DCUCKOO_STASH_SIZE=").append(meshGenCtx.CUCKOO_STASH_SIZE).append(" ");
-        buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(meshGenCtx.CUCKOO_MAX_ITERATIONS).append(" ");
-        buildOptions.append("-DMATERIAL_AIR=").append(meshGenCtx.MATERIAL_AIR).append(" ");
-        buildOptions.append("-DMATERIAL_NONE=").append(meshGenCtx.MATERIAL_SOLID).append(" ");
-        File file = new File(Paths.get("res/opencl/scan.cl").toUri());
-        if(file.exists()){
-            buildOptions.append("-I ").append(file.getParent());
-        }
-        return buildOptions;
-    }
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
 
-        StringBuilder kernelBuildOptions = createMainBuildOptions(meshGenCtx);
+        StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
         kernelHolder = new KernelsHolder(OCLUtils.getOpenCLContext());
         kernelHolder.buildKernel(KernelNames.DENSITY, kernelBuildOptions);
         kernelHolder.buildKernel(KernelNames.FIND_DEFAULT_EDGES, kernelBuildOptions);
         kernelHolder.buildKernel(KernelNames.SCAN, null);
         kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
+        kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
 
         //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);

@@ -1,6 +1,7 @@
 package dc.impl.opencl;
 
 import dc.impl.MeshGenerationContext;
+import dc.utils.VoxelHelperUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
@@ -43,24 +44,25 @@ public class CuckooHashOpenCLService {
 
     int MIN_TABLE_SIZE = 2048;
     private final ComputeContext ctx;
-    private final KernelProgram kernelProgram;
+    private final KernelsHolder kernelProgram;
     private final ScanOpenCLService scanOpenCLService;
     private final MeshGenerationContext meshGen;
 
-    public CuckooHashOpenCLService(ComputeContext computeContext, MeshGenerationContext meshGenerationContext, ScanOpenCLService scanOpenCLService, KernelProgram kernelProgram, int tableSize) {
-        this.meshGen = meshGenerationContext;
-        this.scanOpenCLService = scanOpenCLService;
-        this.ctx = computeContext;
-        this.kernelProgram = kernelProgram;
+    public CuckooHashOpenCLService(ComputeContext ctx, MeshGenerationContext meshGen, ScanOpenCLService scanService,
+                                   KernelsHolder kernelHolder, int tableSize) {
+        this.meshGen = meshGen;
+        this.scanOpenCLService = scanService;
+        this.ctx = ctx;
+        this.kernelProgram = kernelHolder;
         prime = findNextPrime(Math.max(MIN_TABLE_SIZE, tableSize * 2));
         table = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, prime * 8, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        fillBufferLong(kernelProgram.getKernel(), ctx.getClQueue(), table, prime, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
+        fillBufferLong(kernelProgram.getKernel(KernelNames.CUCKOO), ctx.getClQueue(), table, prime, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         stash = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, meshGen.CUCKOO_STASH_SIZE * 8, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        fillBufferLong(kernelProgram.getKernel(), ctx.getClQueue(), stash, meshGen.CUCKOO_STASH_SIZE, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
+        fillBufferLong(kernelProgram.getKernel(KernelNames.CUCKOO), ctx.getClQueue(), stash, meshGen.CUCKOO_STASH_SIZE, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
 
         int[] params = initHashValues();
         hashParams = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_ONLY | CL10.CL_MEM_COPY_HOST_PTR, OCLUtils.getIntBuffer(params), ctx.getErrcode_ret());
@@ -86,7 +88,7 @@ public class CuckooHashOpenCLService {
         long d_stashUsedScan = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, count * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
-        long k_InsertKeys = clCreateKernel(kernelProgram.getKernel(), "Cuckoo_InsertKeys", ctx.getErrcode_ret());
+        long k_InsertKeys = clCreateKernel(kernelProgram.getKernel(KernelNames.CUCKOO), "Cuckoo_InsertKeys", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         int numRetries = 0;
@@ -97,8 +99,8 @@ public class CuckooHashOpenCLService {
                 int[] params = initHashValues();
                 int errcode = CL10.clEnqueueWriteBuffer(ctx.getClQueue(), hashParams, false, 0, OCLUtils.getIntBuffer(params), null, null);
                 OCLUtils.checkCLError(errcode);
-                fillBufferLong(kernelProgram.getKernel(), ctx.getClQueue(), table, prime, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
-                fillBufferLong(kernelProgram.getKernel(), ctx.getClQueue(), stash, meshGen.CUCKOO_STASH_SIZE, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
+                fillBufferLong(kernelProgram.getKernel(KernelNames.CUCKOO), ctx.getClQueue(), table, prime, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
+                fillBufferLong(kernelProgram.getKernel(KernelNames.CUCKOO), ctx.getClQueue(), stash, meshGen.CUCKOO_STASH_SIZE, meshGen.CUCKOO_EMPTY_VALUE, ctx.getErrcode_ret());
             }
 
             clSetKernelArg1p(k_InsertKeys, 0, d_keys);
@@ -186,30 +188,19 @@ public class CuckooHashOpenCLService {
         return x;
     }
 
-    public static StringBuilder getCuckooBuildOptions(MeshGenerationContext meshGen) {
-        StringBuilder buildOptions = new StringBuilder();
-        buildOptions.append("-DCUCKOO_EMPTY_VALUE=").append(meshGen.CUCKOO_EMPTY_VALUE).append(" ");
-        buildOptions.append("-DCUCKOO_STASH_HASH_INDEX=").append(meshGen.CUCKOO_STASH_HASH_INDEX).append(" ");
-        buildOptions.append("-DCUCKOO_HASH_FN_COUNT=").append(meshGen.CUCKOO_HASH_FN_COUNT).append(" ");
-        buildOptions.append("-DCUCKOO_STASH_SIZE=").append(meshGen.CUCKOO_STASH_SIZE).append(" ");
-        buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(meshGen.CUCKOO_MAX_ITERATIONS).append(" ");
-        File file = new File(Paths.get("res/opencl/cuckoo.cl").toUri());
-        if(file.exists()){
-            buildOptions.append("-I ").append(file.getParent());
-        }
-        return buildOptions;
-    }
-
     public static void main(String[] args) {
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         MeshGenerationContext meshGen = new MeshGenerationContext(64);
-        KernelProgram cuckooKernel = new KernelProgram(KernelNames.CUCKOO, ctx, getCuckooBuildOptions(meshGen));
-        KernelProgram scanKernel = new KernelProgram(KernelNames.SCAN, ctx,null);
+        KernelsHolder kernelHolder = new KernelsHolder(ctx);
+        kernelHolder.buildKernel(KernelNames.SCAN, null);
+        kernelHolder.buildKernel(KernelNames.CUCKOO, VoxelHelperUtils.getCuckooBuildOptions(meshGen));
+        kernelHolder.buildKernel(KernelNames.TEST_CUCKOO, VoxelHelperUtils.getCuckooBuildOptions(meshGen));
 
-        ScanOpenCLService scanService = new ScanOpenCLService(ctx, scanKernel.getKernel());
+        ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernelHolder.getKernel(KernelNames.SCAN));
 
         int KEY_COUNT = 100;
-        CuckooHashOpenCLService cuckooHashService = new CuckooHashOpenCLService(OCLUtils.getOpenCLContext(), meshGen, scanService, cuckooKernel, KEY_COUNT);
+        CuckooHashOpenCLService cuckooHashService = new CuckooHashOpenCLService(OCLUtils.getOpenCLContext(), meshGen,
+                scanService, kernelHolder, KEY_COUNT);
         int[] keys = new int[KEY_COUNT];
         for (int i = 0; i < 100; i++) {
             keys[i] = i;
@@ -219,13 +210,11 @@ public class CuckooHashOpenCLService {
         int result = cuckooHashService.insertKeys(buffer, KEY_COUNT);
         OCLUtils.validateExpression(result == CL10.CL_SUCCESS, true, "CuckooHash error");
 
-        KernelProgram testKernel = new KernelProgram(KernelNames.TEST_CUCKOO, ctx, getCuckooBuildOptions(meshGen));
-
         int resultBufferSize = 10;
         int inputArgument = 53;
         long resultOutBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, resultBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        long testCuckooKernel = clCreateKernel(testKernel.getKernel(), "testCuckoo", ctx.getErrcode_ret());
+        long testCuckooKernel = clCreateKernel(kernelHolder.getKernel(KernelNames.TEST_CUCKOO), "testCuckoo", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         clSetKernelArg1i(testCuckooKernel, 0, inputArgument);
@@ -249,11 +238,11 @@ public class CuckooHashOpenCLService {
         CL10.clReleaseMemObject(resultOutBuffer);
         int ret = CL10.clReleaseCommandQueue(ctx.getClQueue());
         OCLUtils.checkCLError(ret);
-        ret = CL10.clReleaseProgram(cuckooKernel.getKernel());
+        ret = CL10.clReleaseProgram(kernelHolder.getKernel(KernelNames.CUCKOO));
         OCLUtils.checkCLError(ret);
-        ret = CL10.clReleaseProgram(scanKernel.getKernel());
+        ret = CL10.clReleaseProgram(kernelHolder.getKernel(KernelNames.SCAN));
         OCLUtils.checkCLError(ret);
-        ret = CL10.clReleaseProgram(testKernel.getKernel());
+        ret = CL10.clReleaseProgram(kernelHolder.getKernel(KernelNames.TEST_CUCKOO));
         OCLUtils.checkCLError(ret);
     }
 }

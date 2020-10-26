@@ -56,6 +56,9 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 //        KernelProgram cuckooKernel = new KernelProgram(KernelNames.CUCKOO, OCLUtils.getOpenCLContext(), CuckooHashOpenCLService.getCuckooBuildOptions());
 //        CuckooHashOpenCLService cuckooHashService = new CuckooHashOpenCLService(OCLUtils.getOpenCLContext(), scanService, cuckooKernel, field.getNumEdges());
 //        cuckooHashService.insertKeys(field.getEdgeIndices(), field.getNumEdges());
+        GpuOctree gpuOctree = new GpuOctree();
+        ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
+        constructOctreeFromFieldService.run(kernels);
 
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         boolean[] edgeOccupancy = new boolean[edgeBufferSize];
@@ -148,6 +151,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 //        CL10.clReleaseMemObject(field.getEdgeIndices());
 //        CL10.clReleaseMemObject(field.getMaterials());
 //        CL10.clReleaseMemObject(field.getNormals());
+        findDefEdges.destroy();
         return true;
     }
 

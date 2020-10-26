@@ -396,6 +396,11 @@ public class OCLUtils {
         CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
         int[] returnBuffer = new int[size];
         resultBuff.get(returnBuffer);
+//        int t=0;
+//        for(int i=0; i<size; i++){
+//            if(returnBuffer[i]>0)
+//                t++;
+//        }
         return returnBuffer;
     }
 

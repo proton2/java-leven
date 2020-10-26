@@ -231,7 +231,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> emptyNodes = new ArrayList<>();
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
-            boolean result = //filterNodesForDebug(filteredNode) &&
+            boolean result = filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
             if (filteredNode.renderMesh !=null || (filteredNode.seamNodes!=null && filteredNode.seamNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
@@ -380,8 +380,9 @@ public class ChunkOctree {
 
     private boolean filterNodesForDebug(ChunkNode filteredNode){
         boolean res =
-                //filteredNode.min.equals(new Vec3i(512,0,-512)) ||
-                        filteredNode.min.equals(new Vec3i(512,-1024,-1024));
+                filteredNode.min.equals(new Vec3i(-4096,-4096,-4096))
+                        //|| filteredNode.min.equals(new Vec3i(512,-1024,-1024))
+                ;
         return res;
     }
 

@@ -6,6 +6,10 @@ import core.math.Vec4f;
 import dc.ChunkNode;
 import dc.OctreeNodeType;
 import dc.PointerBasedOctreeNode;
+import dc.impl.MeshGenerationContext;
+
+import java.io.File;
+import java.nio.file.Paths;
 
 public class VoxelHelperUtils {
     static public int countLeafNodes(PointerBasedOctreeNode node){
@@ -60,5 +64,49 @@ public class VoxelHelperUtils {
 
     public static int log2(int N) {
         return (int) (Math.log(N) / Math.log(2));
+    }
+
+    public static StringBuilder createMainBuildOptions(MeshGenerationContext meshGenCtx) {
+        StringBuilder buildOptions = new StringBuilder();
+        buildOptions.append("-cl-denorms-are-zero ");
+        buildOptions.append("-cl-finite-math-only ");
+        buildOptions.append("-cl-no-signed-zeros ");
+        buildOptions.append("-cl-fast-relaxed-math ");
+        buildOptions.append("-Werror ");
+
+        buildOptions.append("-DFIELD_DIM=").append(meshGenCtx.getFieldSize()).append(" ");
+        buildOptions.append("-DFIND_EDGE_INFO_STEPS=" + 16 + " ");
+        buildOptions.append("-DFIND_EDGE_INFO_INCREMENT=" + (1.f/16.f) + " ");
+        buildOptions.append("-DVOXELS_PER_CHUNK=").append(meshGenCtx.getVoxelsPerChunk()).append(" ");
+        buildOptions.append("-DMAX_OCTREE_DEPTH=").append(VoxelHelperUtils.log2(meshGenCtx.getVoxelsPerChunk())).append(" ");
+        buildOptions.append("-DVOXEL_INDEX_SHIFT=").append(meshGenCtx.getIndexShift()).append(" ");
+        buildOptions.append("-DVOXEL_INDEX_MASK=").append(meshGenCtx.getIndexMask()).append(" ");
+        buildOptions.append("-DHERMITE_INDEX_SIZE=").append(meshGenCtx.getHermiteIndexSize()).append(" ");
+        buildOptions.append("-DLEAF_SIZE_SCALE=").append(meshGenCtx.leafSizeScale).append(" ");
+        buildOptions.append("-DCUCKOO_STASH_HASH_INDEX=").append(meshGenCtx.CUCKOO_STASH_HASH_INDEX).append(" ");
+        buildOptions.append("-DCUCKOO_EMPTY_VALUE=").append(meshGenCtx.CUCKOO_EMPTY_VALUE).append(" ");
+        buildOptions.append("-DCUCKOO_STASH_SIZE=").append(meshGenCtx.CUCKOO_STASH_SIZE).append(" ");
+        buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(meshGenCtx.CUCKOO_MAX_ITERATIONS).append(" ");
+        buildOptions.append("-DMATERIAL_AIR=").append(meshGenCtx.MATERIAL_AIR).append(" ");
+        buildOptions.append("-DMATERIAL_NONE=").append(meshGenCtx.MATERIAL_SOLID).append(" ");
+        File file = new File(Paths.get("res/opencl/scan.cl").toUri());
+        if(file.exists()){
+            buildOptions.append("-I ").append(file.getParent());
+        }
+        return buildOptions;
+    }
+
+    public static StringBuilder getCuckooBuildOptions(MeshGenerationContext meshGen) {
+        StringBuilder buildOptions = new StringBuilder();
+        buildOptions.append("-DCUCKOO_EMPTY_VALUE=").append(meshGen.CUCKOO_EMPTY_VALUE).append(" ");
+        buildOptions.append("-DCUCKOO_STASH_HASH_INDEX=").append(meshGen.CUCKOO_STASH_HASH_INDEX).append(" ");
+        buildOptions.append("-DCUCKOO_HASH_FN_COUNT=").append(meshGen.CUCKOO_HASH_FN_COUNT).append(" ");
+        buildOptions.append("-DCUCKOO_STASH_SIZE=").append(meshGen.CUCKOO_STASH_SIZE).append(" ");
+        buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(meshGen.CUCKOO_MAX_ITERATIONS).append(" ");
+        File file = new File(Paths.get("res/opencl/cuckoo.cl").toUri());
+        if(file.exists()){
+            buildOptions.append("-I ").append(file.getParent());
+        }
+        return buildOptions;
     }
 }
