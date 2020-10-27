@@ -4,9 +4,9 @@ import dc.impl.opencl.CuckooHashOpenCLService;
 
 public class GpuOctree {
     private int     numNodes = 0;
-    private long    d_nodeCodesBuffer, d_nodeMaterialsBuffer;
-    private long    d_vertexPositionsBuffer, d_vertexNormalsBuffer;
-    private CuckooHashOpenCLService d_hashTable;
+    private long nodeCodesBuf, nodeMaterialsBuf;
+    private long vertexPositionsBuf, vertexNormalsBuf;
+    private CuckooHashOpenCLService hashTable;
 
     public int getNumNodes() {
         return numNodes;
@@ -16,43 +16,43 @@ public class GpuOctree {
         this.numNodes = numNodes;
     }
 
-    public long getD_nodeCodesBuffer() {
-        return d_nodeCodesBuffer;
+    public long getNodeCodesBuf() {
+        return nodeCodesBuf;
     }
 
-    public void setD_nodeCodesBuffer(long d_nodeCodesBuffer) {
-        this.d_nodeCodesBuffer = d_nodeCodesBuffer;
+    public void setNodeCodesBuf(long nodeCodesBuf) {
+        this.nodeCodesBuf = nodeCodesBuf;
     }
 
-    public long getD_nodeMaterialsBuffer() {
-        return d_nodeMaterialsBuffer;
+    public long getNodeMaterialsBuf() {
+        return nodeMaterialsBuf;
     }
 
-    public void setD_nodeMaterialsBuffer(long d_nodeMaterialsBuffer) {
-        this.d_nodeMaterialsBuffer = d_nodeMaterialsBuffer;
+    public void setNodeMaterialsBuf(long nodeMaterialsBuf) {
+        this.nodeMaterialsBuf = nodeMaterialsBuf;
     }
 
-    public long getD_vertexPositionsBuffer() {
-        return d_vertexPositionsBuffer;
+    public long getVertexPositionsBuf() {
+        return vertexPositionsBuf;
     }
 
-    public void setD_vertexPositionsBuffer(long d_vertexPositionsBuffer) {
-        this.d_vertexPositionsBuffer = d_vertexPositionsBuffer;
+    public void setVertexPositionsBuf(long vertexPositionsBuf) {
+        this.vertexPositionsBuf = vertexPositionsBuf;
     }
 
-    public long getD_vertexNormalsBuffer() {
-        return d_vertexNormalsBuffer;
+    public long getVertexNormalsBuf() {
+        return vertexNormalsBuf;
     }
 
-    public void setD_vertexNormalsBuffer(long d_vertexNormalsBuffer) {
-        this.d_vertexNormalsBuffer = d_vertexNormalsBuffer;
+    public void setVertexNormalsBuf(long vertexNormalsBuf) {
+        this.vertexNormalsBuf = vertexNormalsBuf;
     }
 
-    public CuckooHashOpenCLService getD_hashTable() {
-        return d_hashTable;
+    public CuckooHashOpenCLService getHashTable() {
+        return hashTable;
     }
 
-    public void setD_hashTable(CuckooHashOpenCLService d_hashTable) {
-        this.d_hashTable = d_hashTable;
+    public void setHashTable(CuckooHashOpenCLService hashTable) {
+        this.hashTable = hashTable;
     }
 }

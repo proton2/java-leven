@@ -31,24 +31,24 @@ public class ConstructOctreeFromFieldService {
     public int run(KernelsHolder kernels) {
         int chunkBufferSize = meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk();
 
-        long d_leafOccupancyBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
+        long leafOccupancyBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        long d_leafEdgeInfoBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
+        long leafEdgeInfoBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        long d_leafCodesBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
+        long leafCodesBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        long d_leafMaterialsBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
+        long leafMaterialsBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        long d_voxelScanBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
+        long voxelScanBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, chunkBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         long findActiveKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "FindActiveVoxels", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         clSetKernelArg1p(findActiveKernel, 0, field.getMaterials());
-        clSetKernelArg1p(findActiveKernel, 1, d_leafOccupancyBuf);
-        clSetKernelArg1p(findActiveKernel, 2, d_leafEdgeInfoBuf);
-        clSetKernelArg1p(findActiveKernel, 3, d_leafCodesBuf);
-        clSetKernelArg1p(findActiveKernel, 4, d_leafMaterialsBuf);// ToDo check FindDominantMaterial
+        clSetKernelArg1p(findActiveKernel, 1, leafOccupancyBuf);
+        clSetKernelArg1p(findActiveKernel, 2, leafEdgeInfoBuf);
+        clSetKernelArg1p(findActiveKernel, 3, leafCodesBuf);
+        clSetKernelArg1p(findActiveKernel, 4, leafMaterialsBuf);// ToDo check FindDominantMaterial
 
         final int dimensions = 3;
         PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(dimensions);
@@ -59,7 +59,7 @@ public class ConstructOctreeFromFieldService {
         int errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), findActiveKernel, dimensions, null, globalWorkSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
-        int numNodes = scanService.exclusiveScan(d_leafOccupancyBuf, d_voxelScanBuf, chunkBufferSize);
+        int numNodes = scanService.exclusiveScan(leafOccupancyBuf, voxelScanBuf, chunkBufferSize);
         if(numNodes<=0){
             octree.setNumNodes(0);
             System.out.println("no voxels");
@@ -68,32 +68,35 @@ public class ConstructOctreeFromFieldService {
         octree.setNumNodes(numNodes);
 
 
-        long d_compactLeafEdgeInfoBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * 4, ctx.getErrcode_ret());
+        long compactLeafEdgeInfoBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Integer.BYTES, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        octree.setD_nodeCodesBuffer(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * 4, ctx.getErrcode_ret()));
+        octree.setNodeCodesBuf(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Integer.BYTES, ctx.getErrcode_ret()));
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        octree.setD_nodeMaterialsBuffer(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * 4, ctx.getErrcode_ret()));
+        octree.setNodeMaterialsBuf(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Integer.BYTES, ctx.getErrcode_ret()));
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        octree.setD_vertexPositionsBuffer(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * 4, ctx.getErrcode_ret()));
+        octree.setVertexPositionsBuf(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Integer.BYTES, ctx.getErrcode_ret()));
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        octree.setD_vertexNormalsBuffer(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * 4, ctx.getErrcode_ret()));
+        octree.setVertexNormalsBuf(CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Integer.BYTES, ctx.getErrcode_ret()));
 
         long compactVoxelsKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "CompactVoxels", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        clSetKernelArg1p(compactVoxelsKernel, 0, d_leafOccupancyBuf);
-        clSetKernelArg1p(compactVoxelsKernel, 1, d_leafEdgeInfoBuf);
-        clSetKernelArg1p(compactVoxelsKernel, 2, d_leafCodesBuf);
-        clSetKernelArg1p(compactVoxelsKernel, 3, d_leafMaterialsBuf);
-        clSetKernelArg1p(compactVoxelsKernel, 4, d_voxelScanBuf);
-        clSetKernelArg1p(compactVoxelsKernel, 5, octree.getD_nodeCodesBuffer());
-        clSetKernelArg1p(compactVoxelsKernel, 6, d_compactLeafEdgeInfoBuf);
-        clSetKernelArg1p(compactVoxelsKernel, 7, octree.getD_nodeMaterialsBuffer());
+        clSetKernelArg1p(compactVoxelsKernel, 0, leafOccupancyBuf);
+        clSetKernelArg1p(compactVoxelsKernel, 1, leafEdgeInfoBuf);
+        clSetKernelArg1p(compactVoxelsKernel, 2, leafCodesBuf);
+        clSetKernelArg1p(compactVoxelsKernel, 3, leafMaterialsBuf);
+        clSetKernelArg1p(compactVoxelsKernel, 4, voxelScanBuf);
+        clSetKernelArg1p(compactVoxelsKernel, 5, octree.getNodeCodesBuf());
+        clSetKernelArg1p(compactVoxelsKernel, 6, compactLeafEdgeInfoBuf);
+        clSetKernelArg1p(compactVoxelsKernel, 7, octree.getNodeMaterialsBuf());
 
         PointerBuffer compactVoxelsWorkSize = BufferUtils.createPointerBuffer(1);
         compactVoxelsWorkSize.put(0, chunkBufferSize);
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), compactVoxelsKernel, 1, null, compactVoxelsWorkSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
+//        int[] result1 = OCLUtils.getIntBuffer(octree.getNodeCodesBuf(), octree.getNumNodes());
+//        int[] result2 = OCLUtils.getIntBuffer(compactLeafEdgeInfoBuf, octree.getNumNodes());
+//        int[] result3 = OCLUtils.getIntBuffer(octree.getNodeMaterialsBuf(), octree.getNumNodes());
 
         long d_qefsBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Float.BYTES * 16, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -106,10 +109,10 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         clSetKernelArg1i(createLeafNodesKernel, 0, sampleScale);
-        clSetKernelArg1p(createLeafNodesKernel, 1, octree.getD_nodeCodesBuffer());
-        clSetKernelArg1p(createLeafNodesKernel, 2, d_compactLeafEdgeInfoBuf);
+        clSetKernelArg1p(createLeafNodesKernel, 1, octree.getNodeCodesBuf());
+        clSetKernelArg1p(createLeafNodesKernel, 2, compactLeafEdgeInfoBuf);
         clSetKernelArg1p(createLeafNodesKernel, 3, field.getNormals());
-        clSetKernelArg1p(createLeafNodesKernel, 4, octree.getD_vertexNormalsBuffer());
+        clSetKernelArg1p(createLeafNodesKernel, 4, octree.getVertexNormalsBuf());
         clSetKernelArg1p(createLeafNodesKernel, 5, d_qefsBuf);
         clSetKernelArg1p(createLeafNodesKernel, 6, edgeHashTable.getTable());
         clSetKernelArg1p(createLeafNodesKernel, 7, edgeHashTable.getStash());
@@ -128,7 +131,7 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         clSetKernelArg4i(solveQEFsKernel, 0, field.getMin().x, field.getMin().y, field.getMin().z, 0);
         clSetKernelArg1p(solveQEFsKernel, 1, d_qefsBuf);
-        clSetKernelArg1p(solveQEFsKernel, 2, octree.getD_vertexPositionsBuffer());
+        clSetKernelArg1p(solveQEFsKernel, 2, octree.getVertexPositionsBuf());
 
         PointerBuffer solveQEFsWorkSize = BufferUtils.createPointerBuffer(1);
         solveQEFsWorkSize.put(0, octree.getNumNodes());
@@ -136,8 +139,8 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(errcode);
 
         CuckooHashOpenCLService octreeHashTable = new CuckooHashOpenCLService(ctx, meshGen, scanService, kernels, octree.getNumNodes());
-        octreeHashTable.insertKeys(octree.getD_nodeCodesBuffer(), octree.getNumNodes());
-        octree.setD_hashTable(octreeHashTable);
+        octreeHashTable.insertKeys(octree.getNodeCodesBuf(), octree.getNumNodes());
+        octree.setHashTable(octreeHashTable);
 
         int err = CL10.clReleaseKernel(findActiveKernel);
         OCLUtils.checkCLError(err);
@@ -148,17 +151,17 @@ public class ConstructOctreeFromFieldService {
         err = CL10.clReleaseKernel(solveQEFsKernel);
         OCLUtils.checkCLError(err);
 
-        err = CL10.clReleaseMemObject(d_leafOccupancyBuf);
+        err = CL10.clReleaseMemObject(leafOccupancyBuf);
         OCLUtils.checkCLError(err);
-        err = CL10.clReleaseMemObject(d_leafEdgeInfoBuf);
+        err = CL10.clReleaseMemObject(leafEdgeInfoBuf);
         OCLUtils.checkCLError(err);
-        err = CL10.clReleaseMemObject(d_leafCodesBuf);
+        err = CL10.clReleaseMemObject(leafCodesBuf);
         OCLUtils.checkCLError(err);
-        err = CL10.clReleaseMemObject(d_leafMaterialsBuf);
+        err = CL10.clReleaseMemObject(leafMaterialsBuf);
         OCLUtils.checkCLError(err);
-        err = CL10.clReleaseMemObject(d_voxelScanBuf);
+        err = CL10.clReleaseMemObject(voxelScanBuf);
         OCLUtils.checkCLError(err);
-        err = CL10.clReleaseMemObject(d_compactLeafEdgeInfoBuf);
+        err = CL10.clReleaseMemObject(compactLeafEdgeInfoBuf);
         OCLUtils.checkCLError(err);
         err = CL10.clReleaseMemObject(d_qefsBuf);
         OCLUtils.checkCLError(err);
