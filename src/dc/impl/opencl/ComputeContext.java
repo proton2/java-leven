@@ -7,6 +7,7 @@ public class ComputeContext {
     private final long clQueue;
     private final long clContext;
     private final IntBuffer errcode_ret;
+    public final int defaultMaterial = 0;
 
     public ComputeContext(long clDevice, long clQueue, long clContext, IntBuffer errcode_ret) {
         this.clDevice = clDevice;

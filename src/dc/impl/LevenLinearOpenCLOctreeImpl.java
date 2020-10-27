@@ -59,7 +59,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         GpuOctree gpuOctree = new GpuOctree();
         ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
         constructOctreeFromFieldService.run(kernels);
-
+/*
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         boolean[] edgeOccupancy = new boolean[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
@@ -147,7 +147,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         extractNodeInfo(isSeamNode, Constants.Yellow,
                 chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
-
+*/
 //        CL10.clReleaseMemObject(field.getEdgeIndices());
 //        CL10.clReleaseMemObject(field.getMaterials());
 //        CL10.clReleaseMemObject(field.getNormals());

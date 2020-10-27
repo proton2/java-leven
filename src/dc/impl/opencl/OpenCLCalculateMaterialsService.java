@@ -35,7 +35,8 @@ public final class OpenCLCalculateMaterialsService {
                 field.getMin().z/meshGen.leafSizeScale,
                 0);
         clSetKernelArg1i(clKernel, 1, sampleScale);
-        clSetKernelArg1p(clKernel, 2, field.getMaterials());
+        clSetKernelArg1i(clKernel, 2, ctx.defaultMaterial);
+        clSetKernelArg1p(clKernel, 3, field.getMaterials());
 
         final int dimensions = 3;
         PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(dimensions); // In here we put the total number of work items we want in each dimension.

@@ -228,6 +228,7 @@ float noise_2d(float x, float y) {
   kernel void GenerateDefaultField(
   	const int4 offset,
   	const int sampleScale,
+  	const int defaultMaterialIndex,
   	global int* field_materials)
   {
   	const int x = get_global_id(0);
@@ -246,6 +247,6 @@ float noise_2d(float x, float y) {
   	const int4 local_pos = { x, y, z, 0 };
   	const int index = field_index(local_pos);
 
-  	const int material = density < 0.f ?  1 : 0;
+  	const int material = density < 0.f ? defaultMaterialIndex : MATERIAL_AIR;
   	field_materials[index] = material;
   }

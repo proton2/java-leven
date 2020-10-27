@@ -87,8 +87,8 @@ public class VoxelHelperUtils {
         buildOptions.append("-DCUCKOO_EMPTY_VALUE=").append(meshGenCtx.CUCKOO_EMPTY_VALUE).append(" ");
         buildOptions.append("-DCUCKOO_STASH_SIZE=").append(meshGenCtx.CUCKOO_STASH_SIZE).append(" ");
         buildOptions.append("-DCUCKOO_MAX_ITERATIONS=").append(meshGenCtx.CUCKOO_MAX_ITERATIONS).append(" ");
-        buildOptions.append("-DMATERIAL_AIR=").append(meshGenCtx.MATERIAL_AIR).append(" ");
-        buildOptions.append("-DMATERIAL_NONE=").append(meshGenCtx.MATERIAL_SOLID).append(" ");
+        buildOptions.append("-DMATERIAL_AIR=").append(201).append(" ");
+        buildOptions.append("-DMATERIAL_NONE=").append(200).append(" ");
         File file = new File(Paths.get("res/opencl/scan.cl").toUri());
         if(file.exists()){
             buildOptions.append("-I ").append(file.getParent());
