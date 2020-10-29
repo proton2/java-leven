@@ -72,6 +72,7 @@ public class VoxelHelperUtils {
         buildOptions.append("-cl-finite-math-only ");
         buildOptions.append("-cl-no-signed-zeros ");
         buildOptions.append("-cl-fast-relaxed-math ");
+        buildOptions.append("-g "); // option nesessary for debug
         buildOptions.append("-Werror ");
 
         buildOptions.append("-DFIELD_DIM=").append(meshGenCtx.getFieldSize()).append(" ");

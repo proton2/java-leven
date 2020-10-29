@@ -231,7 +231,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> emptyNodes = new ArrayList<>();
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
-            boolean result = filterNodesForDebug(filteredNode) &&
+            boolean result = //filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
             if (filteredNode.renderMesh !=null || (filteredNode.seamNodes!=null && filteredNode.seamNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);

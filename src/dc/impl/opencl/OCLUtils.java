@@ -446,10 +446,11 @@ public class OCLUtils {
 
     public static QEFData[] getQEFData(long buffer, int size){
         FloatBuffer resultBuff = BufferUtils.createFloatBuffer(size * Float.BYTES * 16);
-        CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        OCLUtils.checkCLError(err);
         QEFData[] qefData = new QEFData[size];
         for (int i = 0; i < size; i++) {
-            int index = i * 4;
+            int index = i * 16;
             QEFData q = new QEFData();
             q.mat3x3_tri_ATA[0] = resultBuff.get(index+0);
             q.mat3x3_tri_ATA[1] = resultBuff.get(index+1);
