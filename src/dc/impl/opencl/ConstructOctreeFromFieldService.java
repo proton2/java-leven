@@ -1,6 +1,5 @@
 package dc.impl.opencl;
 
-import core.math.Vec4f;
 import dc.impl.GPUDensityField;
 import dc.impl.GpuOctree;
 import dc.impl.MeshGenerationContext;
@@ -129,9 +128,7 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(errcode);
 
         //Vec4f[] vec4fs = OCLUtils.getNormals(octree.getVertexNormalsBuf(), octree.getNumNodes());
-        OCLUtils.QEFData[] qefData = OCLUtils.getQEFData(d_qefsBuf, octree.getNumNodes());
-
-
+        //OCLUtils.QEFData[] qefData = OCLUtils.getQEFData(d_qefsBuf, octree.getNumNodes());
 
 
 
