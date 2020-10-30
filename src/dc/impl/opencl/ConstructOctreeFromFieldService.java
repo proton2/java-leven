@@ -137,7 +137,7 @@ public class ConstructOctreeFromFieldService {
 
         long solveQEFsKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "SolveQEFs", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        clSetKernelArg4i(solveQEFsKernel, 0, field.getMin().x, field.getMin().y, field.getMin().z, 0);
+        clSetKernelArg4f(solveQEFsKernel, 0, field.getMin().x, field.getMin().y, field.getMin().z, 0);
         clSetKernelArg1p(solveQEFsKernel, 1, d_qefsBuf);
         clSetKernelArg1p(solveQEFsKernel, 2, octree.getVertexPositionsBuf());
 
@@ -145,6 +145,7 @@ public class ConstructOctreeFromFieldService {
         solveQEFsWorkSize.put(0, octree.getNumNodes());
         errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), solveQEFsKernel, 1, null, solveQEFsWorkSize, null, null, null);
         OCLUtils.checkCLError(errcode);
+        //Vec4f[] res = OCLUtils.getNormals(octree.getVertexPositionsBuf(), octree.getNumNodes());
 
         CuckooHashOpenCLService octreeHashTable = new CuckooHashOpenCLService(ctx, meshGen, scanService, kernels, octree.getNumNodes());
         octreeHashTable.insertKeys(octree.getNodeCodesBuf(), octree.getNumNodes());

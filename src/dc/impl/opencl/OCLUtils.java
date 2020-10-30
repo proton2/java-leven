@@ -445,9 +445,10 @@ public class OCLUtils {
     }
 
     public static QEFData[] getQEFData(long buffer, int size){
-        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(size * Float.BYTES * 16);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(size * Float.BYTES * 16);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
         OCLUtils.checkCLError(err);
+        FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
         QEFData[] qefData = new QEFData[size];
         for (int i = 0; i < size; i++) {
             int index = i * 16;
