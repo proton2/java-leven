@@ -1,6 +1,8 @@
 package dc.impl.opencl;
 
+import core.math.Vec3i;
 import core.math.Vec4f;
+import dc.entities.MeshVertex;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL;
@@ -472,5 +474,62 @@ public class OCLUtils {
             qefData[i] = q;
         }
         return qefData;
+    }
+
+    public static MeshVertex[] getVertexBuffer(long buffer, int numVertices){
+        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Integer.BYTES * 4 * 3 * numVertices);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, false, 0, byteBuffer, null, null);
+        OCLUtils.checkCLError(err);
+        FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
+        MeshVertex[] meshVertexBuffer = new MeshVertex[numVertices];
+        for (int i = 0; i < numVertices; i++) {
+            int index = i * 12;
+            MeshVertex meshVertex = new MeshVertex();
+            Vec4f pos = new Vec4f();
+            pos.x = resultBuff.get(index+0);
+            pos.y = resultBuff.get(index+1);
+            pos.z = resultBuff.get(index+2);
+            pos.w = resultBuff.get(index+3);
+            meshVertex.setPos(pos.getVec3f());
+            Vec4f normal = new Vec4f();
+            normal.x = resultBuff.get(index+4);
+            normal.y = resultBuff.get(index+5);
+            normal.z = resultBuff.get(index+6);
+            normal.w = resultBuff.get(index+7);
+            meshVertex.setNormal(normal.getVec3f());
+            Vec4f color = new Vec4f();
+            color.x = resultBuff.get(index+8);
+            color.y = resultBuff.get(index+9);
+            color.z = resultBuff.get(index+10);
+            color.w = resultBuff.get(index+11);
+            meshVertex.setColor(color.getVec3f());
+            meshVertexBuffer[i] = meshVertex;
+        }
+        return meshVertexBuffer;
+    }
+
+    public static Vec3i[] getTriangles(long buffer, int numTriangles){
+        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Integer.BYTES * numTriangles * 3);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+        OCLUtils.checkCLError(err);
+        IntBuffer resultBuff = byteBuffer.asIntBuffer();
+        Vec3i[] trianglesBuffer = new Vec3i[numTriangles];
+        for (int i = 0; i < numTriangles; i++) {
+            int index = i * 3;
+            Vec3i indicate = new Vec3i();
+            indicate.x = resultBuff.get(index+0);
+            indicate.y = resultBuff.get(index+1);
+            indicate.z = resultBuff.get(index+2);
+            trianglesBuffer[i] = indicate;
+        }
+        return trianglesBuffer;
+    }
+
+    public static IntBuffer getTrianglesAsIntBuffer(long buffer, int numTriangles){
+        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Integer.BYTES * numTriangles * 3);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+        OCLUtils.checkCLError(err);
+        IntBuffer resultBuff = byteBuffer.asIntBuffer();
+        return resultBuff;
     }
 }

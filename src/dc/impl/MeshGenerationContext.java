@@ -23,6 +23,8 @@ public class MeshGenerationContext {
     public final int CUCKOO_HASH_FN_COUNT = CUCKOO_STASH_HASH_INDEX + 1;
     public final int CUCKOO_STASH_SIZE = 101;
     public final int CUCKOO_MAX_ITERATIONS = 32;
+    public final int MAX_MESH_VERTICES = 1 << 23;			// i.e. 8 million
+    public final int MAX_MESH_TRIANGLES = MAX_MESH_VERTICES * 2;
 
     public MeshGenerationContext(int voxelsPerChunk) {
         this.voxelsPerChunk = voxelsPerChunk;

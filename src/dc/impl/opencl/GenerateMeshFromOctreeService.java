@@ -1,0 +1,168 @@
+package dc.impl.opencl;
+
+import core.math.Vec3f;
+import core.math.Vec3i;
+import core.utils.BufferUtil;
+import dc.entities.MeshBuffer;
+import dc.entities.MeshVertex;
+import dc.impl.GpuOctree;
+import dc.impl.MeshGenerationContext;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.PointerBuffer;
+import org.lwjgl.opencl.CL10;
+
+import static org.lwjgl.opencl.CL10.*;
+
+public class GenerateMeshFromOctreeService {
+    private final MeshGenerationContext meshGen;
+    private final ComputeContext ctx;
+    private final GpuOctree octree;
+    private final ScanOpenCLService scanService;
+    private final MeshBufferGPU meshBufferGPU;
+    private long d_vertexBuffer, d_compactIndexBuffer;
+
+    public GenerateMeshFromOctreeService(ComputeContext ctx, MeshGenerationContext meshGen, ScanOpenCLService scanService,
+                                         GpuOctree octree, MeshBufferGPU meshBufferGPU) {
+        this.meshGen = meshGen;
+        this.ctx = ctx;
+        this.octree = octree;
+        this.scanService = scanService;
+        this.meshBufferGPU = meshBufferGPU;
+    }
+
+    public int run(KernelsHolder kernels, int clipmapNodeSize) {
+        int numVertices = octree.getNumNodes();
+        int indexBufferSize = numVertices * 6 * 3;
+        int trianglesValidSize = numVertices * 3;
+        long d_indexBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, indexBufferSize * Integer.BYTES, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        long d_trianglesValid = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, trianglesValidSize * Integer.BYTES, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        long k_GenerateMeshKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "GenerateMesh", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        clSetKernelArg1p(k_GenerateMeshKernel, 0, octree.getNodeCodesBuf());
+        clSetKernelArg1p(k_GenerateMeshKernel, 1, octree.getNodeMaterialsBuf());
+        clSetKernelArg1p(k_GenerateMeshKernel, 2, d_indexBuffer);
+        clSetKernelArg1p(k_GenerateMeshKernel, 3, d_trianglesValid);
+
+        clSetKernelArg1p(k_GenerateMeshKernel, 4, octree.getHashTable().getTable());
+        clSetKernelArg1p(k_GenerateMeshKernel, 5, octree.getHashTable().getStash());
+        clSetKernelArg1i(k_GenerateMeshKernel, 6, octree.getHashTable().getPrime());
+        clSetKernelArg1p(k_GenerateMeshKernel, 7, octree.getHashTable().getHashParams());
+        clSetKernelArg1i(k_GenerateMeshKernel, 8, octree.getHashTable().getStashUsed());
+
+        PointerBuffer createLeafNodesWorkSize = BufferUtils.createPointerBuffer(1);
+        createLeafNodesWorkSize.put(0, octree.getNumNodes());
+        int errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), k_GenerateMeshKernel, 1, null, createLeafNodesWorkSize, null, null, null);
+        OCLUtils.checkCLError(errcode);
+
+        long d_trianglesScan = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, trianglesValidSize * Integer.BYTES, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        int numTriangles = scanService.exclusiveScan(d_trianglesValid, d_trianglesScan, trianglesValidSize);
+        if (numTriangles <= 0) {
+            return numTriangles; // < 0 is an error, so return that, 0 is ok just no tris to generate, return 0 which is CL_SUCCESS
+        }
+        numTriangles *= 2;
+        OCLUtils.validateExpression(numTriangles < meshGen.MAX_MESH_TRIANGLES, true, "Mesh triangle count too high");
+        OCLUtils.validateExpression( numVertices < meshGen.MAX_MESH_VERTICES, true, "Mesh vertex count too high");
+
+
+
+        d_compactIndexBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Integer.BYTES * numTriangles * 3, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        long k_CompactMeshTrianglesKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "CompactMeshTriangles", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        clSetKernelArg1p(k_CompactMeshTrianglesKernel, 0, d_trianglesValid);
+        clSetKernelArg1p(k_CompactMeshTrianglesKernel, 1, d_trianglesScan);
+        clSetKernelArg1p(k_CompactMeshTrianglesKernel, 2, d_indexBuffer);
+        clSetKernelArg1p(k_CompactMeshTrianglesKernel, 3, d_compactIndexBuffer);
+
+        PointerBuffer trianglesValidSizeWorkSize = BufferUtils.createPointerBuffer(1);
+        trianglesValidSizeWorkSize.put(0, trianglesValidSize);
+        errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), k_CompactMeshTrianglesKernel, 1, null, trianglesValidSizeWorkSize, null, null, null);
+        OCLUtils.checkCLError(errcode);
+
+        d_vertexBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Integer.BYTES * 4 * 3 * numVertices, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        Vec3f colour = ColourForMinLeafSize(clipmapNodeSize/meshGen.clipmapLeafSize);
+
+        long k_GenerateMeshVertexBufferKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "GenerateMeshVertexBuffer", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        clSetKernelArg1p(k_GenerateMeshVertexBufferKernel, 0, octree.getVertexPositionsBuf());
+        clSetKernelArg1p(k_GenerateMeshVertexBufferKernel, 1, octree.getVertexNormalsBuf());
+        clSetKernelArg1p(k_GenerateMeshVertexBufferKernel, 2, octree.getNodeMaterialsBuf());
+        clSetKernelArg4f(k_GenerateMeshVertexBufferKernel, 3, colour.X, colour.Y, colour.Z, 0.f);
+        clSetKernelArg1p(k_GenerateMeshVertexBufferKernel, 4, d_vertexBuffer);
+
+        PointerBuffer numVerticesWorkSize = BufferUtils.createPointerBuffer(1);
+        numVerticesWorkSize.put(0, numVertices);
+        errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), k_GenerateMeshVertexBufferKernel, 1, null, numVerticesWorkSize, null, null, null);
+        OCLUtils.checkCLError(errcode);
+
+        meshBufferGPU.setVertices(d_vertexBuffer);
+        meshBufferGPU.setCountVertices(numVertices);
+
+        meshBufferGPU.setTriangles(d_compactIndexBuffer);
+        meshBufferGPU.setCountTriangles(numTriangles);
+
+        int err = CL10.clReleaseKernel(k_GenerateMeshKernel);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseKernel(k_CompactMeshTrianglesKernel);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseKernel(k_GenerateMeshVertexBufferKernel);
+        OCLUtils.checkCLError(err);
+
+        err = CL10.clReleaseMemObject(d_indexBuffer);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseMemObject(d_trianglesValid);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseMemObject(d_trianglesScan);
+        OCLUtils.checkCLError(err);
+
+        return CL_SUCCESS;
+    }
+
+    public int exportMeshBuffer(MeshBufferGPU gpuBuffer, MeshBuffer cpuBuffer){
+        cpuBuffer.setNumVertices(gpuBuffer.getCountVertices());
+        cpuBuffer.setNumIndicates(gpuBuffer.getCountTriangles());
+
+        if (gpuBuffer.getCountTriangles() == 0) {
+            return CL_SUCCESS;
+        }
+
+        MeshVertex[] meshVertices = OCLUtils.getVertexBuffer(gpuBuffer.getVertices(), gpuBuffer.getCountVertices());
+        cpuBuffer.setVertices(BufferUtil.createDcFlippedBufferAOS(meshVertices));
+
+        Vec3i[] triangles = OCLUtils.getTriangles(gpuBuffer.getTriangles(), gpuBuffer.getCountTriangles());
+        cpuBuffer.setIndicates(BufferUtil.createDcFlippedBufferAOS(triangles));
+        //buffer.setIndicates(OCLUtils.getTrianglesAsIntBuffer(meshBufferGPU.getTriangles(), meshBufferGPU.getCountTriangles()));
+        return CL_SUCCESS;
+    }
+
+    public int destroy(){
+        int err = CL10.clReleaseMemObject(d_vertexBuffer);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseMemObject(d_compactIndexBuffer);
+        OCLUtils.checkCLError(err);
+        return err;
+    }
+
+    private Vec3f ColourForMinLeafSize(int minLeafSize) {
+        switch (minLeafSize) {
+            case 1:
+                return new Vec3f(0.3f, 0.1f, 0.f);
+            case 2:
+                return new Vec3f(0, 0.f, 0.5f);
+            case 4:
+                return new Vec3f(0, 0.5f, 0.5f);
+            case 8:
+                return new Vec3f(0.5f, 0.f, 0.5f);
+            case 16:
+                return new Vec3f(0.0f, 0.5f, 0.f);
+            default:
+                return new Vec3f(0.5f, 0.0f, 0.f);
+        }
+    }
+}

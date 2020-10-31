@@ -1,6 +1,7 @@
 package core.utils;
 
 import core.math.Matrix4f;
+import core.math.Vec3i;
 import core.model.Vertex;
 import dc.entities.DebugDrawBuffer;
 import dc.entities.MeshVertex;
@@ -92,6 +93,17 @@ public class BufferUtil {
 			buffer.put(vertice.getColor().getX());
 			buffer.put(vertice.getColor().getY());
 			buffer.put(vertice.getColor().getZ());
+		}
+		buffer.flip();
+		return buffer;
+	}
+
+	public static IntBuffer createDcFlippedBufferAOS(Vec3i[] vertices) {
+		IntBuffer buffer = createIntBuffer(vertices.length * 3);
+		for (Vec3i vertice : vertices) {
+			buffer.put(vertice.x);
+			buffer.put(vertice.y);
+			buffer.put(vertice.z);
 		}
 		buffer.flip();
 		return buffer;
