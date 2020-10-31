@@ -558,6 +558,7 @@ public class OCLUtils {
             node.Type = OctreeNodeType.Node_Leaf;
 
             OctreeDrawInfo drawInfo = new OctreeDrawInfo();
+            drawInfo.corners = localspaceMin.w;
             Vec4f position = new Vec4f();
             position.x = resultBuff.get(index+4);
             position.y = resultBuff.get(index+5);
