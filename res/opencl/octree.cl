@@ -75,29 +75,6 @@ int4 PositionForCode(uint code)
 	return pos;
 }
 
-float4 PositionForCodeToFloat(uint code)
-{
-	const int msb = MSB(code);
-	const int nodeDepth = (msb / 3);
-
-	int4 pos = { 0, 0, 0, 0 };
-	for (int i = MAX_OCTREE_DEPTH - nodeDepth; i < MAX_OCTREE_DEPTH; i++)
-	{
-		uint c = code & 7;
-		code >>= 3;
-
-		int x = (c >> 2) & 1;
-		int y = (c >> 1) & 1;
-		int z = (c >> 0) & 1;
-
-		pos.x |= (x << i);
-		pos.y |= (y << i);
-		pos.z |= (z << i);
-	}
-
-	return convert_float4(pos);
-}
-
 // ---------------------------------------------------------------------------
 
 // TODO sort network?
@@ -568,7 +545,7 @@ kernel void ExtractSeamNodeInfo(
 		int scan = isSeamNodeScan[index];
 
 		SeamNodeInfo info;
-		info.localspaceMin = PositionForCodeToFloat(octreeCodes[index]);
+		info.localspaceMin = convert_float4(PositionForCode(octreeCodes[index]));
 		info.position = octreePositions[index];
 		info.normal = octreeNormals[index];
 		info.localspaceMin.w = octreeMaterials[index];
