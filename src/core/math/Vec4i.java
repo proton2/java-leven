@@ -13,6 +13,8 @@ public class Vec4i extends Vec3i {
         this.w = w;
     }
 
+    public Vec4i() {}
+
     public void setVector3i(Vec3i from){
         this.x = from.x;
         this.y = from.y;

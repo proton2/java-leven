@@ -3,6 +3,8 @@ package dc.impl.opencl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.utils.BufferUtil;
+import core.utils.Constants;
+import dc.PointerBasedOctreeNode;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.impl.GpuOctree;
@@ -10,6 +12,8 @@ import dc.impl.MeshGenerationContext;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
+
+import java.util.List;
 
 import static org.lwjgl.opencl.CL10.*;
 
@@ -121,6 +125,62 @@ public class GenerateMeshFromOctreeService {
         err = CL10.clReleaseMemObject(d_trianglesScan);
         OCLUtils.checkCLError(err);
 
+        return CL_SUCCESS;
+    }
+
+    public int gatherSeamNodesFromOctree(KernelsHolder kernels, Vec3i chunkMin, int chunkSize, List<PointerBasedOctreeNode> seamNodes) {
+        long d_isSeamNode = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Integer.BYTES * octree.getNumNodes(), ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        long d_isSeamNodeScan = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Integer.BYTES * octree.getNumNodes(), ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        long k_FindSeamNodesKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "FindSeamNodes", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        clSetKernelArg1p(k_FindSeamNodesKernel, 0, octree.getNodeCodesBuf());
+        clSetKernelArg1p(k_FindSeamNodesKernel, 1, d_isSeamNode);
+
+        PointerBuffer numVerticesWorkSize = BufferUtils.createPointerBuffer(1);
+        numVerticesWorkSize.put(0, octree.getNumNodes());
+        int err = clEnqueueNDRangeKernel(ctx.getClQueue(), k_FindSeamNodesKernel, 1, null, numVerticesWorkSize, null, null, null);
+        OCLUtils.checkCLError(err);
+
+        int numSeamNodes = scanService.exclusiveScan(d_isSeamNode, d_isSeamNodeScan, octree.getNumNodes());
+        if (numSeamNodes <= 0) {
+            return numSeamNodes;
+        }
+
+
+        long d_seamNodeInfo = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Float.BYTES * 4 * 3 * numSeamNodes, ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+
+        long k_ExtractSeamNodeInfoKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "ExtractSeamNodeInfo", ctx.getErrcode_ret());
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        clSetKernelArg1p(k_ExtractSeamNodeInfoKernel, 0, d_isSeamNode);
+        clSetKernelArg1p(k_ExtractSeamNodeInfoKernel, 1, d_isSeamNodeScan);
+        clSetKernelArg1p(k_ExtractSeamNodeInfoKernel, 2, octree.getNodeCodesBuf());
+        clSetKernelArg1p(k_ExtractSeamNodeInfoKernel, 3, octree.getNodeMaterialsBuf());
+        clSetKernelArg1p(k_ExtractSeamNodeInfoKernel, 4, octree.getVertexPositionsBuf());
+        clSetKernelArg1p(k_ExtractSeamNodeInfoKernel, 5, octree.getVertexNormalsBuf());
+        clSetKernelArg1p(k_ExtractSeamNodeInfoKernel, 6, d_seamNodeInfo);
+
+        PointerBuffer extractSeamNodeWorkSize = BufferUtils.createPointerBuffer(1);
+        extractSeamNodeWorkSize.put(0, octree.getNumNodes());
+        err = clEnqueueNDRangeKernel(ctx.getClQueue(), k_ExtractSeamNodeInfoKernel, 1, null, extractSeamNodeWorkSize, null, null, null);
+        OCLUtils.checkCLError(err);
+
+        OCLUtils.getListSeamNodesTriangles(d_seamNodeInfo, numSeamNodes, chunkMin, Constants.Yellow, chunkSize, seamNodes);
+
+        err = CL10.clReleaseMemObject(d_isSeamNode);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseMemObject(d_isSeamNodeScan);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseMemObject(d_seamNodeInfo);
+        OCLUtils.checkCLError(err);
+
+        err = CL10.clReleaseKernel(k_FindSeamNodesKernel);
+        OCLUtils.checkCLError(err);
+        err = CL10.clReleaseKernel(k_ExtractSeamNodeInfoKernel);
+        OCLUtils.checkCLError(err);
         return CL_SUCCESS;
     }
 

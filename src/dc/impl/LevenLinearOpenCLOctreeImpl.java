@@ -1,22 +1,13 @@
 package dc.impl;
 
-import core.math.Vec3f;
 import core.math.Vec3i;
-import core.math.Vec4f;
-import core.math.Vec4i;
-import core.utils.BufferUtil;
-import core.utils.Constants;
-import dc.*;
+import dc.AbstractDualContouring;
+import dc.PointerBasedOctreeNode;
+import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
-import dc.entities.MeshVertex;
 import dc.impl.opencl.*;
-import dc.solver.GlslSvd;
-import dc.solver.QefSolver;
-import dc.utils.VoxelHelperUtils;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /*
     Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java
@@ -63,6 +54,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
                     meshGen, scanService, gpuOctree, meshBufferGPU);
             generateMeshFromOctreeService.run(kernels, field.getSize());
             generateMeshFromOctreeService.exportMeshBuffer(meshBufferGPU, buffer);
+            generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize, seamNodes);
 
             generateMeshFromOctreeService.destroy();
         }

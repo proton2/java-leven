@@ -1,7 +1,12 @@
 package dc.impl.opencl;
 
+import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
+import core.math.Vec4i;
+import dc.OctreeDrawInfo;
+import dc.OctreeNodeType;
+import dc.PointerBasedOctreeNode;
 import dc.entities.MeshVertex;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
@@ -16,6 +21,7 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.nio.LongBuffer;
+import java.util.List;
 
 import static org.lwjgl.opencl.CL10.*;
 import static org.lwjgl.opencl.CL11.CL_DEVICE_OPENCL_C_VERSION;
@@ -531,5 +537,45 @@ public class OCLUtils {
         OCLUtils.checkCLError(err);
         IntBuffer resultBuff = byteBuffer.asIntBuffer();
         return resultBuff;
+    }
+
+    public static void getListSeamNodesTriangles(long buffer, int size, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
+        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Float.BYTES * 4 * 3 * size);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+        OCLUtils.checkCLError(err);
+        FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
+
+        for (int i = 0; i < size; i++) {
+            int index = i * 12;
+            PointerBasedOctreeNode node = new PointerBasedOctreeNode();
+            Vec4i localspaceMin = new Vec4i();
+            localspaceMin.x = (int)resultBuff.get(index+0);
+            localspaceMin.y = (int)resultBuff.get(index+1);
+            localspaceMin.z = (int)resultBuff.get(index+2);
+            localspaceMin.w = (int)resultBuff.get(index+3);
+            node.min = localspaceMin;
+            node.size = chunkSize;
+            node.Type = OctreeNodeType.Node_Leaf;
+
+            OctreeDrawInfo drawInfo = new OctreeDrawInfo();
+            Vec4f position = new Vec4f();
+            position.x = resultBuff.get(index+4);
+            position.y = resultBuff.get(index+5);
+            position.z = resultBuff.get(index+6);
+            position.w = resultBuff.get(index+7);
+            drawInfo.position = position.getVec3f();
+            drawInfo.color = color;
+
+            Vec4f normal = new Vec4f();
+            normal.x = resultBuff.get(index+8);
+            normal.y = resultBuff.get(index+9);
+            normal.z = resultBuff.get(index+10);
+            normal.w = resultBuff.get(index+11);
+            drawInfo.averageNormal = normal.getVec3f();
+
+            node.drawInfo = drawInfo;
+            seamNodes.add(node);
+        }
+        int t = 3;
     }
 }
