@@ -60,12 +60,11 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(errcode);
 
         int numNodes = scanService.exclusiveScan(leafOccupancyBuf, voxelScanBuf, chunkBufferSize);
-        if(numNodes<=0){
-            octree.setNumNodes(0);
-            System.out.println("no voxels");
-            return numNodes;
-        }
         octree.setNumNodes(numNodes);
+        if(numNodes<=0){
+            System.out.println("no voxels");
+            return -1;
+        }
 
 
         long compactLeafEdgeInfoBuf = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, octree.getNumNodes() * Integer.BYTES, ctx.getErrcode_ret());

@@ -577,6 +577,6 @@ public class OCLUtils {
             node.drawInfo = drawInfo;
             seamNodes.add(node);
         }
-        int t = 3;
+        //int t = 3;
     }
 }

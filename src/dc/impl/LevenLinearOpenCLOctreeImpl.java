@@ -46,7 +46,11 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         GpuOctree gpuOctree = new GpuOctree();
         ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx,
                 meshGen, field, gpuOctree, scanService);
-        constructOctreeFromFieldService.run(kernels);
+        int numNodes = constructOctreeFromFieldService.run(kernels);
+        if(numNodes<0){
+            findDefEdges.destroy();
+            return false;
+        }
 
         if (gpuOctree.getNumNodes() > 0) {
             MeshBufferGPU meshBufferGPU = new MeshBufferGPU();
