@@ -52,6 +52,7 @@ public final class OpenCLCalculateMaterialsService {
 
         getResults(result, field);
         CL10.clReleaseKernel(clKernel);
+        CL10.clReleaseMemObject(field.getMaterials());
     }
 
     private void getResults(int[] result, GPUDensityField field) {
