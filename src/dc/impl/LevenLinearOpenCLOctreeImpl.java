@@ -33,13 +33,13 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         field.setMin(chunkMin);
         field.setSize(chunkSize);
         ComputeContext ctx = OCLUtils.getOpenCLContext();
-        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen);
-        calculateMaterialsService.run(kernels, materials, field);
+        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen, field);
+        calculateMaterialsService.run(kernels, materials);
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
         FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, scanService, meshGen);
-        int compactEdgesSize = findDefEdges.run(kernels, field, meshGen.getVoxelsPerChunk(), meshGen.getHermiteIndexSize());
-        if(compactEdgesSize==0){
+        int compactEdgesSize = findDefEdges.run(kernels, field, meshGen.getVoxelsPerChunk(), meshGen.getHermiteIndexSize(), materials);
+        if(compactEdgesSize<=0){
             return false;
         }
 
@@ -63,6 +63,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
             generateMeshFromOctreeService.destroy();
         }
 
+        calculateMaterialsService.destroy();
         findDefEdges.destroy();
         return true;
     }

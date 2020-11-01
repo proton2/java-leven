@@ -14,14 +14,16 @@ public final class OpenCLCalculateMaterialsService {
     private final int size;
     private ComputeContext ctx;
     private final MeshGenerationContext meshGen;
+    private final GPUDensityField field;
 
-    public OpenCLCalculateMaterialsService(ComputeContext computeContext, int size, MeshGenerationContext meshGenerationContext) {
+    public OpenCLCalculateMaterialsService(ComputeContext computeContext, int size, MeshGenerationContext meshGenerationContext, GPUDensityField field) {
         this.meshGen = meshGenerationContext;
         this.size = size;
         this.ctx = computeContext;
+        this.field = field;
     }
 
-    public void run(KernelsHolder kernels, int[] result, GPUDensityField field) {
+    public void run(KernelsHolder kernels, int[] result) {
         // init kernel with constants
         long clKernel = clCreateKernel(kernels.getKernel(KernelNames.DENSITY), "GenerateDefaultField", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -52,7 +54,7 @@ public final class OpenCLCalculateMaterialsService {
 
         getResults(result, field);
         CL10.clReleaseKernel(clKernel);
-        CL10.clReleaseMemObject(field.getMaterials());
+
     }
 
     private void getResults(int[] result, GPUDensityField field) {
@@ -63,6 +65,10 @@ public final class OpenCLCalculateMaterialsService {
         CL10.clEnqueueReadBuffer(ctx.getClQueue(), field.getMaterials(), true, 0, resultBuff, null, null);
         // Print the values in the result buffer
         resultBuff.get(result);
+    }
+
+    public void destroy(){
+        CL10.clReleaseMemObject(field.getMaterials());
     }
 
     private void createMemory(GPUDensityField field) {
