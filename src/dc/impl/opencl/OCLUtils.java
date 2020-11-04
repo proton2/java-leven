@@ -535,18 +535,18 @@ public class OCLUtils {
     }
 
     public static void getListSeamNodesTriangles(long buffer, int bufSize, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
-        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(4 * 3 * bufSize);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        ByteBuffer byteBuff = BufferUtils.createByteBuffer(Float.BYTES * 4 * 3 * bufSize);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuff, null, null);
         OCLUtils.checkCLError(err);
 
         for (int i = 0; i < bufSize; i++) {
-            int index = i * 12;
+            int index = i * 12 * 4;
             PointerBasedOctreeNode node = new PointerBasedOctreeNode();
             Vec4i localspaceMin = new Vec4i();
-            localspaceMin.x = (int)resultBuff.get(index+0);
-            localspaceMin.y = (int)resultBuff.get(index+1);
-            localspaceMin.z = (int)resultBuff.get(index+2);
-            localspaceMin.w = (int)resultBuff.get(index+3);
+            localspaceMin.x = byteBuff.getInt(index+0);
+            localspaceMin.y = byteBuff.getInt(index+4);
+            localspaceMin.z = byteBuff.getInt(index+8);
+            localspaceMin.w = byteBuff.getInt(index+12);
             node.min = localspaceMin.mul(chunkSize).add(chunkMin);
             node.size = chunkSize;
             node.Type = OctreeNodeType.Node_Leaf;
@@ -554,18 +554,18 @@ public class OCLUtils {
             OctreeDrawInfo drawInfo = new OctreeDrawInfo();
             drawInfo.corners = localspaceMin.w;
             Vec4f position = new Vec4f();
-            position.x = resultBuff.get(index+4);
-            position.y = resultBuff.get(index+5);
-            position.z = resultBuff.get(index+6);
-            position.w = resultBuff.get(index+7);
+            position.x = byteBuff.getFloat(index+16);
+            position.y = byteBuff.getFloat(index+20);
+            position.z = byteBuff.getFloat(index+24);
+            position.w = byteBuff.getFloat(index+28);
             drawInfo.position = position.getVec3f();
             drawInfo.color = color;
 
             Vec4f normal = new Vec4f();
-            normal.x = resultBuff.get(index+8);
-            normal.y = resultBuff.get(index+9);
-            normal.z = resultBuff.get(index+10);
-            normal.w = resultBuff.get(index+11);
+            normal.x = byteBuff.getFloat(index+32);
+            normal.y = byteBuff.getFloat(index+36);
+            normal.z = byteBuff.getFloat(index+40);
+            normal.w = byteBuff.getFloat(index+44);
             drawInfo.averageNormal = normal.getVec3f();
 
             node.drawInfo = drawInfo;
