@@ -4,7 +4,7 @@ Dual Contouring Chunking LODs with seams
 
 Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation in Java LWJGL
 
-The work has just begun and the project is still raw. Only the CPU implementation.
+CPU and OpenCL GPU implementations.
 
 Features:
 - Pointer based octree Dual contouring implementation;
@@ -28,18 +28,20 @@ public class ChunkOctreeWrapper extends GameObject {
  
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
-        //chunkOctree = new ChunkOctree(new PointerBasedOctreeImpl());
-        chunkOctree = new ChunkOctree(new SimpleLinearOctreeImpl());
-        //chunkOctree = new ChunkOctree(new TransitionLinearOctreeImpl());
-        //chunkOctree = new ChunkOctree(new LevenLinearOctreeImpl());
-
-        rootChunk = chunkOctree.buildChunkOctree();
+        //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
+        //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
+        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
+        VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
+        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
+        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
     }
 }
 ```
 
 <img src="res/logo/screens/screen-01.png" width="800" />
 <img src="res/logo/screens/screen-02.png" width="800" />
+OpenCL GPU implementation:
+<img src="res/logo/screens/screen-03-opencl.png" width="800" />
 
 W/S/A/D - forward, backward, left, right
 
