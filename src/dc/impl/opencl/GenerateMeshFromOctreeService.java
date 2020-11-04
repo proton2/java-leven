@@ -158,7 +158,7 @@ public class GenerateMeshFromOctreeService {
         return CL_SUCCESS;
     }
 
-    public int findSeamNodesKernel(KernelsHolder kernels) {
+    public int findSeamNodesKernel(KernelsHolder kernels, int[] isSeamNode) {
         d_isSeamNode = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Integer.BYTES * octree.getNumNodes(), ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         d_isSeamNodeScan = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Integer.BYTES * octree.getNumNodes(), ctx.getErrcode_ret());
@@ -178,7 +178,7 @@ public class GenerateMeshFromOctreeService {
         if (numSeamNodes <= 0) {
             return numSeamNodes;
         }
-        //OCLUtils.getIntBuffer(d_isSeamNode, isSeamNode);
+        OCLUtils.getIntBuffer(d_isSeamNode, isSeamNode);
         err = CL10.clReleaseKernel(k_FindSeamNodesKernel);
         OCLUtils.checkCLError(err);
         return numSeamNodes;
