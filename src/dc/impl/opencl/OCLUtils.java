@@ -16,7 +16,6 @@ import org.lwjgl.opencl.CLCapabilities;
 import org.lwjgl.opencl.CLContextCallback;
 import org.lwjgl.system.MemoryStack;
 
-import java.lang.instrument.Instrumentation;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -396,10 +395,12 @@ public class OCLUtils {
     }
 
     public static void getIntBuffer(long buffer, int[] returnBuffer){
-        IntBuffer resultBuff = BufferUtils.createIntBuffer(returnBuffer.length);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
-        OCLUtils.checkCLError(err);
-        resultBuff.get(returnBuffer);
+        if(returnBuffer!=null) {
+            IntBuffer resultBuff = BufferUtils.createIntBuffer(returnBuffer.length);
+            int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+            OCLUtils.checkCLError(err);
+            resultBuff.get(returnBuffer);
+        }
     }
 
     public static int[] getIntBuffer(long buffer, int size){
@@ -407,11 +408,6 @@ public class OCLUtils {
         CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
         int[] returnBuffer = new int[size];
         resultBuff.get(returnBuffer);
-//        int t=0;
-//        for(int i=0; i<size; i++){
-//            if(returnBuffer[i]>0)
-//                t++;
-//        }
         return returnBuffer;
     }
 
@@ -443,6 +439,22 @@ public class OCLUtils {
             normalsBuffer[i] = normal;
         }
         return normalsBuffer;
+    }
+
+    public static void getNormals(long normBuffer, Vec4f[] normalsBuffer){
+        if(normalsBuffer!=null) {
+            FloatBuffer resultBuff = BufferUtils.createFloatBuffer(normalsBuffer.length * Integer.BYTES);
+            CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), normBuffer, true, 0, resultBuff, null, null);
+            for (int i = 0; i < normalsBuffer.length; i++) {
+                int index = i * 4;
+                Vec4f normal = new Vec4f();
+                normal.x = resultBuff.get(index + 0);
+                normal.y = resultBuff.get(index + 1);
+                normal.z = resultBuff.get(index + 2);
+                normal.w = resultBuff.get(index + 3);
+                normalsBuffer[i] = normal;
+            }
+        }
     }
 
     static class QEFData{
@@ -483,10 +495,9 @@ public class OCLUtils {
     }
 
     public static MeshVertex[] getVertexBuffer(long buffer, int numVertices){
-        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Integer.BYTES * 4 * 3 * numVertices);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, false, 0, byteBuffer, null, null);
+        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(4 * 3 * numVertices);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
         OCLUtils.checkCLError(err);
-        FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
         MeshVertex[] meshVertexBuffer = new MeshVertex[numVertices];
         for (int i = 0; i < numVertices; i++) {
             int index = i * 12;
@@ -514,38 +525,21 @@ public class OCLUtils {
         return meshVertexBuffer;
     }
 
-    public static Vec3i[] getTriangles(long buffer, int numTriangles){
-        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Integer.BYTES * numTriangles * 3);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
-        OCLUtils.checkCLError(err);
-        IntBuffer resultBuff = byteBuffer.asIntBuffer();
-        Vec3i[] trianglesBuffer = new Vec3i[numTriangles];
-        for (int i = 0; i < numTriangles; i++) {
-            int index = i * 3;
-            Vec3i indicate = new Vec3i();
-            indicate.x = resultBuff.get(index+0);
-            indicate.y = resultBuff.get(index+1);
-            indicate.z = resultBuff.get(index+2);
-            trianglesBuffer[i] = indicate;
-        }
-        return trianglesBuffer;
-    }
-
     public static IntBuffer getTrianglesAsIntBuffer(long buffer, int numTriangles){
-        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Integer.BYTES * numTriangles * 3);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+        //ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Integer.BYTES * numTriangles * 3);
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(numTriangles * 3);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
         OCLUtils.checkCLError(err);
-        IntBuffer resultBuff = byteBuffer.asIntBuffer();
+        //IntBuffer resultBuff = byteBuffer.asIntBuffer();
         return resultBuff;
     }
 
-    public static void getListSeamNodesTriangles(long buffer, int size, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
-        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(Float.BYTES * 4 * 3 * size);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+    public static void getListSeamNodesTriangles(long buffer, int bufSize, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
+        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(4 * 3 * bufSize);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
         OCLUtils.checkCLError(err);
-        FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
 
-        for (int i = 0; i < size; i++) {
+        for (int i = 0; i < bufSize; i++) {
             int index = i * 12;
             PointerBasedOctreeNode node = new PointerBasedOctreeNode();
             Vec4i localspaceMin = new Vec4i();
@@ -553,7 +547,7 @@ public class OCLUtils {
             localspaceMin.y = (int)resultBuff.get(index+1);
             localspaceMin.z = (int)resultBuff.get(index+2);
             localspaceMin.w = (int)resultBuff.get(index+3);
-            node.min = localspaceMin;
+            node.min = localspaceMin.mul(chunkSize).add(chunkMin);
             node.size = chunkSize;
             node.Type = OctreeNodeType.Node_Leaf;
 
@@ -577,6 +571,5 @@ public class OCLUtils {
             node.drawInfo = drawInfo;
             seamNodes.add(node);
         }
-        //int t = 3;
     }
 }

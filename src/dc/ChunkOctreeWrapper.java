@@ -20,8 +20,6 @@ import dc.shaders.RenderDebugShader;
 import dc.utils.RenderDebugCmdBuffer;
 import dc.utils.VoxelHelperUtils;
 
-import java.io.File;
-import java.nio.file.Paths;
 import java.util.List;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -33,8 +31,6 @@ public class ChunkOctreeWrapper extends GameObject {
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
     private final MeshGenerationContext meshGenCtx;
-
-
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
@@ -50,9 +46,9 @@ public class ChunkOctreeWrapper extends GameObject {
 
         //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new LevenLinearOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
         VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
+        //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
+        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
     }
 

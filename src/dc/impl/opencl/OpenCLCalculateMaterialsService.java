@@ -23,7 +23,7 @@ public final class OpenCLCalculateMaterialsService {
         this.field = field;
     }
 
-    public void run(KernelsHolder kernels, int[] result) {
+    public void run(KernelsHolder kernels) {
         // init kernel with constants
         long clKernel = clCreateKernel(kernels.getKernel(KernelNames.DENSITY), "GenerateDefaultField", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -52,7 +52,7 @@ public final class OpenCLCalculateMaterialsService {
 
         CL10.clFinish(ctx.getClQueue());
 
-        getResults(result, field);
+        //getResults(result, field);
         CL10.clReleaseKernel(clKernel);
 
     }

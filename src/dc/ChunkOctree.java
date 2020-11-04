@@ -315,7 +315,7 @@ public class ChunkOctree {
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
                 continue;
             }
-            octreeSeamNode.drawInfo.color = Constants.Yellow;
+            //octreeSeamNode.drawInfo.color = Constants.Yellow;
             selectedSeamNodes.add(octreeSeamNode);
         }
         return selectedSeamNodes;

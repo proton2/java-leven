@@ -1,13 +1,21 @@
 package dc.impl;
 
+import core.math.Vec3f;
 import core.math.Vec3i;
-import dc.AbstractDualContouring;
-import dc.PointerBasedOctreeNode;
-import dc.VoxelOctree;
+import core.math.Vec4f;
+import core.math.Vec4i;
+import core.utils.BufferUtil;
+import dc.*;
 import dc.entities.MeshBuffer;
+import dc.entities.MeshVertex;
 import dc.impl.opencl.*;
+import dc.solver.LevenQefSolver;
+import dc.solver.QefSolver;
+import dc.utils.VoxelHelperUtils;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /*
     Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java
@@ -28,43 +36,56 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
                                         float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
     {
-        int[] materials = new int[meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize()];
-
         field.setMin(chunkMin);
         field.setSize(chunkSize);
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen, field);
-        calculateMaterialsService.run(kernels, materials);
+        calculateMaterialsService.run(kernels);
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
-        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, scanService, meshGen);
-        int compactEdgesSize = findDefEdges.run(kernels, field, meshGen.getVoxelsPerChunk(), meshGen.getHermiteIndexSize(), materials);
+        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, scanService);
+        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, field, meshGen.getHermiteIndexSize());
         if(compactEdgesSize<=0){
             return false;
         }
+        findDefEdges.compactEdgeKernel(kernels, field);
+        findDefEdges.FindEdgeIntersectionInfoKernel(kernels, field);
 
         GpuOctree gpuOctree = new GpuOctree();
-        ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx,
-                meshGen, field, gpuOctree, scanService);
-        int numNodes = constructOctreeFromFieldService.run(kernels);
-        if(numNodes<0){
-            findDefEdges.destroy();
+        ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
+        int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels);
+        if (octreeNumNodes<=0){
             return false;
         }
 
-        if (gpuOctree.getNumNodes() > 0) {
-            MeshBufferGPU meshBufferGPU = new MeshBufferGPU();
-            GenerateMeshFromOctreeService generateMeshFromOctreeService = new GenerateMeshFromOctreeService(ctx,
-                    meshGen, scanService, gpuOctree, meshBufferGPU);
-            generateMeshFromOctreeService.run(kernels, field.getSize());
-            generateMeshFromOctreeService.exportMeshBuffer(meshBufferGPU, buffer);
-            generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize, seamNodes);
+        constructOctreeFromFieldService.compactVoxelsKernel(kernels);
+        constructOctreeFromFieldService.createLeafNodesKernel(kernels);
+        constructOctreeFromFieldService.solveQefKernel(kernels);
 
-            generateMeshFromOctreeService.destroy();
+        //////////////////////////////
+        MeshBufferGPU meshBufferGPU = new MeshBufferGPU();
+        GenerateMeshFromOctreeService generateMeshFromOctreeService = new GenerateMeshFromOctreeService(ctx,
+                meshGen, scanService, gpuOctree, meshBufferGPU);
+        int numTriangles = generateMeshFromOctreeService.generateMeshKernel(kernels);
+        if(numTriangles<=0){
+            return false;
         }
 
-        calculateMaterialsService.destroy();
+        int[] d_compactIndexBuffer = new int[numTriangles * 3];
+        generateMeshFromOctreeService.compactMeshTrianglesKernel(kernels, numTriangles, d_compactIndexBuffer);
+
+        buffer.setNumVertices(octreeNumNodes);
+        buffer.setNumIndicates(numTriangles * 3);
+        buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
+
+        generateMeshFromOctreeService.run(kernels, field.getSize());
+        generateMeshFromOctreeService.exportMeshBuffer(meshBufferGPU, buffer);
+
+        int numSeamNodes = generateMeshFromOctreeService.findSeamNodesKernel(kernels);
+        generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
+
         findDefEdges.destroy();
+        calculateMaterialsService.destroy();
         return true;
     }
 }
