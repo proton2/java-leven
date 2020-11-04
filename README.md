@@ -10,7 +10,7 @@ Features:
 - Pointer based octree Dual contouring implementation;
 - Linear octree Dual contouring implementations: <br>
   - Simple implementation, in series steps to calculate leafs data.
-  - Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation.
+  - Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation - TransitionLinearOctreeImpl.java. This is my favorite implementation.
   - Nick Gildea Leven Dual contouring implementation translated to Java CPU realization - LevenLinearOctreeImpl.java
   - Nick Gildea Leven OpenCL Dual contouring implementation. In this implementation LevenLinearOpenCLOctreeImpl.java I call OpenCL kernels in java .
 
