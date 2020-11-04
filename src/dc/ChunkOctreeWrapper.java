@@ -56,7 +56,7 @@ public class ChunkOctreeWrapper extends GameObject {
     }
 
     public void update() {
-        chunkOctree.update(Camera.getInstance(), true);
+        chunkOctree.update(Camera.getInstance(), false);
 
         if (refreshMesh) {
             renderMesh();
