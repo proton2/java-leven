@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 /*
-    Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java
+    Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java calling OpenCL kernels
     Some holes in seams is not fixed.
     The first raw version will still improve.
  */
