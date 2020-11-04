@@ -12,6 +12,8 @@ import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
 import dc.impl.LevenLinearOpenCLOctreeImpl;
 import dc.impl.MeshGenerationContext;
+import dc.impl.TransitionLinearOctreeImpl;
+import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
 import dc.impl.opencl.OCLUtils;
@@ -31,13 +33,14 @@ public class ChunkOctreeWrapper extends GameObject {
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
     private final MeshGenerationContext meshGenCtx;
+    private ComputeContext ctx;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
-
+        ctx = OCLUtils.getOpenCLContext();
         StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
-        kernelHolder = new KernelsHolder(OCLUtils.getOpenCLContext());
+        kernelHolder = new KernelsHolder(ctx);
         kernelHolder.buildKernel(KernelNames.DENSITY, kernelBuildOptions);
         kernelHolder.buildKernel(KernelNames.FIND_DEFAULT_EDGES, kernelBuildOptions);
         kernelHolder.buildKernel(KernelNames.SCAN, null);
@@ -46,8 +49,8 @@ public class ChunkOctreeWrapper extends GameObject {
 
         //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
-        VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
-        //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
+        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
+        VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
         //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
     }
