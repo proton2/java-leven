@@ -3,12 +3,12 @@ package dc.impl.opencl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.utils.BufferUtil;
-import core.utils.Constants;
 import dc.PointerBasedOctreeNode;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.impl.GpuOctree;
 import dc.impl.MeshGenerationContext;
+import dc.utils.VoxelHelperUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
@@ -119,7 +119,7 @@ public class GenerateMeshFromOctreeService {
     public int run(KernelsHolder kernels, int clipmapNodeSize) {
         long d_vertexBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, Float.BYTES * 4 * 3 * numVertices, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
-        Vec3f colour = ColourForMinLeafSize(clipmapNodeSize/meshGen.clipmapLeafSize);
+        Vec3f colour = VoxelHelperUtils.ColourForMinLeafSize(clipmapNodeSize/meshGen.clipmapLeafSize);
 
         long k_GenerateMeshVertexBufferKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "GenerateMeshVertexBuffer", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -204,7 +204,7 @@ public class GenerateMeshFromOctreeService {
         OCLUtils.checkCLError(err);
 
         OCLUtils.getListSeamNodesTriangles(d_seamNodeInfo, numSeamNodes, chunkMin,
-                ColourForMinLeafSize(chunkSize), //Constants.Yellow
+                VoxelHelperUtils.ColourForMinLeafSize(chunkSize), //Constants.Yellow
                 chunkSize, seamNodes);
 
         err = CL10.clReleaseMemObject(d_seamNodeInfo);
@@ -216,22 +216,5 @@ public class GenerateMeshFromOctreeService {
         err = CL10.clReleaseMemObject(d_isSeamNodeScan);
         OCLUtils.checkCLError(err);
         return CL_SUCCESS;
-    }
-
-    private Vec3f ColourForMinLeafSize(int minLeafSize) {
-        switch (minLeafSize) {
-            case 1:
-                return new Vec3f(0.3f, 0.1f, 0.f);
-            case 2:
-                return new Vec3f(0, 0.f, 0.5f);
-            case 4:
-                return new Vec3f(0, 0.5f, 0.5f);
-            case 8:
-                return new Vec3f(0.5f, 0.f, 0.5f);
-            case 16:
-                return new Vec3f(0.0f, 0.5f, 0.f);
-            default:
-                return new Vec3f(0.5f, 0.0f, 0.f);
-        }
     }
 }

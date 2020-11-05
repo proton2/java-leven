@@ -88,11 +88,11 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 
         int[] isSeamNode = new int[octreeNumNodes];
         int numSeamNodes = generateMeshFromOctreeService.findSeamNodesKernel(kernels, isSeamNode);
-        //generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
+        generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
 
-        extractNodeInfo(isSeamNode, Constants.Yellow,
-                chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, octreeNumNodes,
-                d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
+//        extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize/meshGen.getVoxelsPerChunk()),//Constants.Yellow,
+//                chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, octreeNumNodes,
+//                d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
         findDefEdges.destroy();
         calculateMaterialsService.destroy();
