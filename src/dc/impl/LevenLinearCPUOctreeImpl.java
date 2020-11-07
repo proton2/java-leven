@@ -23,8 +23,8 @@ import java.util.Map;
     The first raw version will still improve.
  */
 
-public class LevenLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-    public LevenLinearOctreeImpl(MeshGenerationContext meshGenerationContext) {
+public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements VoxelOctree {
+    public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext) {
         super(meshGenerationContext);
     }
 
@@ -86,14 +86,12 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
         QefSolver[] qefs = new QefSolver[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
         //////////////////////////////
-        createLeafNodes(chunkSize, chunkMin,0, numVertices, chunkSize / meshGen.getVoxelsPerChunk(), d_nodeCodes,
-                d_compactLeafEdgeInfo, normals,
-                qefs, edgeIndicatesMap,
-                d_vertexNormals);
+        createLeafNodes(0, numVertices, d_nodeCodes, d_compactLeafEdgeInfo, normals, edgeIndicatesMap,
+                qefs, d_vertexNormals);
 
-        Vec3f[] d_vertexPositions = new Vec3f[numVertices];
+        Vec4f[] d_vertexPositions = new Vec4f[numVertices];
         //////////////////////////////
-        solveQEFs(d_nodeCodes, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices, qefs,
+        solveQEFs(chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices, qefs,
                 d_vertexPositions);
 
         int indexBufferSize = numVertices * 6 * 3;
@@ -303,10 +301,8 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
         return octreeNodes;
     }
 
-    void createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, int sampleScale, int[] voxelPositions,
-                         int[] voxelEdgeInfo, Vec4f[] edgeDataTable,
-                         QefSolver[] leafQEFs, Map<Integer, Integer> nodes,
-                         Vec3f[] vertexNormals)
+    void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
+                         QefSolver[] leafQEFs, Vec3f[] vertexNormals)
     {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
@@ -359,24 +355,15 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
         }
     }
 
-    private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                          QefSolver[] qefs, Vec3f[] solvedPositions){
+    private void solveQEFs(int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
+                          QefSolver[] qefs, Vec4f[] solvedPositions){
 
         for (int index = from; index < to; index++) {
-            int encodedPosition = d_nodeCodes[index];
-            Vec3i pos = LinearOctreeTest.positionForCode(encodedPosition);
             int leafSize = (chunkSize / voxelsPerChunk);
-            Vec3i leaf = pos.mul(leafSize).add(chunkMin);
-
             Vec4f solvedPos = qefs[index].solve();
-
             solvedPos = solvedPos.mul(leafSize).add(chunkMin);
-            // clamping
-            //Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
-            //solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
-            solvedPositions[index] = solvedPos.getVec3f();
+            solvedPositions[index] = solvedPos;
         }
-        return 1;
     }
 
     private int findSeamNodes(int[] nodeCodes, boolean[] isSeamNode, int from, int to) {
@@ -491,12 +478,12 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
         }
     }
 
-    private void GenerateMeshVertexBuffer(Vec3f[] vertexPositions, Vec3f[] vertexNormals, int[] nodeMaterials, Vec3f colour,
+    private void GenerateMeshVertexBuffer(Vec4f[] vertexPositions, Vec3f[] vertexNormals, int[] nodeMaterials, Vec3f colour,
                                           MeshVertex[] meshVertexBuffer) {
         for (int index = 0; index < vertexPositions.length; index++) {
             int material = nodeMaterials[index];
             meshVertexBuffer[index] = new MeshVertex();
-            meshVertexBuffer[index].setPos(vertexPositions[index]);
+            meshVertexBuffer[index].setPos(vertexPositions[index].getVec3f());
             meshVertexBuffer[index].setNormal(vertexNormals[index]);
             meshVertexBuffer[index].setColor(colour); //colour = new Vec4f(colour.X, colour.Y, colour.Z, (float) (material >> 8));
         }
@@ -504,7 +491,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
 
     private void extractNodeInfo(boolean[] isSeamNode, Vec3f color,
                                  int leafSize, Vec3i chunkMin, int from, int to,
-                                 int[] octreeCodes, int[] octreeMaterials, Vec3f[] octreePositions, Vec3f[] octreeNormals,
+                                 int[] octreeCodes, int[] octreeMaterials, Vec4f[] octreePositions, Vec3f[] octreeNormals,
                                  List<PointerBasedOctreeNode> seamNodes) {
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]) {
@@ -513,7 +500,7 @@ public class LevenLinearOctreeImpl extends AbstractDualContouring implements Vox
                 node.size = leafSize;
                 node.Type = OctreeNodeType.Node_Leaf;
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-                drawInfo.position = octreePositions[index];
+                drawInfo.position = octreePositions[index].getVec3f();
                 drawInfo.color = color;
                 drawInfo.averageNormal = octreeNormals[index];
                 drawInfo.corners = octreeMaterials[index];
