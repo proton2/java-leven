@@ -24,11 +24,11 @@ import java.util.Map;
     The first raw version will still improve.
  */
 
-public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implements VoxelOctree {
+public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     private final KernelsHolder kernels;
     private final ComputeContext ctx;
 
-    public LevenLinearOpenCLOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext, ComputeContext ctx) {
+    public LevenLinearGPUOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext, ComputeContext ctx) {
         super(meshGenerationContext);
         this.kernels = kernels;
         this.ctx = ctx;
