@@ -33,11 +33,13 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
                                         float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
     {
+        int[] materials = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
+
         field.setMin(chunkMin);
         field.setSize(chunkSize);
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen, field);
-        calculateMaterialsService.run(kernels);
+        calculateMaterialsService.run(kernels, materials);
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
         FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
@@ -55,19 +57,23 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
         Map<Integer, Integer> edgeIndicatesMap = compactEdges(edgeOccupancy, edgeIndicesNonCompact, compactEdgesSize,
                 edgeIndicesCompact);
 
-        findDefEdges.compactEdgeKernel(kernels, field);
+        //findDefEdges.compactEdgeKernel(kernels, field);
         Vec4f[] normals = new Vec4f[compactEdgesSize];
-        findDefEdges.FindEdgeIntersectionInfoKernel(kernels, normals);
+        //findDefEdges.FindEdgeIntersectionInfoKernel(kernels, normals);
+        FindEdgeIntersectionInfo(chunkMin, chunkSize / meshGen.getVoxelsPerChunk(), 0, compactEdgesSize, densityField,
+                edgeIndicesCompact,
+                normals);
 
-        GpuOctree gpuOctree = new GpuOctree();
-        ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
+        //GpuOctree gpuOctree = new GpuOctree();
+        //ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
 
         int[] d_leafOccupancy = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         int[] d_leafEdgeInfo = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         int[] d_leafCodes = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         int[] d_leafMaterials = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         //int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels, d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
-        int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels, d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
+        int octreeNumNodes = FindActiveVoxels(0, meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk(), materials,
+                d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
         if (octreeNumNodes<=0){
             return false;
         }
@@ -146,6 +152,96 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
                     if(material==defaultMaterialIndex) size++;
                 }
             }
+        }
+        return size;
+    }
+
+    Vec3i[] EDGE_END_OFFSETS = {
+            new Vec3i(1,0,0),
+            new Vec3i(0,1,0),
+            new Vec3i(0,0,1)
+    };
+
+    void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, float[] densityField,
+                                  int[] encodedEdges,
+                                  Vec4f[] edgeInfo)
+    {
+        for (int index = from; index < to; index++) {
+            int edge = encodedEdges[index];
+            int axisIndex = edge & 3;
+            int hermiteIndex = edge >> 2;
+
+            int x = (hermiteIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask();
+            int y = (hermiteIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask();
+            int z = (hermiteIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask();
+
+            Vec3f p0 = new Vec3i(x, y, z).mul(sampleScale).add(chunkMin).toVec3f();
+            Vec3f p1 = p0.add(EDGE_END_OFFSETS[axisIndex].mul(sampleScale).toVec3f());
+
+            Vec4f p = ApproximateLevenCrossingPosition(p0, p1, densityField);
+            Vec4f normal = CalculateSurfaceNormal(p, densityField);
+
+            edgeInfo[index] = new Vec4f(normal.getVec3f(), p.w);
+        }
+    }
+
+    int FindActiveVoxels(int from, int to, int[] materials,
+                         int[] voxelOccupancy,
+                         int[] voxelEdgeInfo,
+                         int[] voxelPositions,
+                         int[] voxelMaterials) {
+        int size = 0;
+        for (int k = from; k < to; k++) {
+            int indexShift = VoxelHelperUtils.log2(meshGen.getVoxelsPerChunk()); // max octree depth
+            int x = (k >> (indexShift * 0)) & meshGen.getVoxelsPerChunk() - 1;
+            int y = (k >> (indexShift * 1)) & meshGen.getVoxelsPerChunk() - 1;
+            int z = (k >> (indexShift * 2)) & meshGen.getVoxelsPerChunk() - 1;
+
+            int index = x + (y * meshGen.getVoxelsPerChunk()) + (z * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk());
+            Vec3i pos = new Vec3i(x, y, z);
+
+            int[] cornerMaterials = {
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[0]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[1]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[2]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[3]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[4]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[5]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[6]))],
+                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[7]))],
+            };
+
+            // record the on/off values at the corner of each voxel
+            int cornerValues = 0;
+            cornerValues |= (((cornerMaterials[0]) == meshGen.MATERIAL_AIR ? 0 : 1) << 0);
+            cornerValues |= (((cornerMaterials[1]) == meshGen.MATERIAL_AIR ? 0 : 1) << 1);
+            cornerValues |= (((cornerMaterials[2]) == meshGen.MATERIAL_AIR ? 0 : 1) << 2);
+            cornerValues |= (((cornerMaterials[3]) == meshGen.MATERIAL_AIR ? 0 : 1) << 3);
+            cornerValues |= (((cornerMaterials[4]) == meshGen.MATERIAL_AIR ? 0 : 1) << 4);
+            cornerValues |= (((cornerMaterials[5]) == meshGen.MATERIAL_AIR ? 0 : 1) << 5);
+            cornerValues |= (((cornerMaterials[6]) == meshGen.MATERIAL_AIR ? 0 : 1) << 6);
+            cornerValues |= (((cornerMaterials[7]) == meshGen.MATERIAL_AIR ? 0 : 1) << 7);
+
+            if (cornerValues != 0 && cornerValues != 255) {
+                ++size;
+            }
+            // record which of the 12 voxel edges are on/off
+            int edgeList = 0;
+            for (int i = 0; i < 12; i++) {
+                int i0 = edgevmap[i][0];
+                int i1 = edgevmap[i][1];
+                int edgeStart = (cornerValues >> i0) & 1;
+                int edgeEnd = (cornerValues >> i1) & 1;
+                int signChange = edgeStart != edgeEnd ? 1 : 0;
+                edgeList |= (signChange << i);
+            }
+            voxelOccupancy[index] = cornerValues != 0 && cornerValues != 255 ? 1 : 0;
+            voxelPositions[index] = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            voxelEdgeInfo[index] = edgeList;
+
+            // store cornerValues here too as its needed by the CPU side and edgeInfo isn't exported
+            int materialIndex = findDominantMaterial(cornerMaterials);
+            voxelMaterials[index] = (materialIndex << 8) | cornerValues;
         }
         return size;
     }
