@@ -49,8 +49,8 @@ public class ChunkOctreeWrapper extends GameObject {
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
         //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
         //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
-        VoxelOctree voxelOctree = new LevenLinearTestOctreeImpl(kernelHolder, meshGenCtx);
+        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx, ctx);
+        VoxelOctree voxelOctree = new LevenLinearTestOctreeImpl(kernelHolder, meshGenCtx, ctx);
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
     }
 

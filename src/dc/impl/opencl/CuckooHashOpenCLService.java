@@ -199,7 +199,7 @@ public class CuckooHashOpenCLService {
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernelHolder.getKernel(KernelNames.SCAN));
 
         int KEY_COUNT = 100;
-        CuckooHashOpenCLService cuckooHashService = new CuckooHashOpenCLService(OCLUtils.getOpenCLContext(), meshGen,
+        CuckooHashOpenCLService cuckooHashService = new CuckooHashOpenCLService(ctx, meshGen,
                 scanService, kernelHolder, KEY_COUNT);
         int[] keys = new int[KEY_COUNT];
         for (int i = 0; i < 100; i++) {

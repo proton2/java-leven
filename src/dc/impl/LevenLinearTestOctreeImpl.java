@@ -23,10 +23,12 @@ import java.util.Map;
 
 public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     private final KernelsHolder kernels;
+    private final ComputeContext ctx;
 
-    public LevenLinearTestOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext) {
+    public LevenLinearTestOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext, ComputeContext ctx) {
         super(meshGenerationContext);
         this.kernels = kernels;
+        this.ctx = ctx;
     }
 
     @Override
@@ -38,7 +40,6 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
 
         field.setMin(chunkMin);
         field.setSize(chunkSize);
-        ComputeContext ctx = OCLUtils.getOpenCLContext();
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen, field);
         calculateMaterialsService.run(kernels, materials);
 
@@ -134,7 +135,7 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
         //findDefEdges.destroy();
-        calculateMaterialsService.destroy();
+        //calculateMaterialsService.destroy();
         return true;
     }
 
