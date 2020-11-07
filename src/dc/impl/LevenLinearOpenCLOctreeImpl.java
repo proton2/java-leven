@@ -45,16 +45,16 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
         FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
-        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize());
+        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize(), null, null);
         if(compactEdgesSize<=0){
             return false;
         }
         findDefEdges.compactEdgeKernel(kernels, field);
-        findDefEdges.FindEdgeIntersectionInfoKernel(kernels);
+        findDefEdges.FindEdgeIntersectionInfoKernel(kernels, null);
 
         GpuOctree gpuOctree = new GpuOctree();
         ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
-        int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels);
+        int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels, null, null, null, null);
         if (octreeNumNodes<=0){
             return false;
         }
@@ -62,7 +62,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         int[] d_nodeCodes = new int[octreeNumNodes];
         int[] d_nodeMaterials = new int[octreeNumNodes];
         constructOctreeFromFieldService.compactVoxelsKernel(kernels, d_nodeCodes, d_nodeMaterials);
-        constructOctreeFromFieldService.createLeafNodesKernel(kernels);
+        constructOctreeFromFieldService.createLeafNodesKernel(kernels, null, null);
         Vec4f[] d_vertexPositions = new Vec4f[octreeNumNodes];
         constructOctreeFromFieldService.solveQefKernel(kernels, d_vertexPositions);
 
@@ -70,7 +70,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         MeshBufferGPU meshBufferGPU = new MeshBufferGPU();
         GenerateMeshFromOctreeService generateMeshFromOctreeService = new GenerateMeshFromOctreeService(ctx,
                 meshGen, scanService, gpuOctree, meshBufferGPU);
-        int numTriangles = generateMeshFromOctreeService.generateMeshKernel(kernels);
+        int numTriangles = generateMeshFromOctreeService.generateMeshKernel(kernels, null, null);
         if(numTriangles<=0){
             return false;
         }

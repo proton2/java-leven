@@ -468,30 +468,32 @@ public class OCLUtils {
     }
 
     public static void getQEFData(long buffer, QefSolver[] qefData){
-        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(qefData.length * Float.BYTES * 16);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
-        OCLUtils.checkCLError(err);
-        FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
-        for (int i = 0; i < qefData.length; i++) {
-            int index = i * 16;
-            QefSolver q = new QefSolver(new LevenQefSolver());
-            q.mat3x3_tri_ATA[0] = resultBuff.get(index+0);
-            q.mat3x3_tri_ATA[1] = resultBuff.get(index+1);
-            q.mat3x3_tri_ATA[2] = resultBuff.get(index+2);
-            q.mat3x3_tri_ATA[3] = resultBuff.get(index+3);
-            q.mat3x3_tri_ATA[4] = resultBuff.get(index+4);
-            q.mat3x3_tri_ATA[5] = resultBuff.get(index+5);
+        if(qefData!=null) {
+            ByteBuffer byteBuffer = BufferUtils.createByteBuffer(qefData.length * Float.BYTES * 16);
+            int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+            OCLUtils.checkCLError(err);
+            FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
+            for (int i = 0; i < qefData.length; i++) {
+                int index = i * 16;
+                QefSolver q = new QefSolver(new LevenQefSolver());
+                q.mat3x3_tri_ATA[0] = resultBuff.get(index + 0);
+                q.mat3x3_tri_ATA[1] = resultBuff.get(index + 1);
+                q.mat3x3_tri_ATA[2] = resultBuff.get(index + 2);
+                q.mat3x3_tri_ATA[3] = resultBuff.get(index + 3);
+                q.mat3x3_tri_ATA[4] = resultBuff.get(index + 4);
+                q.mat3x3_tri_ATA[5] = resultBuff.get(index + 5);
 //            q.pad[0] = resultBuff.get(index+6);
 //            q.pad[1] = resultBuff.get(index+7);
-            q.atb.x = resultBuff.get(index+8);
-            q.atb.y = resultBuff.get(index+9);
-            q.atb.z = resultBuff.get(index+10);
-            q.atb.w = resultBuff.get(index+11);
-            q.massPoint.x = resultBuff.get(index+12);
-            q.massPoint.y = resultBuff.get(index+13);
-            q.massPoint.z = resultBuff.get(index+14);
-            q.massPoint.w = resultBuff.get(index+15);
-            qefData[i] = q;
+                q.atb.x = resultBuff.get(index + 8);
+                q.atb.y = resultBuff.get(index + 9);
+                q.atb.z = resultBuff.get(index + 10);
+                q.atb.w = resultBuff.get(index + 11);
+                q.massPoint.x = resultBuff.get(index + 12);
+                q.massPoint.y = resultBuff.get(index + 13);
+                q.massPoint.z = resultBuff.get(index + 14);
+                q.massPoint.w = resultBuff.get(index + 15);
+                qefData[i] = q;
+            }
         }
     }
 

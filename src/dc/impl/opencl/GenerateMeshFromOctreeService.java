@@ -40,7 +40,8 @@ public class GenerateMeshFromOctreeService {
         trianglesValidSize = numVertices * 3;
     }
 
-    public int generateMeshKernel(KernelsHolder kernels) {
+    public int generateMeshKernel(KernelsHolder kernels,
+                                  int[] meshIndex, int[] trianglesValid) {
         d_indexBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, indexBufferSize * Integer.BYTES, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         d_trianglesValid = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, trianglesValidSize * Integer.BYTES, ctx.getErrcode_ret());
@@ -64,8 +65,8 @@ public class GenerateMeshFromOctreeService {
         int errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), k_GenerateMeshKernel, 1, null, createLeafNodesWorkSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
-//        OCLUtils.getIntBuffer(d_indexBuffer, meshIndex);
-//        OCLUtils.getIntBuffer(d_trianglesValid, trianglesValid);
+        OCLUtils.getIntBuffer(d_indexBuffer, meshIndex);
+        OCLUtils.getIntBuffer(d_trianglesValid, trianglesValid);
 
         d_trianglesScan = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, trianglesValidSize * Integer.BYTES, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
