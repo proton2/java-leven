@@ -3,6 +3,7 @@ package dc.impl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
+import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.*;
 import dc.entities.MeshBuffer;
@@ -41,13 +42,14 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen, field);
         calculateMaterialsService.run(kernels, materials);
 
-        ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
-        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
+        //ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
+        //FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
 
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
-        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize(), edgeOccupancy, edgeIndicesNonCompact);
+        //int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize(), edgeOccupancy, edgeIndicesNonCompact);
+        int compactEdgesSize = FindFieldEdges(materials, edgeOccupancy, edgeIndicesNonCompact);
         if(compactEdgesSize<=0){
             return false;
         }
@@ -131,7 +133,7 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
                 chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, octreeNumNodes,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
-        findDefEdges.destroy();
+        //findDefEdges.destroy();
         calculateMaterialsService.destroy();
         return true;
     }
@@ -150,6 +152,41 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
                     int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
                     field_materials[index] = material;
                     if(material==defaultMaterialIndex) size++;
+                }
+            }
+        }
+        return size;
+    }
+
+    int FindFieldEdges(int[] materials,
+                       int[] edgeOccupancy, int[] edgeIndices) {
+        int size = 0;
+        for (int z = 0; z < meshGen.getHermiteIndexSize(); z++) {
+            for (int y = 0; y < meshGen.getHermiteIndexSize(); y++) {
+                for (int x = 0; x < meshGen.getHermiteIndexSize(); x++)
+                {
+                    Vec4i pos = new Vec4i(x, y, z, 0);
+                    int index = (x + (y * meshGen.getHermiteIndexSize()) + (z * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize()));
+                    int edgeIndex = index * 3;
+
+                    int[] CORNER_MATERIALS = {
+                            materials[field_index(pos.add(new Vec4i(0, 0, 0, 0)))],
+                            materials[field_index(pos.add(new Vec4i(1, 0, 0, 0)))],
+                            materials[field_index(pos.add(new Vec4i(0, 1, 0, 0)))],
+                            materials[field_index(pos.add(new Vec4i(0, 0, 1, 0)))],
+                    };
+
+                    int voxelIndex = pos.x | (pos.y << meshGen.getIndexShift()) | (pos.z << (meshGen.getIndexShift() * 2));
+
+                    for (int i = 0; i < 3; i++) {
+                        int e = 1 + i;
+                        boolean signChange =(CORNER_MATERIALS[0] != meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] == meshGen.MATERIAL_AIR) ||
+                                (CORNER_MATERIALS[0] == meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] != meshGen.MATERIAL_AIR);
+                        edgeOccupancy[edgeIndex + i] = signChange ? 1 : 0;
+                        edgeIndices[edgeIndex + i] = signChange ? ((voxelIndex << 2) | i) : -1;
+                        if (signChange)
+                            ++size;
+                    }
                 }
             }
         }
