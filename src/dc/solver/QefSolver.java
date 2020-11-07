@@ -4,10 +4,10 @@ import core.math.Vec3f;
 import core.math.Vec4f;
 
 public class QefSolver{
-    private float[] mat3x3_tri_ATA;
-    private Vec4f atb;
-    private Vec4f massPoint;
-    private Vec4f x;
+    public float[] mat3x3_tri_ATA;
+    public Vec4f atb;
+    public Vec4f massPoint;
+    public Vec4f x;
     private SvdSolver solver;
 
     public Vec4f getMasspoint() {
