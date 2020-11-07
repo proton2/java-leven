@@ -44,13 +44,13 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         calculateMaterialsService.run(kernels);
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
-        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, scanService);
-        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, field, meshGen.getHermiteIndexSize());
+        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
+        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize());
         if(compactEdgesSize<=0){
             return false;
         }
         findDefEdges.compactEdgeKernel(kernels, field);
-        findDefEdges.FindEdgeIntersectionInfoKernel(kernels, field);
+        findDefEdges.FindEdgeIntersectionInfoKernel(kernels);
 
         GpuOctree gpuOctree = new GpuOctree();
         ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
@@ -62,8 +62,7 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         int[] d_nodeCodes = new int[octreeNumNodes];
         int[] d_nodeMaterials = new int[octreeNumNodes];
         constructOctreeFromFieldService.compactVoxelsKernel(kernels, d_nodeCodes, d_nodeMaterials);
-        Vec4f[] d_vertexNormals = new Vec4f[octreeNumNodes];
-        constructOctreeFromFieldService.createLeafNodesKernel(kernels, d_vertexNormals);
+        constructOctreeFromFieldService.createLeafNodesKernel(kernels);
         Vec4f[] d_vertexPositions = new Vec4f[octreeNumNodes];
         constructOctreeFromFieldService.solveQefKernel(kernels, d_vertexPositions);
 
@@ -90,33 +89,8 @@ public class LevenLinearOpenCLOctreeImpl extends AbstractDualContouring implemen
         int numSeamNodes = generateMeshFromOctreeService.findSeamNodesKernel(kernels, isSeamNode);
         generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
 
-//        extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize/meshGen.getVoxelsPerChunk()),//Constants.Yellow,
-//                chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, octreeNumNodes,
-//                d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
-
         findDefEdges.destroy();
         calculateMaterialsService.destroy();
         return true;
-    }
-
-    private void extractNodeInfo(int[] isSeamNode, Vec3f color,
-                                 int leafSize, Vec3i chunkMin, int from, int to,
-                                 int[] octreeCodes, int[] octreeMaterials, Vec4f[] octreePositions, Vec4f[] octreeNormals,
-                                 List<PointerBasedOctreeNode> seamNodes) {
-        for (int index = from; index < to; index++) {
-            if (isSeamNode==null || isSeamNode[index]==1) {
-                PointerBasedOctreeNode node = new PointerBasedOctreeNode();
-                node.min = LinearOctreeTest.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
-                node.size = leafSize;
-                node.Type = OctreeNodeType.Node_Leaf;
-                OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-                drawInfo.position = octreePositions[index].getVec3f();
-                drawInfo.color = color;
-                drawInfo.averageNormal = octreeNormals[index].getVec3f();
-                drawInfo.corners = octreeMaterials[index];
-                node.drawInfo = drawInfo;
-                seamNodes.add(node);
-            }
-        }
     }
 }
