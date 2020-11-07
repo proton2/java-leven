@@ -17,9 +17,7 @@ import java.util.List;
 import java.util.Map;
 
 /*
-    Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java calling OpenCL kernels
-    Some holes in seams is not fixed.
-    The first raw version will still improve.
+    Temporary class to catch bug in seams in GPU OpenCL version
  */
 
 public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements VoxelOctree {
@@ -43,42 +41,69 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
 
         ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
         FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
-        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize(), null, null);
+
+        int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
+        int[] edgeOccupancy = new int[edgeBufferSize];
+        int[] edgeIndicesNonCompact = new int[edgeBufferSize];
+        int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize(), edgeOccupancy, edgeIndicesNonCompact);
         if(compactEdgesSize<=0){
             return false;
         }
+
+        int[] edgeIndicesCompact = new int [compactEdgesSize];
+        //////////////////////////////
+        Map<Integer, Integer> edgeIndicatesMap = compactEdges(edgeOccupancy, edgeIndicesNonCompact, compactEdgesSize,
+                edgeIndicesCompact);
+
         findDefEdges.compactEdgeKernel(kernels, field);
-        findDefEdges.FindEdgeIntersectionInfoKernel(kernels, null);
+        Vec4f[] normals = new Vec4f[compactEdgesSize];
+        findDefEdges.FindEdgeIntersectionInfoKernel(kernels, normals);
 
         GpuOctree gpuOctree = new GpuOctree();
         ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
-        int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels, null, null, null, null);
+
+        int[] d_leafOccupancy = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
+        int[] d_leafEdgeInfo = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
+        int[] d_leafCodes = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
+        int[] d_leafMaterials = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
+        //int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels, d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
+        int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels, d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
         if (octreeNumNodes<=0){
             return false;
         }
 
         int[] d_nodeCodes = new int[octreeNumNodes];
+        int[] d_compactLeafEdgeInfo = new int[octreeNumNodes];
         int[] d_nodeMaterials = new int[octreeNumNodes];
-        constructOctreeFromFieldService.compactVoxelsKernel(kernels, d_nodeCodes, d_nodeMaterials);
+        //constructOctreeFromFieldService.compactVoxelsKernel(kernels, null, null);
+        Map<Integer, Integer> octreeNodes = compactVoxels(d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials,
+                d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, octreeNumNodes);
 
         Vec4f[] d_vertexNormals = new Vec4f[octreeNumNodes];
-        constructOctreeFromFieldService.createLeafNodesKernel(kernels, null, d_vertexNormals);
+        QefSolver[] qefs = new QefSolver[octreeNumNodes];
+        //constructOctreeFromFieldService.createLeafNodesKernel(kernels, qefs, d_vertexNormals);
+        createLeafNodes(0, octreeNumNodes, d_nodeCodes, d_compactLeafEdgeInfo, normals, edgeIndicatesMap,
+                qefs, d_vertexNormals);
+
         Vec4f[] d_vertexPositions = new Vec4f[octreeNumNodes];
-        constructOctreeFromFieldService.solveQefKernel(kernels, d_vertexPositions);
+        //constructOctreeFromFieldService.solveQefKernel(kernels, d_vertexPositions);
+        solveQEFs(chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, octreeNumNodes, qefs,
+                d_vertexPositions);
 
         //////////////////////////////
-        MeshBufferGPU meshBufferGPU = new MeshBufferGPU();
-        GenerateMeshFromOctreeService generateMeshFromOctreeService = new GenerateMeshFromOctreeService(ctx,
-                meshGen, scanService, gpuOctree, meshBufferGPU);
+        //MeshBufferGPU meshBufferGPU = new MeshBufferGPU();
+        //GenerateMeshFromOctreeService generateMeshFromOctreeService = new GenerateMeshFromOctreeService(ctx, meshGen, scanService, gpuOctree, meshBufferGPU);
 
         int[] d_indexBuffer = new int[octreeNumNodes * 6 * 3];
         int[] d_trianglesValid = new int[octreeNumNodes * 3];
 
-        int numTriangles = generateMeshFromOctreeService.generateMeshKernel(kernels, d_indexBuffer, d_trianglesValid);
-        if(numTriangles<=0){
+        int trianglesValidCount = generateMesh(octreeNodes, d_nodeCodes, d_nodeMaterials, d_indexBuffer, d_trianglesValid);
+        //int numTriangles = generateMeshFromOctreeService.generateMeshKernel(kernels, d_indexBuffer, d_trianglesValid);
+        if(trianglesValidCount<=0){
             return false;
         }
 
+        int numTriangles = trianglesValidCount * 2;
         int[] d_compactIndexBuffer = new int[numTriangles * 3];
         //generateMeshFromOctreeService.compactMeshTrianglesKernel(kernels, numTriangles, d_compactIndexBuffer);
         compactMeshTriangles(d_trianglesValid, d_indexBuffer, d_compactIndexBuffer);
@@ -138,10 +163,8 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
         return edgeIndicatesMap;
     }
 
-    void createLeafNodes(int chunkSize, Vec3i chunkMin, int from, int to, int sampleScale, int[] voxelPositions,
-                         int[] voxelEdgeInfo, Vec4f[] edgeDataTable,
-                         QefSolver[] leafQEFs, Map<Integer, Integer> nodes,
-                         Vec4f[] vertexNormals)
+    void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
+                         QefSolver[] leafQEFs, Vec4f[] vertexNormals)
     {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
@@ -194,10 +217,13 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
         }
     }
 
-    private void solveQEFs(MeshGenerationContext meshGen, Vec3i chunkMin, int from, int to, QefSolver[] qefs, Vec4f[] solvedPositions){
+    private void solveQEFs(int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
+                           QefSolver[] qefs, Vec4f[] solvedPositions){
+
         for (int index = from; index < to; index++) {
+            int leafSize = (chunkSize / voxelsPerChunk);
             Vec4f solvedPos = qefs[index].solve();
-            solvedPos = solvedPos.mul(meshGen.leafSizeScale).add(chunkMin);
+            solvedPos = solvedPos.mul(leafSize).add(chunkMin);
             solvedPositions[index] = solvedPos;
         }
     }
