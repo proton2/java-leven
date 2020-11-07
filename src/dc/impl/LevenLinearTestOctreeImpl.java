@@ -40,8 +40,12 @@ public class LevenLinearTestOctreeImpl extends AbstractDualContouring implements
 
         field.setMin(chunkMin);
         field.setSize(chunkSize);
-        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen, field);
-        calculateMaterialsService.run(kernels, materials);
+        int materialSize = GenerateDefaultField(densityField, chunkMin,
+                0, meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize(),
+                chunkSize / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID, materials);
+        if (materialSize==0){
+            return false;
+        }
 
         //ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
         //FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
