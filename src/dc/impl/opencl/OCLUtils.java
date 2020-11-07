@@ -8,6 +8,9 @@ import dc.OctreeDrawInfo;
 import dc.OctreeNodeType;
 import dc.PointerBasedOctreeNode;
 import dc.entities.MeshVertex;
+import dc.solver.GlslSvd;
+import dc.solver.LevenQefSolver;
+import dc.solver.QefSolver;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL;
@@ -464,34 +467,34 @@ public class OCLUtils {
         Vec4f massPoint = new Vec4f();
     }
 
-    public static QEFData[] getQEFData(long buffer, int size){
-        ByteBuffer byteBuffer = BufferUtils.createByteBuffer(size * Float.BYTES * 16);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
-        OCLUtils.checkCLError(err);
-        FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
-        QEFData[] qefData = new QEFData[size];
-        for (int i = 0; i < size; i++) {
-            int index = i * 16;
-            QEFData q = new QEFData();
-            q.mat3x3_tri_ATA[0] = resultBuff.get(index+0);
-            q.mat3x3_tri_ATA[1] = resultBuff.get(index+1);
-            q.mat3x3_tri_ATA[2] = resultBuff.get(index+2);
-            q.mat3x3_tri_ATA[3] = resultBuff.get(index+3);
-            q.mat3x3_tri_ATA[4] = resultBuff.get(index+4);
-            q.mat3x3_tri_ATA[5] = resultBuff.get(index+5);
-            q.pad[0] = resultBuff.get(index+6);
-            q.pad[1] = resultBuff.get(index+7);
-            q.ATb.x = resultBuff.get(index+8);
-            q.ATb.y = resultBuff.get(index+9);
-            q.ATb.z = resultBuff.get(index+10);
-            q.ATb.w = resultBuff.get(index+11);
-            q.massPoint.x = resultBuff.get(index+12);
-            q.massPoint.y = resultBuff.get(index+13);
-            q.massPoint.z = resultBuff.get(index+14);
-            q.massPoint.w = resultBuff.get(index+15);
-            qefData[i] = q;
+    public static void getQEFData(long buffer, QefSolver[] qefData){
+        if(qefData!=null) {
+            ByteBuffer byteBuffer = BufferUtils.createByteBuffer(qefData.length * Float.BYTES * 16);
+            int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+            OCLUtils.checkCLError(err);
+            FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
+            for (int i = 0; i < qefData.length; i++) {
+                int index = i * 16;
+                QefSolver q = new QefSolver(new LevenQefSolver());
+                q.mat3x3_tri_ATA[0] = resultBuff.get(index + 0);
+                q.mat3x3_tri_ATA[1] = resultBuff.get(index + 1);
+                q.mat3x3_tri_ATA[2] = resultBuff.get(index + 2);
+                q.mat3x3_tri_ATA[3] = resultBuff.get(index + 3);
+                q.mat3x3_tri_ATA[4] = resultBuff.get(index + 4);
+                q.mat3x3_tri_ATA[5] = resultBuff.get(index + 5);
+//            q.pad[0] = resultBuff.get(index+6);
+//            q.pad[1] = resultBuff.get(index+7);
+                q.atb.x = resultBuff.get(index + 8);
+                q.atb.y = resultBuff.get(index + 9);
+                q.atb.z = resultBuff.get(index + 10);
+                q.atb.w = resultBuff.get(index + 11);
+                q.massPoint.x = resultBuff.get(index + 12);
+                q.massPoint.y = resultBuff.get(index + 13);
+                q.massPoint.z = resultBuff.get(index + 14);
+                q.massPoint.w = resultBuff.get(index + 15);
+                qefData[i] = q;
+            }
         }
-        return qefData;
     }
 
     public static MeshVertex[] getVertexBuffer(long buffer, int numVertices){
@@ -535,18 +538,18 @@ public class OCLUtils {
     }
 
     public static void getListSeamNodesTriangles(long buffer, int bufSize, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
-        FloatBuffer resultBuff = BufferUtils.createFloatBuffer(4 * 3 * bufSize);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        ByteBuffer byteBuff = BufferUtils.createByteBuffer(Float.BYTES * 4 * 3 * bufSize);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuff, null, null);
         OCLUtils.checkCLError(err);
 
         for (int i = 0; i < bufSize; i++) {
-            int index = i * 12;
+            int index = i * 12 * 4;
             PointerBasedOctreeNode node = new PointerBasedOctreeNode();
             Vec4i localspaceMin = new Vec4i();
-            localspaceMin.x = (int)resultBuff.get(index+0);
-            localspaceMin.y = (int)resultBuff.get(index+1);
-            localspaceMin.z = (int)resultBuff.get(index+2);
-            localspaceMin.w = (int)resultBuff.get(index+3);
+            localspaceMin.x = byteBuff.getInt(index+0);
+            localspaceMin.y = byteBuff.getInt(index+4);
+            localspaceMin.z = byteBuff.getInt(index+8);
+            localspaceMin.w = byteBuff.getInt(index+12);
             node.min = localspaceMin.mul(chunkSize).add(chunkMin);
             node.size = chunkSize;
             node.Type = OctreeNodeType.Node_Leaf;
@@ -554,18 +557,18 @@ public class OCLUtils {
             OctreeDrawInfo drawInfo = new OctreeDrawInfo();
             drawInfo.corners = localspaceMin.w;
             Vec4f position = new Vec4f();
-            position.x = resultBuff.get(index+4);
-            position.y = resultBuff.get(index+5);
-            position.z = resultBuff.get(index+6);
-            position.w = resultBuff.get(index+7);
+            position.x = byteBuff.getFloat(index+16);
+            position.y = byteBuff.getFloat(index+20);
+            position.z = byteBuff.getFloat(index+24);
+            position.w = byteBuff.getFloat(index+28);
             drawInfo.position = position.getVec3f();
             drawInfo.color = color;
 
             Vec4f normal = new Vec4f();
-            normal.x = resultBuff.get(index+8);
-            normal.y = resultBuff.get(index+9);
-            normal.z = resultBuff.get(index+10);
-            normal.w = resultBuff.get(index+11);
+            normal.x = byteBuff.getFloat(index+32);
+            normal.y = byteBuff.getFloat(index+36);
+            normal.z = byteBuff.getFloat(index+40);
+            normal.w = byteBuff.getFloat(index+44);
             drawInfo.averageNormal = normal.getVec3f();
 
             node.drawInfo = drawInfo;

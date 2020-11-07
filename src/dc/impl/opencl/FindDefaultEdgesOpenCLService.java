@@ -18,14 +18,16 @@ public final class FindDefaultEdgesOpenCLService {
     private int numEdges, edgeBufferSize;
     private ComputeContext ctx;
     private final MeshGenerationContext meshGen;
+    private final GPUDensityField field;
 
-    public FindDefaultEdgesOpenCLService(ComputeContext computeContext, MeshGenerationContext meshGenerationContext, ScanOpenCLService scanOpenCLService) {
+    public FindDefaultEdgesOpenCLService(ComputeContext computeContext, MeshGenerationContext meshGenerationContext, GPUDensityField field, ScanOpenCLService scanOpenCLService) {
         this.meshGen = meshGenerationContext;
         this.scanOpenCLService = scanOpenCLService;
         this.ctx = computeContext;
+        this.field = field;
     }
 
-    public int findFieldEdgesKernel(KernelsHolder kernels, GPUDensityField field, int hermiteIndexSize) {
+    public int findFieldEdgesKernel(KernelsHolder kernels, int hermiteIndexSize, int[] edgeOccupancy, int[] edgeIndicesNonCompact) {
         edgeBufferSize = hermiteIndexSize * hermiteIndexSize * hermiteIndexSize * 3;
         edgeOccupancyBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -48,8 +50,8 @@ public final class FindDefaultEdgesOpenCLService {
         int errcode = clEnqueueNDRangeKernel(ctx.getClQueue(), findFieldEdgesKernel, dimensions, null, globalWorkSize, null, null, null);
         OCLUtils.checkCLError(errcode);
 
-//        OCLUtils.getIntBuffer(edgeOccupancyBuffer, edgeOccupancy);
-//        OCLUtils.getIntBuffer(edgeIndicesNonCompactBuffer, edgeIndicesNonCompact);
+        OCLUtils.getIntBuffer(edgeOccupancyBuffer, edgeOccupancy);
+        OCLUtils.getIntBuffer(edgeIndicesNonCompactBuffer, edgeIndicesNonCompact);
 
         edgeScanBuffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, edgeBufferSize * 4, ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -84,7 +86,7 @@ public final class FindDefaultEdgesOpenCLService {
         CL10.clReleaseKernel(compactEdgesKernel);
     }
 
-    public void FindEdgeIntersectionInfoKernel(KernelsHolder kernels, GPUDensityField field) {
+    public void FindEdgeIntersectionInfoKernel(KernelsHolder kernels, Vec4f[] normals) {
         field.setNormals(CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_WRITE_ONLY, field.getNumEdges() * 4 * 4, ctx.getErrcode_ret()));
         OCLUtils.checkCLError(ctx.getErrcode_ret());
 
@@ -104,7 +106,7 @@ public final class FindDefaultEdgesOpenCLService {
         int err = clEnqueueNDRangeKernel(ctx.getClQueue(), kFindInfoKernel, 1, null, globalWorkNumEdgesSize, null, null, null);
         OCLUtils.checkCLError(err);
 
-        //Vec4f[] normals = OCLUtils.getNormals(field.getNormals(), field.getNumEdges());
+        OCLUtils.getNormals(field.getNormals(), normals);
 
         CL10.clReleaseKernel(kFindInfoKernel);
         CL10.clFinish(ctx.getClQueue());

@@ -23,7 +23,7 @@ public final class OpenCLCalculateMaterialsService {
         this.field = field;
     }
 
-    public void run(KernelsHolder kernels) {
+    public void run(KernelsHolder kernels, int[] materials) {
         // init kernel with constants
         long clKernel = clCreateKernel(kernels.getKernel(KernelNames.DENSITY), "GenerateDefaultField", ctx.getErrcode_ret());
         OCLUtils.checkCLError(ctx.getErrcode_ret());
@@ -52,19 +52,21 @@ public final class OpenCLCalculateMaterialsService {
 
         CL10.clFinish(ctx.getClQueue());
 
-        //getResults(result, field);
+        getResults(materials, field);
         CL10.clReleaseKernel(clKernel);
 
     }
 
     private void getResults(int[] result, GPUDensityField field) {
-        // This reads the result memory buffer
-        IntBuffer resultBuff = BufferUtils.createIntBuffer(size * size * size);
-        // We read the buffer in blocking mode so that when the method returns we know that the result buffer is full
-        //CL10.clEnqueueReadBuffer(clQueue, resultMemory, CL10.CL_TRUE, 0, resultBuff, null, null);
-        CL10.clEnqueueReadBuffer(ctx.getClQueue(), field.getMaterials(), true, 0, resultBuff, null, null);
-        // Print the values in the result buffer
-        resultBuff.get(result);
+        if(result!=null) {
+            // This reads the result memory buffer
+            IntBuffer resultBuff = BufferUtils.createIntBuffer(size * size * size);
+            // We read the buffer in blocking mode so that when the method returns we know that the result buffer is full
+            //CL10.clEnqueueReadBuffer(clQueue, resultMemory, CL10.CL_TRUE, 0, resultBuff, null, null);
+            CL10.clEnqueueReadBuffer(ctx.getClQueue(), field.getMaterials(), true, 0, resultBuff, null, null);
+            // Print the values in the result buffer
+            resultBuff.get(result);
+        }
     }
 
     public void destroy(){

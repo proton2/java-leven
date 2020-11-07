@@ -10,9 +10,7 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.LevenLinearOpenCLOctreeImpl;
-import dc.impl.MeshGenerationContext;
-import dc.impl.TransitionLinearOctreeImpl;
+import dc.impl.*;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
@@ -49,14 +47,16 @@ public class ChunkOctreeWrapper extends GameObject {
 
         //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
-        VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new LevenLinearOpenCLOctreeImpl(kernelHolder, meshGenCtx);
+        //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
+        //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+        VoxelOctree voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
     }
 
     public void update() {
-        chunkOctree.update(Camera.getInstance(), true);
+        if (refreshMesh) {
+            chunkOctree.update(Camera.getInstance(), false);
+        }
 
         if (refreshMesh) {
             renderMesh();

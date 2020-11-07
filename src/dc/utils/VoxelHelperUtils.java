@@ -110,4 +110,21 @@ public class VoxelHelperUtils {
         }
         return buildOptions;
     }
+
+    public static Vec3f ColourForMinLeafSize(int minLeafSize) {
+        switch (minLeafSize) {
+            case 1:
+                return new Vec3f(0.3f, 0.1f, 0.f);
+            case 2:
+                return new Vec3f(0, 0.f, 0.5f);
+            case 4:
+                return new Vec3f(0, 0.5f, 0.5f);
+            case 8:
+                return new Vec3f(0.5f, 0.f, 0.5f);
+            case 16:
+                return new Vec3f(0.0f, 0.5f, 0.f);
+            default:
+                return new Vec3f(0.5f, 0.0f, 0.f);
+        }
+    }
 }

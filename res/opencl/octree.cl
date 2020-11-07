@@ -525,7 +525,7 @@ kernel void FindSeamNodes(
 
 typedef struct SeamNodeInfo_s
 {
-	float4			localspaceMin;
+	int4			localspaceMin;
 	float4			position;
 	float4			normal;
 } SeamNodeInfo;
@@ -545,7 +545,7 @@ kernel void ExtractSeamNodeInfo(
 		int scan = isSeamNodeScan[index];
 
 		SeamNodeInfo info;
-		info.localspaceMin = convert_float4(PositionForCode(octreeCodes[index]));
+		info.localspaceMin = PositionForCode(octreeCodes[index]);
 		info.position = octreePositions[index];
 		info.normal = octreeNormals[index];
 		info.localspaceMin.w = octreeMaterials[index];
