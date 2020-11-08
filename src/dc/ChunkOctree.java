@@ -22,8 +22,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 public class ChunkOctree {
 
@@ -189,7 +188,14 @@ public class ChunkOctree {
     public void update(Camera cam, boolean multiTread){
         this.camera = cam;
         if (multiTread) {
-            service.submit(() -> update(camera));
+            Runnable task = () -> update(camera);
+            Future<?> future = service.submit(task);
+            try {
+                future.get();
+            } catch (Throwable ex){
+                ex.getCause().printStackTrace();
+                throw new RuntimeException(ex);
+            }
         } else {
             update(camera);
         }
