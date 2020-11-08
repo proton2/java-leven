@@ -2,7 +2,7 @@
 
 Dual Contouring Chunking LODs with seams
 
-Nick Gildea Dual Contouring implementation in Java LWJGL
+Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation in Java LWJGL
 
 CPU and OpenCL GPU implementations.
 
