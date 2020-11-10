@@ -12,15 +12,18 @@ import static org.lwjgl.opencl.CL10.*;
 
 public final class OpenCLCalculateMaterialsService {
     private final int size;
-    private ComputeContext ctx;
+    private final ComputeContext ctx;
     private final MeshGenerationContext meshGen;
     private final GPUDensityField field;
+    private final BufferGpuService bufferGpuService;
 
-    public OpenCLCalculateMaterialsService(ComputeContext computeContext, int size, MeshGenerationContext meshGenerationContext, GPUDensityField field) {
+    public OpenCLCalculateMaterialsService(ComputeContext computeContext, int size, MeshGenerationContext meshGenerationContext,
+                                           GPUDensityField field, BufferGpuService bufferGpuService) {
         this.meshGen = meshGenerationContext;
         this.size = size;
         this.ctx = computeContext;
         this.field = field;
+        this.bufferGpuService = bufferGpuService;
     }
 
     public void run(KernelsHolder kernels, int[] materials) {
@@ -29,7 +32,9 @@ public final class OpenCLCalculateMaterialsService {
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         int sampleScale = field.getSize() / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
 
-        createMemory(field);
+        BufferGpu fieldMaterials = bufferGpuService.create("fieldMaterials", size * size * size * 4, MemAccess.READ_WRITE);
+        field.setMaterials(fieldMaterials);
+        OCLUtils.checkCLError(ctx.getErrcode_ret());
 
         clSetKernelArg4i(clKernel, 0,
                 field.getMin().x/meshGen.leafSizeScale,
@@ -38,7 +43,7 @@ public final class OpenCLCalculateMaterialsService {
                 0);
         clSetKernelArg1i(clKernel, 1, sampleScale);
         clSetKernelArg1i(clKernel, 2, ctx.defaultMaterial);
-        clSetKernelArg1p(clKernel, 3, field.getMaterials());
+        clSetKernelArg1p(clKernel, 3, field.getMaterials().getMem());
 
         final int dimensions = 3;
         PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(dimensions); // In here we put the total number of work items we want in each dimension.
@@ -54,7 +59,6 @@ public final class OpenCLCalculateMaterialsService {
 
         getResults(materials, field);
         CL10.clReleaseKernel(clKernel);
-
     }
 
     private void getResults(int[] result, GPUDensityField field) {
@@ -63,20 +67,9 @@ public final class OpenCLCalculateMaterialsService {
             IntBuffer resultBuff = BufferUtils.createIntBuffer(size * size * size);
             // We read the buffer in blocking mode so that when the method returns we know that the result buffer is full
             //CL10.clEnqueueReadBuffer(clQueue, resultMemory, CL10.CL_TRUE, 0, resultBuff, null, null);
-            CL10.clEnqueueReadBuffer(ctx.getClQueue(), field.getMaterials(), true, 0, resultBuff, null, null);
+            CL10.clEnqueueReadBuffer(ctx.getClQueue(), field.getMaterials().getMem(), true, 0, resultBuff, null, null);
             // Print the values in the result buffer
             resultBuff.get(result);
         }
-    }
-
-    public void destroy(){
-        CL10.clReleaseMemObject(field.getMaterials());
-    }
-
-    private void createMemory(GPUDensityField field) {
-        // Remember the length argument here is in bytes. 4 bytes per float.
-        long resultMemory = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE, size * size * size * 4, ctx.getErrcode_ret());
-        field.setMaterials(resultMemory);
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
     }
 }

@@ -1,22 +1,15 @@
 package dc.impl;
 
-import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
-import core.math.Vec4i;
 import core.utils.BufferUtil;
-import core.utils.Constants;
-import dc.*;
+import dc.AbstractDualContouring;
+import dc.PointerBasedOctreeNode;
+import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
-import dc.entities.MeshVertex;
 import dc.impl.opencl.*;
-import dc.solver.LevenQefSolver;
-import dc.solver.QefSolver;
-import dc.utils.VoxelHelperUtils;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /*
     Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java calling OpenCL kernels
@@ -41,11 +34,13 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
     {
         field.setMin(chunkMin);
         field.setSize(chunkSize);
-        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(), meshGen, field);
+        BufferGpuService bufferGpuService = new BufferGpuService(ctx);
+        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(),
+                meshGen, field, bufferGpuService);
         calculateMaterialsService.run(kernels, null);
 
-        ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN));
-        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService);
+        ScanOpenCLService scanService = new ScanOpenCLService(ctx, kernels.getKernel(KernelNames.SCAN), bufferGpuService);
+        FindDefaultEdgesOpenCLService findDefEdges = new FindDefaultEdgesOpenCLService(ctx, meshGen, field, scanService, bufferGpuService);
         int compactEdgesSize = findDefEdges.findFieldEdgesKernel(kernels, meshGen.getHermiteIndexSize(), null, null);
         if(compactEdgesSize<=0){
             return false;
@@ -54,7 +49,8 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
         findDefEdges.FindEdgeIntersectionInfoKernel(kernels, null);
 
         GpuOctree gpuOctree = new GpuOctree();
-        ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen, field, gpuOctree, scanService);
+        ConstructOctreeFromFieldService constructOctreeFromFieldService = new ConstructOctreeFromFieldService(ctx, meshGen,
+                field, gpuOctree, scanService, bufferGpuService);
         int octreeNumNodes = constructOctreeFromFieldService.findActiveVoxelsKernel(kernels, null, null, null, null);
         if (octreeNumNodes<=0){
             return false;
@@ -70,7 +66,7 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
         //////////////////////////////
         MeshBufferGPU meshBufferGPU = new MeshBufferGPU();
         GenerateMeshFromOctreeService generateMeshFromOctreeService = new GenerateMeshFromOctreeService(ctx,
-                meshGen, scanService, gpuOctree, meshBufferGPU);
+                meshGen, scanService, gpuOctree, meshBufferGPU, field, bufferGpuService);
         int numTriangles = generateMeshFromOctreeService.generateMeshKernel(kernels, null, null);
         if(numTriangles<=0){
             return false;
@@ -88,10 +84,11 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
 
         int[] isSeamNode = new int[octreeNumNodes];
         int numSeamNodes = generateMeshFromOctreeService.findSeamNodesKernel(kernels, isSeamNode);
+        if(numSeamNodes<=0){
+            return false;
+        }
         generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
-
-        findDefEdges.destroy();
-        calculateMaterialsService.destroy();
+        bufferGpuService.releaseAll();
         return true;
     }
 }

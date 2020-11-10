@@ -1,22 +1,22 @@
 package dc.impl.opencl;
 
 public class MeshBufferGPU {
-    private long vertices, triangles;
+    private BufferGpu vertices, triangles;
     private int	countVertices, countTriangles;
 
-    public long getVertices() {
+    public BufferGpu getVertices() {
         return vertices;
     }
 
-    public void setVertices(long vertices) {
+    public void setVertices(BufferGpu vertices) {
         this.vertices = vertices;
     }
 
-    public long getTriangles() {
+    public BufferGpu getTriangles() {
         return triangles;
     }
 
-    public void setTriangles(long triangles) {
+    public void setTriangles(BufferGpu triangles) {
         this.triangles = triangles;
     }
 

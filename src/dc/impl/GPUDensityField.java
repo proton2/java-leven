@@ -1,20 +1,21 @@
 package dc.impl;
 
 import core.math.Vec3i;
+import dc.impl.opencl.BufferGpu;
 
 public class GPUDensityField {
-    private long materials;
-    private long edgeIndices;
-    private long normals;
+    private BufferGpu materials;
+    private BufferGpu edgeIndices;
+    private BufferGpu normals;
     private Vec3i min;
     private int size;
     private int numEdges;
 
-    public long getNormals() {
+    public BufferGpu getNormals() {
         return normals;
     }
 
-    public void setNormals(long normals) {
+    public void setNormals(BufferGpu normals) {
         this.normals = normals;
     }
 
@@ -26,19 +27,19 @@ public class GPUDensityField {
         this.numEdges = numEdges;
     }
 
-    public long getMaterials() {
+    public BufferGpu getMaterials() {
         return materials;
     }
 
-    public void setMaterials(long materials) {
+    public void setMaterials(BufferGpu materials) {
         this.materials = materials;
     }
 
-    public long getEdgeIndices() {
+    public BufferGpu getEdgeIndices() {
         return edgeIndices;
     }
 
-    public void setEdgeIndices(long edgeIndices) {
+    public void setEdgeIndices(BufferGpu edgeIndices) {
         this.edgeIndices = edgeIndices;
     }
 
