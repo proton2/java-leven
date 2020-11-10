@@ -14,9 +14,10 @@ public final class NVidiaScanOpenCLTest {
     public void run() {
         ComputeContext ctx = OCLUtils.getOpenCLContext();
         KernelsHolder meshGen = new KernelsHolder(ctx);
+        BufferGpuService bufferGpuService = new BufferGpuService(ctx);
         meshGen.buildKernel(KernelNames.NVIDIA_SCAN, createScanOpenCLTestBuildOptions());
 
-        NVidiaScanOpenCLService scanOpenCLService = new NVidiaScanOpenCLService(ctx, meshGen);
+        NVidiaScanOpenCLService scanOpenCLService = new NVidiaScanOpenCLService(ctx, meshGen, bufferGpuService);
         scanOpenCLService.scan();
 
         meshGen.destroyContext();

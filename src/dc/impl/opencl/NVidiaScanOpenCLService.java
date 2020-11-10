@@ -14,6 +14,7 @@ import static org.lwjgl.opencl.CL10.*;
 public final class NVidiaScanOpenCLService {
     private final ComputeContext ctx;
     private final KernelsHolder kernelsHolder;
+    private final BufferGpuService bufferGpuService;
     final int WORKGROUP_SIZE = 256;
     final int MAX_BATCH_ELEMENTS = 64 * 1048576;
     final int MIN_SHORT_ARRAY_SIZE = 4;
@@ -21,15 +22,16 @@ public final class NVidiaScanOpenCLService {
     final int MIN_LARGE_ARRAY_SIZE = 8 * WORKGROUP_SIZE;
     final int MAX_LARGE_ARRAY_SIZE = 4 * WORKGROUP_SIZE * WORKGROUP_SIZE;
 
-    long d_Buffer;
+    BufferGpu d_Buffer;
     long ckScanExclusiveLocal1, ckScanExclusiveLocal2, ckUniformUpdate;
-    long d_Input, d_Output;
+    BufferGpu d_Input, d_Output;
     int N = 13 * 1048576 / 2;
     int[] h_Input, h_OutputCPU, h_OutputGPU;
 
-    public NVidiaScanOpenCLService(ComputeContext ctx, KernelsHolder kernelsHolder) {
+    public NVidiaScanOpenCLService(ComputeContext ctx, KernelsHolder kernelsHolder, BufferGpuService bufferGpuService) {
         this.ctx = ctx;
         this.kernelsHolder = kernelsHolder;
+        this.bufferGpuService = bufferGpuService;
         h_Input = new int[N];
         h_OutputCPU = new int[N];
         h_OutputGPU = new int[N];
@@ -55,13 +57,9 @@ public final class NVidiaScanOpenCLService {
             System.out.println("\nERROR !!! Minimum work-group size %u required by this application is not supported on this device.\n\n" + WORKGROUP_SIZE);
             closeScan();
         }
-        d_Buffer = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, (MAX_BATCH_ELEMENTS / (4 * WORKGROUP_SIZE)) * 4, ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
-
-        d_Input = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, OCLUtils.getIntBuffer(h_Input), ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
-        d_Output = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, N * 4, ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        d_Buffer = bufferGpuService.create("d_Buffer", (MAX_BATCH_ELEMENTS / (4 * WORKGROUP_SIZE)) * 4, CL_MEM_READ_WRITE);
+        d_Input = bufferGpuService.create("d_Input", OCLUtils.getIntBuffer(h_Input), CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR);
+        d_Output = bufferGpuService.create("d_Output", N * 4, CL_MEM_READ_WRITE);
 
         boolean globalFlag = true; // init pass/fail flag to pass
         int iCycles = 100;
@@ -129,12 +127,10 @@ public final class NVidiaScanOpenCLService {
         //Release kernels and program
         closeScan();
 
-        int ciErrNum;
-        ciErrNum = clReleaseMemObject(d_Output);
-        OCLUtils.checkCLError(ciErrNum);
-        ciErrNum = clReleaseMemObject(d_Input);
-        OCLUtils.checkCLError(ciErrNum);
-        ciErrNum = clReleaseCommandQueue(ctx.getClQueue());
+        bufferGpuService.release(d_Output);
+        bufferGpuService.release(d_Input);
+
+        int ciErrNum = clReleaseCommandQueue(ctx.getClQueue());
         OCLUtils.checkCLError(ciErrNum);
         ciErrNum = clReleaseContext(ctx.getClContext());
         OCLUtils.checkCLError(ciErrNum);
@@ -155,7 +151,7 @@ public final class NVidiaScanOpenCLService {
         return returnBuffer;
     }
 
-    void scanExclusiveShort(long d_Dst, long d_Src, int batchSize, int arrayLength){
+    void scanExclusiveShort(BufferGpu d_Dst, BufferGpu d_Src, int batchSize, int arrayLength){
         //
         int log2L = 0;
         int factorizationRemainder = factorRadix2(log2L, arrayLength);
@@ -167,7 +163,7 @@ public final class NVidiaScanOpenCLService {
         scanExclusiveLocal1(d_Dst, d_Src, batchSize, arrayLength);
     }
 
-    void scanExclusiveLarge(long d_Dst, long d_Src, int batchSize, int arrayLength) {
+    void scanExclusiveLarge(BufferGpu d_Dst, BufferGpu d_Src, int batchSize, int arrayLength) {
         int log2L = 0;
         int factorizationRemainder = factorRadix2(log2L, arrayLength);
         OCLUtils.validateExpression(factorizationRemainder == 1, true, "Check power-of-two factorization");
@@ -179,9 +175,9 @@ public final class NVidiaScanOpenCLService {
         uniformUpdate(d_Dst, d_Buffer, (batchSize * arrayLength) / (4 * WORKGROUP_SIZE));
     }
 
-    void scanExclusiveLocal1(long d_Dst, long d_Src, int n, int size){
-        clSetKernelArg1p(ckScanExclusiveLocal1, 0, d_Dst);
-        clSetKernelArg1p(ckScanExclusiveLocal1, 1, d_Src);
+    void scanExclusiveLocal1(BufferGpu d_Dst, BufferGpu d_Src, int n, int size){
+        clSetKernelArg1p(ckScanExclusiveLocal1, 0, d_Dst.getMem());
+        clSetKernelArg1p(ckScanExclusiveLocal1, 1, d_Src.getMem());
         clSetKernelArg(ckScanExclusiveLocal1, 2, 2 * WORKGROUP_SIZE * 4);
         clSetKernelArg1i(ckScanExclusiveLocal1, 3, size);
 
@@ -191,11 +187,11 @@ public final class NVidiaScanOpenCLService {
         OCLUtils.checkCLError(err);
     }
 
-    void scanExclusiveLocal2(long d_Buffer, long d_Dst, long d_Src, int n, int size){
+    void scanExclusiveLocal2(BufferGpu d_Buffer, BufferGpu d_Dst, BufferGpu d_Src, int n, int size){
         int elements = n * size;
-        clSetKernelArg1p(ckScanExclusiveLocal2, 0, d_Buffer);
-        clSetKernelArg1p(ckScanExclusiveLocal2, 1, d_Dst);
-        clSetKernelArg1p(ckScanExclusiveLocal2, 2, d_Src);
+        clSetKernelArg1p(ckScanExclusiveLocal2, 0, d_Buffer.getMem());
+        clSetKernelArg1p(ckScanExclusiveLocal2, 1, d_Dst.getMem());
+        clSetKernelArg1p(ckScanExclusiveLocal2, 2, d_Src.getMem());
         clSetKernelArg(ckScanExclusiveLocal2, 3, 2 * WORKGROUP_SIZE * 4);
         clSetKernelArg1i(ckScanExclusiveLocal2, 4, elements);
         clSetKernelArg1i(ckScanExclusiveLocal2, 5, size);
@@ -207,9 +203,9 @@ public final class NVidiaScanOpenCLService {
         OCLUtils.checkCLError(err);
     }
 
-    void uniformUpdate(long d_Dst, long d_Buffer, int n){
-        clSetKernelArg1p(ckUniformUpdate, 0, d_Dst);
-        clSetKernelArg1p(ckUniformUpdate, 1, d_Buffer);
+    void uniformUpdate(BufferGpu d_Dst, BufferGpu d_Buffer, int n){
+        clSetKernelArg1p(ckUniformUpdate, 0, d_Dst.getMem());
+        clSetKernelArg1p(ckUniformUpdate, 1, d_Buffer.getMem());
 
         PointerBuffer localWorkSize = BufferUtils.createPointerBuffer(1).put(0, WORKGROUP_SIZE);
         PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(1).put(0, n * WORKGROUP_SIZE);
@@ -245,7 +241,7 @@ public final class NVidiaScanOpenCLService {
         CL10.clReleaseKernel(ckScanExclusiveLocal1);
         CL10.clReleaseKernel(ckScanExclusiveLocal2);
         CL10.clReleaseKernel(ckUniformUpdate);
-        CL10.clReleaseMemObject(d_Buffer);
+        bufferGpuService.release(d_Buffer);
         CL10.clReleaseProgram(kernelsHolder.getKernel(KernelNames.NVIDIA_SCAN));
     }
 }

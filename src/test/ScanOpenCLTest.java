@@ -7,8 +7,6 @@ import org.lwjgl.opencl.CL10;
 
 import java.nio.IntBuffer;
 
-import static org.lwjgl.opencl.CL10.CL_MEM_READ_WRITE;
-
 public final class ScanOpenCLTest {
 
     StringBuilder createScanOpenCLTestBuildOptions(){
@@ -36,21 +34,23 @@ public final class ScanOpenCLTest {
 
     public void run() {
         ComputeContext ctx = OCLUtils.getOpenCLContext();
+        BufferGpuService bufferGpuService = new BufferGpuService(ctx);
         KernelsHolder meshGen = new KernelsHolder(ctx);
         meshGen.buildKernel(KernelNames.SCAN, createScanOpenCLTestBuildOptions());
 
         int[] inputArray = {0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1};
         IntBuffer intBuffer = OCLUtils.getIntBuffer(inputArray);
-        long inputData = CL10.clCreateBuffer(ctx.getClContext(), CL10.CL_MEM_READ_WRITE | CL10.CL_MEM_COPY_HOST_PTR, intBuffer, ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
-        long scanData = CL10.clCreateBuffer(ctx.getClContext(), CL_MEM_READ_WRITE, inputArray.length * 4, ctx.getErrcode_ret());
-        OCLUtils.checkCLError(ctx.getErrcode_ret());
+        BufferGpu inputData = bufferGpuService.create("inputData", intBuffer, CL10.CL_MEM_READ_WRITE | CL10.CL_MEM_COPY_HOST_PTR);
+        BufferGpu scanData = bufferGpuService.create("scanData", inputArray.length * 4, MemAccess.READ_WRITE);
 
-        ScanOpenCLService scanOpenCLService = new ScanOpenCLService(ctx, meshGen.getKernel(KernelNames.SCAN));
+        ScanOpenCLService scanOpenCLService = new ScanOpenCLService(ctx, meshGen.getKernel(KernelNames.SCAN), bufferGpuService);
         int numEdges = scanOpenCLService.exclusiveScan(inputData, scanData, inputArray.length);
         System.out.println(numEdges);
         int[] outputArray = OCLUtils.getIntBuffer(scanData, inputArray.length);
         System.out.println(outputArray);
+
+        bufferGpuService.release(inputData);
+        bufferGpuService.release(scanData);
 
         meshGen.destroyContext();
         CL.destroy();
