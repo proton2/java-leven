@@ -8,7 +8,6 @@ import dc.OctreeDrawInfo;
 import dc.OctreeNodeType;
 import dc.PointerBasedOctreeNode;
 import dc.entities.MeshVertex;
-import dc.solver.GlslSvd;
 import dc.solver.LevenQefSolver;
 import dc.solver.QefSolver;
 import org.lwjgl.BufferUtils;
@@ -406,9 +405,26 @@ public class OCLUtils {
         }
     }
 
+    public static void getIntBuffer(BufferGpu buffer, int[] returnBuffer){
+        if(returnBuffer!=null) {
+            IntBuffer resultBuff = BufferUtils.createIntBuffer(returnBuffer.length);
+            int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer.getMem(), true, 0, resultBuff, null, null);
+            OCLUtils.checkCLError(err);
+            resultBuff.get(returnBuffer);
+        }
+    }
+
     public static int[] getIntBuffer(long buffer, int size){
         IntBuffer resultBuff = BufferUtils.createIntBuffer(size);
         CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        int[] returnBuffer = new int[size];
+        resultBuff.get(returnBuffer);
+        return returnBuffer;
+    }
+
+    public static int[] getIntBuffer(BufferGpu buffer, int size){
+        IntBuffer resultBuff = BufferUtils.createIntBuffer(size);
+        CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer.getMem(), true, 0, resultBuff, null, null);
         int[] returnBuffer = new int[size];
         resultBuff.get(returnBuffer);
         return returnBuffer;
@@ -444,10 +460,10 @@ public class OCLUtils {
         return normalsBuffer;
     }
 
-    public static void getNormals(long normBuffer, Vec4f[] normalsBuffer){
+    public static void getNormals(BufferGpu normBuffer, Vec4f[] normalsBuffer){
         if(normalsBuffer!=null) {
             FloatBuffer resultBuff = BufferUtils.createFloatBuffer(normalsBuffer.length * Integer.BYTES);
-            CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), normBuffer, true, 0, resultBuff, null, null);
+            CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), normBuffer.getMem(), true, 0, resultBuff, null, null);
             for (int i = 0; i < normalsBuffer.length; i++) {
                 int index = i * 4;
                 Vec4f normal = new Vec4f();
@@ -467,10 +483,10 @@ public class OCLUtils {
         Vec4f massPoint = new Vec4f();
     }
 
-    public static void getQEFData(long buffer, QefSolver[] qefData){
+    public static void getQEFData(BufferGpu buffer, QefSolver[] qefData){
         if(qefData!=null) {
             ByteBuffer byteBuffer = BufferUtils.createByteBuffer(qefData.length * Float.BYTES * 16);
-            int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuffer, null, null);
+            int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer.getMem(), true, 0, byteBuffer, null, null);
             OCLUtils.checkCLError(err);
             FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
             for (int i = 0; i < qefData.length; i++) {
@@ -497,9 +513,9 @@ public class OCLUtils {
         }
     }
 
-    public static MeshVertex[] getVertexBuffer(long buffer, int numVertices){
+    public static MeshVertex[] getVertexBuffer(BufferGpu buffer, int numVertices){
         FloatBuffer resultBuff = BufferUtils.createFloatBuffer(4 * 3 * numVertices);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, resultBuff, null, null);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer.getMem(), true, 0, resultBuff, null, null);
         OCLUtils.checkCLError(err);
         MeshVertex[] meshVertexBuffer = new MeshVertex[numVertices];
         for (int i = 0; i < numVertices; i++) {
@@ -537,9 +553,9 @@ public class OCLUtils {
         return resultBuff;
     }
 
-    public static void getListSeamNodesTriangles(long buffer, int bufSize, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
+    public static void getListSeamNodesTriangles(BufferGpu buffer, int bufSize, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
         ByteBuffer byteBuff = BufferUtils.createByteBuffer(Float.BYTES * 4 * 3 * bufSize);
-        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer, true, 0, byteBuff, null, null);
+        int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer.getMem(), true, 0, byteBuff, null, null);
         OCLUtils.checkCLError(err);
 
         for (int i = 0; i < bufSize; i++) {
@@ -573,6 +589,15 @@ public class OCLUtils {
 
             node.drawInfo = drawInfo;
             seamNodes.add(node);
+        }
+    }
+
+    public static long getMemoryAccessFlags(MemAccess ma) {
+        switch (ma) {
+            case READ_ONLY: return CL10.CL_MEM_READ_ONLY;
+            case WRITE_ONLY: return CL10.CL_MEM_WRITE_ONLY;
+            case READ_WRITE: return CL10.CL_MEM_READ_WRITE;
+            default: throw new IllegalArgumentException("Unknown memory access: "+ma);
         }
     }
 }
