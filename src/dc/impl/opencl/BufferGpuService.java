@@ -28,6 +28,9 @@ public class BufferGpuService {
 
     public BufferGpu create(String name, int size, long flags){
         long mem = CL10.clCreateBuffer(ctx.getClContext(), flags, size, ctx.getErrcode_ret());
+        if(ctx.getErrcode_ret().get(ctx.getErrcode_ret().position())==-4){
+            System.out.println("holder size " + holder.size());
+        }
         OCLUtils.checkCLError(ctx.getErrcode_ret());
         BufferGpu bufferGpu = new BufferGpu(name, mem);
         holder.add(bufferGpu);
@@ -58,6 +61,7 @@ public class BufferGpuService {
             }
         }
         holder.clear();
+        CL10.clFinish(ctx.getClQueue());
     }
 
     public void release(BufferGpu buf){
