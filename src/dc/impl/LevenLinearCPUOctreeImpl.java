@@ -90,7 +90,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
         Vec4f[] d_vertexPositions = new Vec4f[numVertices];
         //////////////////////////////
-        solveQEFs(chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices, qefs,
+        solveQEFs(d_nodeCodes, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices, qefs,
                 d_vertexPositions);
 
         int indexBufferSize = numVertices * 6 * 3;
@@ -354,13 +354,17 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
     }
 
-    private void solveQEFs(int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
+    private void solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
                           QefSolver[] qefs, Vec4f[] solvedPositions){
-
         for (int index = from; index < to; index++) {
+            //Vec3i pos = LinearOctreeTest.positionForCode(d_nodeCodes[index]);
             int leafSize = (chunkSize / voxelsPerChunk);
+            //Vec3i leaf = pos.mul(leafSize).add(chunkMin);
             Vec4f solvedPos = qefs[index].solve();
             solvedPos = solvedPos.mul(leafSize).add(chunkMin);
+            // clamping
+            //Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
+            //solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
             solvedPositions[index] = solvedPos;
         }
     }
