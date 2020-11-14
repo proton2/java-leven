@@ -4,8 +4,6 @@ import core.kernel.Camera;
 import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
-import core.renderer.Renderer;
-import core.utils.Constants;
 import core.utils.ImageLoader;
 import dc.entities.MeshBuffer;
 import dc.impl.GPUDensityField;
@@ -26,7 +24,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ChunkOctree {
-
     private final ExecutorService service;
     private ChunkNode root;
     private Camera camera;
@@ -123,7 +120,6 @@ public class ChunkOctree {
                 meshGen.clipmapLeafSize * 7.5f,
                 meshGen.clipmapLeafSize * 13.5f
         };
-
         if (node==null) {
             return;
         }
@@ -147,43 +143,28 @@ public class ChunkOctree {
         }
     }
 
-    private void ReleaseInvalidatedNodes(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
+    private void ReleaseInvalidatedNodes(ChunkNode node) {
         if (node==null)
             return;
 
         if(node.invalidated){
-            ReleaseClipmapNodeData(node, invalidatedMeshes);
+            ReleaseClipmapNodeData(node);
             node.invalidated=false;
         }
 
         for (int i = 0; i < 8; i++) {
-            ReleaseInvalidatedNodes(node.children[i], invalidatedMeshes);
+            ReleaseInvalidatedNodes(node.children[i]);
         }
     }
 
-    void ReleaseClipmapNodeData(ChunkNode node, ArrayList<Renderer> invalidatedMeshes) {
+    void ReleaseClipmapNodeData(ChunkNode node) {
         node.active = false;
-        if (node.seamMesh!=null) {
-            //invalidatedMeshes.add(node.seamMesh);
-            node.seamMesh = null;
-        }
-
-        /*
-        if (node.renderMesh !=null) {
-            // collect the invalidated mesh indices so the meshes can be removed after
-            // the replacement mesh(es) have been generated, which prevents flickering
-            invalidatedMeshes.add(node.renderMesh);
-            node.renderMesh.cleanMesh();
-        }
-
-        for (int i = 0; i < node.numSeamNodes; i++) {
-            OctreeNode n = node.seamNodes.get(i);
-            n.drawInfo = null;
-        }
-        node.seamNodes.clear();
-        node.seamNodes = null;
-        node.numSeamNodes = 0;
-         */
+        node.seamMesh = null;
+//        node.renderMesh = null;
+//        for (int i = 0; i < node.seamNodes.size(); i++) {
+//            node.seamNodes.get(i).drawInfo=null;
+//        }
+//        node.seamNodes.clear();
     }
 
     public void update(Camera cam, boolean multiTread){
@@ -202,9 +183,7 @@ public class ChunkOctree {
     public void update(Camera camera) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
-
-        ArrayList<Renderer> invalidatedMeshes = new ArrayList<>();
-        ReleaseInvalidatedNodes(root, invalidatedMeshes);
+        ReleaseInvalidatedNodes(root);
 
         ArrayList<ChunkNode> filteredNodes = new ArrayList<>();
         ArrayList<ChunkNode> reserveNodes = new ArrayList<>();
@@ -245,8 +224,9 @@ public class ChunkOctree {
             propagateEmptyStateDownward(node);
         }
 
-        // construct seams begin
+        // -----------------------------------construct seams begin-----------------------------------
         Set<ChunkNode> seamUpdateNodes = new HashSet<>();
+        // 1. for each constructed Node make list of neighbour active Nodes (or neighbour child's) - make list nodes for seam update
         for (ChunkNode constructedNode : constructedNodes) {
             for (int i = 0; i < 8; i++) {
                 Vec3i neighbourMin = constructedNode.min.sub(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(constructedNode.size));
@@ -260,7 +240,6 @@ public class ChunkOctree {
         }
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
             if (seamUpdateNode.seamMesh!=null){
-                //invalidatedMeshes.add(seamUpdateNode.seamMesh);
                 seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
@@ -309,13 +288,9 @@ public class ChunkOctree {
         List<PointerBasedOctreeNode> selectedSeamNodes = new ArrayList<>();
         for (PointerBasedOctreeNode octreeSeamNode : neighbour.seamNodes) {
             Vec3i max = octreeSeamNode.min.add(neighbourScaleSize * meshGen.leafSizeScale);
-            if (octreeSeamNode.size!=neighbourScaleSize * meshGen.leafSizeScale){
-                int t=4; // for breakpoint during debugging
-            }
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
                 continue;
             }
-            //octreeSeamNode.drawInfo.color = Constants.Yellow;
             selectedSeamNodes.add(octreeSeamNode);
         }
         return selectedSeamNodes;
