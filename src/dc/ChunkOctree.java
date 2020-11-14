@@ -239,23 +239,10 @@ public class ChunkOctree {
             }
         }
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
-            if (seamUpdateNode.seamMesh!=null){
-                seamUpdateNode.seamMesh = null;
-            }
+            seamUpdateNode.seamMesh = null;
             generateClipmapSeamMesh(seamUpdateNode, root);
         }
         renderMeshes = getRenderMeshes(activeNodes);
-    }
-
-    private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){
-        List<RenderMesh> renderMeshes = new ArrayList<>(chunkNodes.size());
-        for(ChunkNode node : chunkNodes){
-            if(!node.empty) {
-                RenderMesh renderMesh = new RenderMesh(node.min, node.size, node.renderMesh, node.seamMesh);
-                renderMeshes.add(renderMesh);
-            }
-        }
-        return renderMeshes;
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){
@@ -266,16 +253,15 @@ public class ChunkOctree {
             if (candidateNeighbour==null) {
                 continue;
             }
-
             List<ChunkNode> neighbourActiveNodes = new ArrayList<>();
             findActiveNodes(root, candidateNeighbour, neighbourActiveNodes);
             for(ChunkNode neighbour : neighbourActiveNodes){
                 seamNodes.addAll(selectSeamNodes(node, neighbour, i));
             }
         }
-        if(seamNodes.isEmpty())
+        if(seamNodes.isEmpty()) {
             return;
-
+        }
         MeshBuffer meshBuffer = new MeshBuffer();
         voxelOctree.processNodesToMesh(new ArrayList<>(seamNodes), node.min, node.size * 2, true, meshBuffer);
         node.seamMesh = meshBuffer;
@@ -359,6 +345,17 @@ public class ChunkOctree {
                         //|| filteredNode.min.equals(new Vec3i(512,-1024,-1024))
                 ;
         return res;
+    }
+
+    private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){
+        List<RenderMesh> renderMeshes = new ArrayList<>(chunkNodes.size());
+        for(ChunkNode node : chunkNodes){
+            if(!node.empty) {
+                RenderMesh renderMesh = new RenderMesh(node.min, node.size, node.renderMesh, node.seamMesh);
+                renderMeshes.add(renderMesh);
+            }
+        }
+        return renderMeshes;
     }
 
     private boolean ConstructChunkNodeData(ChunkNode chunk) {
