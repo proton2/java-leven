@@ -95,26 +95,10 @@ public class ChunkOctreeWrapper extends GameObject {
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
 
         List<RenderMesh> renderNodes = chunkOctree.getRenderMeshes(true);
-
+        int i=0;
         for (RenderMesh node : renderNodes) {
             renderCmds.addCube(node.size == meshGenCtx.clipmapLeafSize ? Constants.Blue : Constants.Green, 0.2f, node.min, node.size);
-            if (node.meshRender == null) {
-                Renderer renderer = new Renderer(new MeshDcVBO(node.renderMesh));
-                renderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
-                node.meshRender = renderer;
-            }
-            addComponent("chunks " + node.min, node.meshRender);
-            if (node.seamMesh != null) {
-                if (node.seamRender == null) {
-                    Renderer seamRenderer = new Renderer(new MeshDcVBO(node.seamMesh));
-                    seamRenderer.setRenderInfo(new RenderInfo(new CW(), DcSimpleShader.getInstance()));
-                    node.seamRender = seamRenderer;
-                }
-                addComponent("seams " + node.min, node.seamRender);
-            }
-//          if (drawSeamBounds) {
-//              renderDebugVoxelsBounds(node);
-//          }
+            addComponent("mesh " + (++i), node.render);
         }
 
         if(drawNodeBounds) {

@@ -13,7 +13,7 @@ public class ChunkNode {
     boolean	invalidated = false;
     boolean	empty = false;
     List<PointerBasedOctreeNode> seamNodes;
-    MeshBuffer renderMesh, seamMesh;
+    RenderMesh renderMesh, seamMesh;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);

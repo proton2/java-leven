@@ -11,6 +11,11 @@ public class Renderer extends Component{
 	public Renderer(VBO vao) {
 		this.vbo = vao;
 	}
+
+	public Renderer(VBO vao, RenderInfo renderInfo) {
+		this.vbo = vao;
+		this.renderInfo = renderInfo;
+	}
 	
 	public void render(){
 		renderInfo.getConfig().enable();
@@ -34,17 +39,5 @@ public class Renderer extends Component{
 
 	public void setRenderInfo(RenderInfo renderinfo) {
 		this.renderInfo = renderinfo;
-	}
-
-	public void cleanMesh(){
-		/*
-		if (this.getVbo() instanceof MeshDcVBO && ((MeshDcVBO) this.getVbo()).getMeshBuffer()!=null){
-			((MeshDcVBO) this.getVbo()).getMeshBuffer().getVertices().clear();
-			((MeshDcVBO) this.getVbo()).getMeshBuffer().getIndicates().clear();
-			((MeshDcVBO) this.getVbo()).getMeshBuffer().setNumVertices(0);
-			((MeshDcVBO) this.getVbo()).getMeshBuffer().setNumVertices(0);
-			((MeshDcVBO) this.getVbo()).setMeshBuffer(null);
-		}
-		 */
 	}
 }

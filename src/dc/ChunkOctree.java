@@ -160,11 +160,21 @@ public class ChunkOctree {
     void ReleaseClipmapNodeData(ChunkNode node) {
         node.active = false;
         node.seamMesh = null;
-//        node.renderMesh = null;
-//        for (int i = 0; i < node.seamNodes.size(); i++) {
-//            node.seamNodes.get(i).drawInfo=null;
-//        }
-//        node.seamNodes.clear();
+
+        if (node.renderMesh!=null) {
+            node.renderMesh.render.getVbo().delete();
+            node.renderMesh = null;
+        }
+        if (node.seamMesh!=null) {
+            node.seamMesh.render.getVbo().delete();
+            node.seamMesh = null;
+        }
+
+        node.renderMesh = null;
+        for (int i = 0; i < node.seamNodes.size(); i++) {
+            node.seamNodes.get(i).drawInfo=null;
+        }
+        node.seamNodes.clear();
     }
 
     public void update(Camera cam, boolean multiTread){
@@ -264,7 +274,7 @@ public class ChunkOctree {
         }
         MeshBuffer meshBuffer = new MeshBuffer();
         voxelOctree.processNodesToMesh(new ArrayList<>(seamNodes), node.min, node.size * 2, true, meshBuffer);
-        node.seamMesh = meshBuffer;
+        node.seamMesh = new RenderMesh(node.min, node.size, meshBuffer);
     }
 
     private List<PointerBasedOctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
@@ -351,8 +361,10 @@ public class ChunkOctree {
         List<RenderMesh> renderMeshes = new ArrayList<>(chunkNodes.size());
         for(ChunkNode node : chunkNodes){
             if(!node.empty) {
-                RenderMesh renderMesh = new RenderMesh(node.min, node.size, node.renderMesh, node.seamMesh);
-                renderMeshes.add(renderMesh);
+                renderMeshes.add(node.renderMesh);
+                if(node.seamMesh!=null) {
+                    renderMeshes.add(node.seamMesh);
+                }
             }
         }
         return renderMeshes;
@@ -372,7 +384,7 @@ public class ChunkOctree {
             return false;
         }
 
-        chunk.renderMesh = meshBuffer;
+        chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, meshBuffer);
         return chunk.active;
     }
 
