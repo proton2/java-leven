@@ -109,7 +109,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         MeshVertex[] d_vertexBuffer = new MeshVertex[numVertices];
         //////////////////////////////
         GenerateMeshVertexBuffer(d_vertexPositions, d_vertexNormals, d_nodeMaterials,
-                VoxelHelperUtils.ColourForMinLeafSize(chunkSize/meshGen.getVoxelsPerChunk()), d_vertexBuffer);
+                VoxelHelperUtils.ColourForMinLeafSize(chunkSize/meshGen.clipmapLeafSize), d_vertexBuffer);
         buffer.setVertices(BufferUtil.createDcFlippedBufferAOS(d_vertexBuffer));
         buffer.setNumVertices(numVertices);
         buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
@@ -119,7 +119,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         // ToDo return seamNodes which size have seamSize from method
         int seamSize = findSeamNodes(d_nodeCodes, isSeamNode, 0, d_nodeCodes.length);
 
-        extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize/meshGen.getVoxelsPerChunk()),//Constants.Yellow,
+        extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
                 chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
