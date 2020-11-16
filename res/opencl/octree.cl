@@ -317,7 +317,15 @@ kernel void CreateLeafNodes(
 
 // ---------------------------------------------------------------------------
 
+//    bool isOutFromBounds(float pX, float pY, float pZ, float minX, float minY, float minZ, int size) {
+//        return  pX < minX || pX > (minX + size) ||
+//                pY < minY || pY > (minY + size) ||
+//                pZ < minZ || pZ > (minZ + size);
+//    }
+
 kernel void SolveQEFs(
+//    global int* voxelPositions,
+//    const int chunkSize,
 	const float4 worldSpaceOffset,
 	global QEFData* qefs,
 	global float4* solvedPositions)
@@ -331,6 +339,15 @@ kernel void SolveQEFs(
 	pos = (pos * LEAF_SIZE_SCALE) + worldSpaceOffset;
 	pos.w = 1.f;
 
+//	const int encodedPosition = voxelPositions[index];
+//	const int4 leaf = PositionForCode(encodedPosition);
+//	float4 leaf_f = convert_float4(leaf);
+//	leaf_f = (leaf_f * LEAF_SIZE_SCALE) + worldSpaceOffset;
+//    leaf_f.w = 1.f;
+//    float4 masspoint = (qef.masspoint * LEAF_SIZE_SCALE) + worldSpaceOffset;
+//    if (isOutFromBounds(pos.x, pos.y, pos.z, leaf_f.x, leaf_f.y, leaf_f.z, chunkSize)){
+//        pos = masspoint;
+//    }
 	solvedPositions[index] = pos;
 }
 
