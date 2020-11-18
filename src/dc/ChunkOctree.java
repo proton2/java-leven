@@ -31,6 +31,11 @@ public class ChunkOctree {
     private float[] densityField;
     private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
+    private List<RenderMesh> invalidateMeshes;
+
+    public List<RenderMesh> getInvalidateMeshes() {
+        return invalidateMeshes;
+    }
 
     public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen) {
         this.meshGen = meshGen;
@@ -143,30 +148,29 @@ public class ChunkOctree {
         }
     }
 
-    private void ReleaseInvalidatedNodes(ChunkNode node) {
+    private void ReleaseInvalidatedNodes(ChunkNode node, ArrayList<RenderMesh> invalidatedMeshes) {
         if (node==null)
             return;
 
         if(node.invalidated){
-            ReleaseClipmapNodeData(node);
+            ReleaseClipmapNodeData(node, invalidatedMeshes);
             node.invalidated=false;
         }
 
         for (int i = 0; i < 8; i++) {
-            ReleaseInvalidatedNodes(node.children[i]);
+            ReleaseInvalidatedNodes(node.children[i], invalidatedMeshes);
         }
     }
 
-    void ReleaseClipmapNodeData(ChunkNode node) {
+    void ReleaseClipmapNodeData(ChunkNode node, ArrayList<RenderMesh> invalidatedMeshes) {
         node.active = false;
-        node.seamMesh = null;
 
         if (node.renderMesh!=null) {
-            node.renderMesh.render.getVbo().delete();
+            invalidatedMeshes.add(node.renderMesh);
             node.renderMesh = null;
         }
         if (node.seamMesh!=null) {
-            node.seamMesh.render.getVbo().delete();
+            invalidatedMeshes.add(node.seamMesh);
             node.seamMesh = null;
         }
 
@@ -193,7 +197,9 @@ public class ChunkOctree {
     public void update(Camera camera) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
-        ReleaseInvalidatedNodes(root);
+
+        ArrayList<RenderMesh> invalidatedMeshes = new ArrayList<>();
+        ReleaseInvalidatedNodes(root, invalidatedMeshes);
 
         ArrayList<ChunkNode> filteredNodes = new ArrayList<>();
         ArrayList<ChunkNode> reserveNodes = new ArrayList<>();
@@ -249,10 +255,14 @@ public class ChunkOctree {
             }
         }
         for (ChunkNode seamUpdateNode : seamUpdateNodes) {
-            seamUpdateNode.seamMesh = null;
+            if(seamUpdateNode.seamMesh!=null) {
+                invalidatedMeshes.add(seamUpdateNode.seamMesh);
+                seamUpdateNode.seamMesh = null;
+            }
             generateClipmapSeamMesh(seamUpdateNode, root);
         }
-        renderMeshes = getRenderMeshes(activeNodes);
+        this.renderMeshes = getRenderMeshes(activeNodes);
+        this.invalidateMeshes = invalidatedMeshes;
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){

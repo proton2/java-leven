@@ -8,23 +8,11 @@ import static org.lwjgl.opengl.GL20.glVertexAttribPointer;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 
 public class MeshDcVBO extends MeshVBO{
-
-    private MeshBuffer meshBuffer;
-
-    public MeshBuffer getMeshBuffer() {
-        return meshBuffer;
-    }
-
-    public void setMeshBuffer(MeshBuffer meshBuffer) {
-        this.meshBuffer = meshBuffer;
-    }
-
     public MeshDcVBO(MeshBuffer meshBuffer) {
-        this.meshBuffer = meshBuffer;
-        addData();
+        addData(meshBuffer);
     }
 
-    public void addData() {
+    private void addData(MeshBuffer meshBuffer) {
         size = meshBuffer.getNumIndicates();
         glBindVertexArray(vaoId);
 
