@@ -68,19 +68,20 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
         GenerateMeshFromOctreeService generateMeshFromOctreeService = new GenerateMeshFromOctreeService(ctx,
                 meshGen, scanService, gpuOctree, meshBufferGPU, field, bufferGpuService);
         int numTriangles = generateMeshFromOctreeService.generateMeshKernel(kernels, null, null);
-        if(numTriangles<=0){
+        if(numTriangles<0){
+            bufferGpuService.releaseAll();
             return false;
         }
 
-        int[] d_compactIndexBuffer = new int[numTriangles * 3];
-        generateMeshFromOctreeService.compactMeshTrianglesKernel(kernels, numTriangles, d_compactIndexBuffer);
-
-        buffer.setNumVertices(octreeNumNodes);
-        buffer.setNumIndicates(numTriangles * 3);
-        buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
-
-        generateMeshFromOctreeService.run(kernels, field.getSize());
-        generateMeshFromOctreeService.exportMeshBuffer(meshBufferGPU, buffer);
+        if(numTriangles>0) {
+            int[] d_compactIndexBuffer = new int[numTriangles * 3];
+            generateMeshFromOctreeService.compactMeshTrianglesKernel(kernels, numTriangles, d_compactIndexBuffer);
+            buffer.setNumVertices(octreeNumNodes);
+            buffer.setNumIndicates(numTriangles * 3);
+            buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
+            generateMeshFromOctreeService.run(kernels, field.getSize());
+            generateMeshFromOctreeService.exportMeshBuffer(meshBufferGPU, buffer);
+        }
 
         int[] isSeamNode = new int[octreeNumNodes];
         int numSeamNodes = generateMeshFromOctreeService.findSeamNodesKernel(kernels, isSeamNode);

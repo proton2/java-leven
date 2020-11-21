@@ -80,7 +80,6 @@ public class GenerateMeshFromOctreeService {
 
         int numTriangles = scanService.exclusiveScan(d_trianglesValid, d_trianglesScan, trianglesValidSize);
         if (numTriangles <= 0) {
-            bufferGpuService.releaseAll();
             return numTriangles; // < 0 is an error, so return that, 0 is ok just no tris to generate, return 0 which is CL_SUCCESS
         }
         numTriangles *= 2;

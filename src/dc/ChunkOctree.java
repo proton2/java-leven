@@ -361,7 +361,10 @@ public class ChunkOctree {
 
     private boolean filterNodesForDebug(ChunkNode filteredNode){
         boolean res =
-                filteredNode.min.equals(new Vec3i(-4096,-4096,-4096))
+                filteredNode.min.equals(new Vec3i(2816,-2304,1792))
+//                filteredNode.min.x > 2560 && filteredNode.min.x < 3072 &&
+//                filteredNode.min.y > -3072 && filteredNode.min.y < -2048 &&
+//                filteredNode.min.z > 1536 && filteredNode.min.z < 2048
                         //|| filteredNode.min.equals(new Vec3i(512,-1024,-1024))
                 ;
         return res;
@@ -371,7 +374,9 @@ public class ChunkOctree {
         List<RenderMesh> renderMeshes = new ArrayList<>(chunkNodes.size());
         for(ChunkNode node : chunkNodes){
             if(!node.empty) {
-                renderMeshes.add(node.renderMesh);
+                if(node.renderMesh!=null) {
+                    renderMeshes.add(node.renderMesh);
+                }
                 if(node.seamMesh!=null) {
                     renderMeshes.add(node.seamMesh);
                 }
@@ -394,7 +399,9 @@ public class ChunkOctree {
             return false;
         }
 
-        chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, meshBuffer);
+        if (meshBuffer.getNumIndicates() > 0) {
+            chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, meshBuffer);
+        }
         return chunk.active;
     }
 
