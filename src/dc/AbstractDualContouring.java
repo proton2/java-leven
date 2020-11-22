@@ -141,6 +141,11 @@ public abstract class AbstractDualContouring implements DualContouring{
         }
     }
 
+    private Vec3i chunkMinForPosition(Vec3i min) {
+        int mask = ~(meshGen.clipmapLeafSize - 1);
+        return new Vec3i(min.x & mask, min.y & mask, min.z & mask);
+    }
+
     private void ContourEdgeProc(PointerBasedOctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam) {
         if (node[0] == null || node[1] == null || node[2] == null || node[3] == null) {
             return;
@@ -150,7 +155,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         if(isSeam) {
             Set<Vec3i> chunks = new HashSet<>();
             for (int i = 0; i < 4; i++) {
-                chunks.add(ChunkOctree.chunkMinForPosition(node[i], meshGen.clipmapLeafSize));
+                chunks.add(chunkMinForPosition(node[i].min));
             }
             if (chunks.size() == 1)
                 return;
@@ -196,7 +201,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         }
 
         // bit of a hack but it works: prevent overlapping seams by only processing edges that stradle multiple chunks
-        if (isSeam && ChunkOctree.chunkMinForPosition(node[0], meshGen.clipmapLeafSize).equals(ChunkOctree.chunkMinForPosition(node[1], meshGen.clipmapLeafSize))) {
+        if (isSeam && chunkMinForPosition(node[0].min).equals(chunkMinForPosition(node[1].min))) {
             return;
         }
 

@@ -132,8 +132,8 @@ public class ChunkOctreeWrapper extends GameObject {
 
     private void renderDebugVoxelsBounds(ChunkNode node){
         RenderDebugCmdBuffer renderDebugVoxelsBounds = new RenderDebugCmdBuffer();
-        for(PointerBasedOctreeNode n : node.seamNodes){
-            renderDebugVoxelsBounds.addCube(Constants.White, 0.2f, n.min, n.size);
+        for(PointerBasedOctreeNode n : node.chunkBorderNodes){
+            renderDebugVoxelsBounds.addCube(n.drawInfo.color, 0.2f, n.min, n.size);
         }
         DebugDrawBuffer buf = renderDebugVoxelsBounds.UpdateDebugDrawBuffer();
         DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();

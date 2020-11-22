@@ -173,12 +173,6 @@ public class ChunkOctree {
             invalidatedMeshes.add(node.seamMesh);
             node.seamMesh = null;
         }
-
-        node.renderMesh = null;
-        for (int i = 0; i < node.seamNodes.size(); i++) {
-            node.seamNodes.get(i).drawInfo=null;
-        }
-        node.seamNodes.clear();
     }
 
     public void update(Camera cam, boolean multiTread){
@@ -228,7 +222,7 @@ public class ChunkOctree {
         for (ChunkNode filteredNode : filteredNodes) {
             boolean result = //filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
-            if (filteredNode.renderMesh !=null || (filteredNode.seamNodes!=null && filteredNode.seamNodes.size()> 0)) {
+            if (filteredNode.renderMesh !=null || (filteredNode.chunkBorderNodes !=null && filteredNode.chunkBorderNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
             } else {
@@ -282,8 +276,10 @@ public class ChunkOctree {
         if(seamNodes.isEmpty()) {
             return;
         }
+        ArrayList<PointerBasedOctreeNode> nodes = new ArrayList<>(seamNodes.size());
+        nodes.addAll(seamNodes);
         MeshBuffer meshBuffer = new MeshBuffer();
-        voxelOctree.processNodesToMesh(new ArrayList<>(seamNodes), node.min, node.size * 2, true, meshBuffer);
+        voxelOctree.processNodesToMesh(nodes, node.min, node.size * 2, true, meshBuffer);
         node.seamMesh = new RenderMesh(node.min, node.size, meshBuffer);
     }
 
@@ -292,7 +288,7 @@ public class ChunkOctree {
         Aabb aabb = new Aabb(node.min, node.size * 2);
         int neighbourScaleSize = neighbour.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
         List<PointerBasedOctreeNode> selectedSeamNodes = new ArrayList<>();
-        for (PointerBasedOctreeNode octreeSeamNode : neighbour.seamNodes) {
+        for (PointerBasedOctreeNode octreeSeamNode : neighbour.chunkBorderNodes) {
             Vec3i max = octreeSeamNode.min.add(neighbourScaleSize * meshGen.leafSizeScale);
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
                 continue;
@@ -353,20 +349,12 @@ public class ChunkOctree {
         }
     }
 
-    static Vec3i chunkMinForPosition(PointerBasedOctreeNode p, int clipmapLeafSize) {
-        //int mask = ~(p.chunkSize-1);
-	    int mask = ~(clipmapLeafSize-1);
-        return new Vec3i(p.min.x & mask, p.min.y & mask, p.min.z & mask);
-    }
+
 
     private boolean filterNodesForDebug(ChunkNode filteredNode){
         boolean res =
-                filteredNode.min.equals(new Vec3i(2816,-2304,1792))
-//                filteredNode.min.x > 2560 && filteredNode.min.x < 3072 &&
-//                filteredNode.min.y > -3072 && filteredNode.min.y < -2048 &&
-//                filteredNode.min.z > 1536 && filteredNode.min.z < 2048
-                        //|| filteredNode.min.equals(new Vec3i(512,-1024,-1024))
-                ;
+                filteredNode.min.x > -2048 && filteredNode.min.x < -512 &&
+                filteredNode.min.z > 0 && filteredNode.min.z < 1024;
         return res;
     }
 
@@ -386,15 +374,15 @@ public class ChunkOctree {
     }
 
     private boolean ConstructChunkNodeData(ChunkNode chunk) {
-        if (chunk.renderMesh !=null || (chunk.seamNodes!=null && chunk.seamNodes.size()> 0)){
-            chunk.active = true;
-            return chunk.active;
-        }
+//        if (chunk.renderMesh !=null || (chunk.borderNodes !=null && chunk.borderNodes.size()> 0)){
+//            chunk.active = true;
+//            return chunk.active;
+//        }
         List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
         GPUDensityField field = new GPUDensityField();
         chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, densityField, seamNodes, meshBuffer, field);
-        chunk.seamNodes = seamNodes;
+        chunk.chunkBorderNodes = seamNodes;
         if(!chunk.active){
             return false;
         }

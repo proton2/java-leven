@@ -12,7 +12,7 @@ public class ChunkNode {
     boolean	active = false;
     boolean	invalidated = false;
     boolean	empty = false;
-    List<PointerBasedOctreeNode> seamNodes;
+    List<PointerBasedOctreeNode> chunkBorderNodes;
     RenderMesh renderMesh, seamMesh;
 
     public ChunkNode(){
