@@ -279,7 +279,7 @@ public class ChunkOctree {
         ArrayList<PointerBasedOctreeNode> nodes = new ArrayList<>(seamNodes.size());
         nodes.addAll(seamNodes);
         MeshBuffer meshBuffer = new MeshBuffer();
-        voxelOctree.processNodesToMesh(nodes, node.min, node.size * 2, true, meshBuffer);
+        voxelOctree.processNodesToMesh(nodes, node.min, node.size, true, meshBuffer);
         node.seamMesh = new RenderMesh(node.min, node.size, meshBuffer);
     }
 

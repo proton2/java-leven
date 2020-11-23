@@ -70,7 +70,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                     Vec3i pos = new Vec3i(xi, yi, zi);
                     int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
                     Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
-                    PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, meshGen.leafSizeScale);
+                    PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin), pos, meshGen.leafSizeScale);
                     if (leaf != null) {
                         if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                             chunkNodes.add(leaf);
@@ -99,7 +99,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             Vec3i pos = new Vec3i(x,y,z);
             int leafSize = (chunkSize / meshGen.clipmapLeafSize) * meshGen.leafSizeScale;
             Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
-            PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin, chunkSize), pos, meshGen.leafSizeScale);
+            PointerBasedOctreeNode leaf = ConstructLeaf(new PointerBasedOctreeNode(leafMin, leafSize, chunkMin), pos, meshGen.leafSizeScale);
             if (leaf != null) {
                 if(!leaf.drawInfo.color.equals(Constants.Blue)) {
                     voxels.add(leaf);

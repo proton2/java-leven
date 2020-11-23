@@ -23,7 +23,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         this.meshGen = meshGenerationContext;
     }
 
-    private List<PointerBasedOctreeNode> constructParents(List<PointerBasedOctreeNode> nodes, Vec3i rootMin, int parentSize, int chunkSize) {
+    private List<PointerBasedOctreeNode> constructParents(List<PointerBasedOctreeNode> nodes, Vec3i rootMin, int parentSize) {
         Map<Vec3i, PointerBasedOctreeNode> parentsHash = new HashMap<>();
         for (PointerBasedOctreeNode node : nodes) {
             Vec3i localPos = node.min.sub(rootMin);
@@ -34,7 +34,6 @@ public abstract class AbstractDualContouring implements DualContouring{
                 parent.min = parentPos;
                 parent.size = parentSize;
                 parent.Type = OctreeNodeType.Node_Internal;
-                parent.chunkSize = chunkSize;
                 parentsHash.put(parentPos, parent);
             }
             for (int j = 0; j < 8; j++) {
@@ -59,7 +58,7 @@ public abstract class AbstractDualContouring implements DualContouring{
                 ++iter;
             } while (sortedNodes.get(iter).size == size);
 
-            List<PointerBasedOctreeNode> newNodes = constructParents(sortedNodes.subList(0, iter), rootMin, size * 2, rootNodeSize);
+            List<PointerBasedOctreeNode> newNodes = constructParents(sortedNodes.subList(0, iter), rootMin, size * 2);
             newNodes.addAll(sortedNodes.subList(iter, sortedNodes.size()));
             sortedNodes.clear();
             sortedNodes.addAll(newNodes);
@@ -67,8 +66,8 @@ public abstract class AbstractDualContouring implements DualContouring{
         }
 
         int parentSize = (sortedNodes.get(0).size) * 2;
-        while (parentSize <= rootNodeSize) {
-            sortedNodes = constructParents(sortedNodes, rootMin, parentSize, rootNodeSize);
+        while (parentSize <= rootNodeSize*2) {
+            sortedNodes = constructParents(sortedNodes, rootMin, parentSize);
             parentSize *= 2;
         }
         if (sortedNodes.size()!=1){
@@ -141,12 +140,13 @@ public abstract class AbstractDualContouring implements DualContouring{
         }
     }
 
-    private Vec3i chunkMinForPosition(Vec3i min) {
-        int mask = ~(meshGen.clipmapLeafSize - 1);
+    private Vec3i chunkMinForPosition(Vec3i min, int size) {
+        // http://ngildea.blogspot.com/2015/07/fixing-seams-bug.html
+        int mask = ~(size - 1);
         return new Vec3i(min.x & mask, min.y & mask, min.z & mask);
     }
 
-    private void ContourEdgeProc(PointerBasedOctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam) {
+    private void ContourEdgeProc(PointerBasedOctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam, int chunkSize) {
         if (node[0] == null || node[1] == null || node[2] == null || node[3] == null) {
             return;
         }
@@ -155,7 +155,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         if(isSeam) {
             Set<Vec3i> chunks = new HashSet<>();
             for (int i = 0; i < 4; i++) {
-                chunks.add(chunkMinForPosition(node[i].min));
+                chunks.add(chunkMinForPosition(node[i].min, chunkSize));
             }
             if (chunks.size() == 1)
                 return;
@@ -190,18 +190,18 @@ public abstract class AbstractDualContouring implements DualContouring{
                     }
                 }
 
-                ContourEdgeProc(edgeNodes, edgeProcEdgeMask[dir][i][4], buffer, isSeam);
+                ContourEdgeProc(edgeNodes, edgeProcEdgeMask[dir][i][4], buffer, isSeam, chunkSize);
             }
         }
     }
 
-    private void ContourFaceProc(PointerBasedOctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam) {
+    private void ContourFaceProc(PointerBasedOctreeNode[] node, int dir, List<Integer> buffer, boolean isSeam, int chunkSize) {
         if (node[0] == null || node[1] == null) {
             return;
         }
 
         // bit of a hack but it works: prevent overlapping seams by only processing edges that stradle multiple chunks
-        if (isSeam && chunkMinForPosition(node[0].min).equals(chunkMinForPosition(node[1].min))) {
+        if (isSeam && chunkMinForPosition(node[0].min, chunkSize).equals(chunkMinForPosition(node[1].min, chunkSize))) {
             return;
         }
 
@@ -225,7 +225,7 @@ public abstract class AbstractDualContouring implements DualContouring{
                         faceNodes[j] = node[j].children[c[j]];
                     }
                 }
-                ContourFaceProc(faceNodes, faceProcFaceMask[dir][i][2], buffer, isSeam);
+                ContourFaceProc(faceNodes, faceProcFaceMask[dir][i][2], buffer, isSeam, chunkSize);
             }
 
             int[][] orders = {
@@ -252,19 +252,19 @@ public abstract class AbstractDualContouring implements DualContouring{
                     }
                 }
 
-                ContourEdgeProc(edgeNodes, faceProcEdgeMask[dir][i][5], buffer, isSeam);
+                ContourEdgeProc(edgeNodes, faceProcEdgeMask[dir][i][5], buffer, isSeam, chunkSize);
             }
         }
     }
 
     @Override
-    public void ContourCellProc(PointerBasedOctreeNode node, List<Integer> buffer, boolean isSeam) {
+    public void ContourCellProc(PointerBasedOctreeNode node, List<Integer> buffer, boolean isSeam, int chunkSize) {
         if (node == null || node.Type == Node_Leaf) {
             return;
         }
 
         for (int i = 0; i < 8; i++) {
-            ContourCellProc(node.children[i], buffer, isSeam);
+            ContourCellProc(node.children[i], buffer, isSeam, chunkSize);
         }
 
         for (int i = 0; i < 12; i++) {
@@ -274,7 +274,7 @@ public abstract class AbstractDualContouring implements DualContouring{
             faceNodes[0] = node.children[c[0]];
             faceNodes[1] = node.children[c[1]];
 
-            ContourFaceProc(faceNodes, cellProcFaceMask[i][2], buffer, isSeam);
+            ContourFaceProc(faceNodes, cellProcFaceMask[i][2], buffer, isSeam, chunkSize);
         }
 
         for (int i = 0; i < 6; i++) {
@@ -285,7 +285,7 @@ public abstract class AbstractDualContouring implements DualContouring{
                 edgeNodes[j] = node.children[c[j]];
             }
 
-            ContourEdgeProc(edgeNodes, cellProcEdgeMask[i][4], buffer, isSeam);
+            ContourEdgeProc(edgeNodes, cellProcEdgeMask[i][4], buffer, isSeam, chunkSize);
         }
     }
 
@@ -304,14 +304,14 @@ public abstract class AbstractDualContouring implements DualContouring{
         }
     }
 
-    private void GenerateMeshFromOctree(PointerBasedOctreeNode node, boolean isSeam, MeshBuffer buffer) {
+    private void GenerateMeshFromOctree(PointerBasedOctreeNode node, boolean isSeam, MeshBuffer buffer, int chunkSize) {
         if (node == null) {
             return;
         }
         List<MeshVertex> vertices = new ArrayList<>();
         List<Integer> indcies = new ArrayList<>();
         GenerateVertexIndices(node, vertices);
-        ContourCellProc(node, indcies, isSeam);
+        ContourCellProc(node, indcies, isSeam, chunkSize);
 
         buffer.setVertices(BufferUtil.createDcFlippedBufferAOS(vertices));
         buffer.setIndicates(BufferUtil.createFlippedBuffer(indcies));
@@ -323,7 +323,7 @@ public abstract class AbstractDualContouring implements DualContouring{
 
     public void processNodesToMesh(List<PointerBasedOctreeNode> seamNodes, Vec3i currNodeMin, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer){
         PointerBasedOctreeNode seamOctreeRoot = constructTreeUpwards(new ArrayList<>(seamNodes), currNodeMin, rootNodeSize);
-        GenerateMeshFromOctree(seamOctreeRoot, isSeam, meshBuffer);
+        GenerateMeshFromOctree(seamOctreeRoot, isSeam, meshBuffer, rootNodeSize);
     }
 
     protected Vec3i decodeVoxelIndex(int index) {
