@@ -169,9 +169,12 @@ public abstract class AbstractDualContouring implements DualContouring{
         };
 
         if (!isBranch[0] && !isBranch[1] && !isBranch[2] && !isBranch[3]) {
-            if(node[0].getChunk().equals(node[1].getChunk()) &&
+            // To avoid overlap seam mesh with chunk mesh. If all 4 nodes of seam belong to only one chunk, then this is not a seam.
+            if(isSeam &&
+                    (node[0].getChunk().equals(node[1].getChunk()) &&
                     node[1].getChunk().equals(node[2].getChunk()) &&
-                    node[2].getChunk().equals(node[3].getChunk())){
+                    node[2].getChunk().equals(node[3].getChunk()))
+            ){
                 return;
             }
             ContourProcessEdge(node, dir, buffer);
