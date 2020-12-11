@@ -8,22 +8,25 @@ public class PointerBasedOctreeNode {
     public int size;
     public PointerBasedOctreeNode[] children;
     public OctreeDrawInfo drawInfo;
-    public Vec3i rootMin;
+    private ChunkNode chunk;
+
+    public ChunkNode getChunk() {
+        return chunk;
+    }
+
+    public void setChunk(ChunkNode chunk) {
+        this.chunk = chunk;
+    }
 
     public PointerBasedOctreeNode() {
         Type = OctreeNodeType.Node_None;
         min = new Vec3i(0, 0, 0);
         size = 0;
         drawInfo = new OctreeDrawInfo();
-
         children = new PointerBasedOctreeNode[8];
-        for (int i = 0; i < 8; i++) {
-            children[i] = null;
-        }
     }
 
-    public PointerBasedOctreeNode(Vec3i min, int size, Vec3i rootMin) {
-        this.rootMin = rootMin;
+    public PointerBasedOctreeNode(Vec3i min, int size) {
         this.min = min;
         this.size = size;
         drawInfo = new OctreeDrawInfo();

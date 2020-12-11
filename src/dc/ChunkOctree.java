@@ -293,6 +293,7 @@ public class ChunkOctree {
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
                 continue;
             }
+            octreeSeamNode.setChunk(neighbour);
             selectedSeamNodes.add(octreeSeamNode);
         }
         return selectedSeamNodes;
@@ -353,8 +354,8 @@ public class ChunkOctree {
 
     private boolean filterNodesForDebug(ChunkNode filteredNode){
         boolean res =
-                filteredNode.min.x > -2048 && filteredNode.min.x < -512 &&
-                filteredNode.min.z > 0 && filteredNode.min.z < 1024;
+                filteredNode.min.x > -256 && filteredNode.min.x < 512 &&
+                filteredNode.min.z > -1536 && filteredNode.min.z < 128;
         return res;
     }
 
