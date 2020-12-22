@@ -1,5 +1,6 @@
 #include "shared_constants.cl"
 #include "cuckoo.cl"
+#include "density_simplex.cl"
 #include "qef.cl"
 
 // ---------------------------------------------------------------------------
