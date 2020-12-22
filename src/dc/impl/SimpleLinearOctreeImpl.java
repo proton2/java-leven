@@ -17,6 +17,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static dc.utils.SimplexNoise.getNoise;
+
 /*
     Simple Linear octree dual contouring implementation, in series steps to calculate leafs data
     Holes in seams are fixed.
@@ -30,15 +32,13 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                        float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
 
         // usyal in serial calculating leaf nodes data. More slowly.
-        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), densityField, seamNodes, buffer, field);
+        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), seamNodes, buffer, field);
     }
 
     public boolean createLeafVoxelNodesTraditional(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                   float[] densityField,
                                                    List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
     {
         ArrayList<LinearLeafHolder> listHolder = new ArrayList<>();
@@ -51,7 +51,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             int y = (i >> (indexShift * 1)) & voxelsPerChunk - 1;
             int z = (i >> (indexShift * 2)) & voxelsPerChunk - 1;
             Vec3i pos = new Vec3i(x, y, z);
-            LinearLeafHolder linearLeafHolder = constructLeaf(pos, chunkMin, chunkSize, densityField);
+            LinearLeafHolder linearLeafHolder = constructLeaf(pos, chunkMin, chunkSize);
             if(linearLeafHolder!=null){
                 listHolder.add(linearLeafHolder);
                 octreeNodes.put(linearLeafHolder.encodedVoxelPosition, current);
@@ -114,14 +114,14 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         Vec4f averageNormal;
     }
 
-    private LinearLeafHolder constructLeaf(Vec3i pos, Vec3i chunkMin, int chunkSize, float[] densityField) {
+    private LinearLeafHolder constructLeaf(Vec3i pos, Vec3i chunkMin, int chunkSize) {
         int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
         Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
         int[] cornerMaterials = new int[8];
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize)).toVec3f();
-            float density = getNoise(cornerPos, densityField);
+            float density = getNoise(cornerPos);
             int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
             cornerMaterials[i] = material;
             corners |= (material << i);
@@ -129,7 +129,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale, densityField);
+            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale);
             if(nodePos==null){
                 return null;
             } else {
@@ -139,7 +139,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 leafHolder.materialIndex = (materialIndex << 8) | corners;
                 leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
                 leafHolder.voxelEdgeInfo = corners;//edgeList;
-                leafHolder.averageNormal = CalculateSurfaceNormal(nodePos, densityField);
+                leafHolder.averageNormal = CalculateSurfaceNormal(nodePos);
                 return leafHolder;
             }
         }
@@ -164,8 +164,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             }
             Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
             Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
-            Vec4f p = ApproximateZeroCrossingPosition(p1, p2, densityField);
-            Vec4f n = CalculateSurfaceNormal(p, densityField);
+            Vec4f p = ApproximateZeroCrossingPosition(p1, p2);
+            Vec4f n = CalculateSurfaceNormal(p);
             edgePositions[edgeCount] = p;
             edgeNormals[edgeCount] = n;
             averageNormal = averageNormal.add(n);

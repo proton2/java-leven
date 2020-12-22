@@ -1,10 +1,8 @@
 package dc;
 
 import core.kernel.Camera;
-import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
-import core.utils.ImageLoader;
 import dc.entities.MeshBuffer;
 import dc.impl.GPUDensityField;
 import dc.impl.MeshGenerationContext;
@@ -13,9 +11,6 @@ import dc.utils.Frustum;
 import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -28,7 +23,6 @@ public class ChunkOctree {
     private ChunkNode root;
     private Camera camera;
     VoxelOctree voxelOctree;
-    private float[] densityField;
     private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
     private List<RenderMesh> invalidateMeshes;
@@ -81,25 +75,8 @@ public class ChunkOctree {
         root.min = boundsCentre.sub(new Vec3i(root.size / 2));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
 
-        densityField = prepareAndStoreDensity("./res/textures/floatArray.dat", root.size);
+        SimplexNoise.getInstance("./res/textures/floatArray.dat", root.size, meshGen.worldSizeXZ);
         constructChildrens(root);
-    }
-
-    private float[] prepareAndStoreDensity(String filename, int rootSize){
-        float[] densityField = new float[rootSize * rootSize];
-        Path path = Paths.get(filename);
-        if (Files.exists(path)) {
-            ImageLoader.loadImageToFloatArray(densityField, filename);
-        }
-        if (Files.notExists(path)) {
-            for (int z = 0; z < rootSize; z++) {
-                for (int x = 0; x < rootSize; x++) {
-                    densityField[x + z * rootSize] = SimplexNoise.Terrain(new Vec2f((float)(x - (rootSize / 2)), (float)(z - (rootSize / 2))));
-                }
-            }
-            ImageLoader.saveImageToFloat(densityField, filename);
-        }
-        return densityField;
     }
 
     private void constructChildrens(ChunkNode node) {
@@ -394,7 +371,7 @@ public class ChunkOctree {
         List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
         GPUDensityField field = new GPUDensityField();
-        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, densityField, seamNodes, meshBuffer, field);
+        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, seamNodes, meshBuffer, field);
         chunk.chunkBorderNodes = seamNodes;
         if(!chunk.active){
             return false;

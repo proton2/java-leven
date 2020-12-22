@@ -23,10 +23,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static dc.OctreeNodeType.Node_Leaf;
+import static dc.utils.SimplexNoise.getNoise;
 
 public class PointerBasedOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     private final boolean multiThreadCalculation;
-    private float[] densityField;
 
     public PointerBasedOctreeImpl(boolean multiThreadCalculation, MeshGenerationContext meshGenerationContext) {
         super(meshGenerationContext);
@@ -40,9 +40,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                        float[] densityField,
                                         List<PointerBasedOctreeNode> seamNodes, MeshBuffer meshBuffer, GPUDensityField field) {
-        this.densityField = densityField;
         boolean result;
         List<PointerBasedOctreeNode> chunkNodes = new ArrayList<>();
 
@@ -147,20 +145,20 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         int corners = 0;
         for (int i = 0; i < 8; i++) {
             Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
-            float density = getNoise(cornerPos, densityField);
+            float density = getNoise(cornerPos);
 		    int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
             corners |= (material << i);
         }
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leaf.min, leaf.size, pos, corners, leafSizeScale, densityField);
+            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leaf.min, leaf.size, pos, corners, leafSizeScale);
             if(nodePos==null){
                 return null;
             } else {
                 leaf.drawInfo = new OctreeDrawInfo();
                 leaf.drawInfo.position = nodePos.getVec3f();
-                leaf.drawInfo.averageNormal = CalculateSurfaceNormal(nodePos, densityField).getVec3f();
+                leaf.drawInfo.averageNormal = CalculateSurfaceNormal(nodePos).getVec3f();
                 leaf.drawInfo.corners = corners;
                 leaf.drawInfo.color = Constants.Blue;
                 leaf.Type = Node_Leaf;
@@ -185,8 +183,8 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             }
             Vec3f p1 = leaf.min.add(CHILD_MIN_OFFSETS[c1].mul(leaf.size)).toVec3f();
             Vec3f p2 = leaf.min.add(CHILD_MIN_OFFSETS[c2].mul(leaf.size)).toVec3f();
-            Vec4f p = ApproximateZeroCrossingPosition(p1, p2, densityField);
-            Vec4f n = CalculateSurfaceNormal(p, densityField);
+            Vec4f p = ApproximateZeroCrossingPosition(p1, p2);
+            Vec4f n = CalculateSurfaceNormal(p);
             edgePositions[edgeCount] = p;
             edgeNormals[edgeCount] = n;
             averageNormal = averageNormal.add(n.getVec3f());
