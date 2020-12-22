@@ -65,11 +65,11 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 	}
 
 	public static float getNoise(Vec4f pos) {
-		float MAX_TERRAIN_HEIGHT = 900.f;
-		int x = ((int) pos.x + worldSizeXZ /2) & worldSizeXZ -1;
-		int z = ((int) pos.z + worldSizeXZ /2) & worldSizeXZ -1;
-		float height = densityField[z + x * worldSizeXZ];
-		return pos.y - (MAX_TERRAIN_HEIGHT * height) + 800;
+		return getNoise(new Vec3i(pos.x, pos.y, pos.z));
+	}
+
+	public static float getNoise(Vec3f pos) {
+		return getNoise(new Vec3i(pos.X, pos.Y, pos.Z));
 	}
 
 	public static float getNoise(Vec3i pos) {
@@ -78,14 +78,6 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 		int z = (pos.z + worldSizeXZ /2) & worldSizeXZ -1;
 		float height = densityField[z + x * worldSizeXZ];
 		return pos.y - (MAX_TERRAIN_HEIGHT * height) + 800;
-	}
-
-	public static float getNoise(Vec3f pos) {
-		float MAX_TERRAIN_HEIGHT = 900.f;
-		int x = ((int) pos.X + worldSizeXZ /2) & worldSizeXZ -1;
-		int z = ((int) pos.Z + worldSizeXZ /2) & worldSizeXZ -1;
-		float height = densityField[z + x * worldSizeXZ];
-		return pos.Y - (MAX_TERRAIN_HEIGHT * height) + 800;
 	}
 
 	protected float getNoiseOnFly(Vec3f pos) {
