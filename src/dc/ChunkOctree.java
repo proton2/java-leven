@@ -78,28 +78,28 @@ public class ChunkOctree {
         }
         root.size = factor * meshGen.clipmapLeafSize;
         Vec3i boundsCentre = worldBoundsMin.add(boundsSize.div(2));
-        //root.min = (boundsCentre.sub(new Vec3f(root.size / 2))) & ~(factor - 1);
         root.min = boundsCentre.sub(new Vec3i(root.size / 2));
-        //root.min.set(root.min.x & ~(factor - 1), root.min.y & ~(factor - 1), root.min.z & ~(factor - 1));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
 
-        densityField = new float[root.size * root.size];
+        densityField = prepareAndStoreDensity("./res/textures/floatArray.dat", root.size);
+        constructChildrens(root);
+    }
 
-        String filename = "./res/textures/floatArray.dat";
+    private float[] prepareAndStoreDensity(String filename, int rootSize){
+        float[] densityField = new float[rootSize * rootSize];
         Path path = Paths.get(filename);
         if (Files.exists(path)) {
             ImageLoader.loadImageToFloatArray(densityField, filename);
         }
         if (Files.notExists(path)) {
-            for (int z = 0; z < root.size; z++) {
-                for (int x = 0; x < root.size; x++) {
-                    //densityField[x + z * root.size] = SimplexNoise.BasicFractal(4, 0.5343f, 2.2324f, 0.68324f, new Vec2f(x - (root.size / 2), z - (root.size / 2)));
-                    densityField[x + z * root.size] = SimplexNoise.Terrain(new Vec2f(x - (root.size / 2), z - (root.size / 2)));
+            for (int z = 0; z < rootSize; z++) {
+                for (int x = 0; x < rootSize; x++) {
+                    densityField[x + z * rootSize] = SimplexNoise.Terrain(new Vec2f((float)(x - (rootSize / 2)), (float)(z - (rootSize / 2))));
                 }
             }
             ImageLoader.saveImageToFloat(densityField, filename);
         }
-        constructChildrens(root);
+        return densityField;
     }
 
     private void constructChildrens(ChunkNode node) {
@@ -354,8 +354,20 @@ public class ChunkOctree {
 
     private boolean filterNodesForDebug(ChunkNode filteredNode){
         boolean res =
-                filteredNode.min.x > -256 && filteredNode.min.x < 512 &&
-                filteredNode.min.z > -1536 && filteredNode.min.z < 128;
+//                filteredNode.min.x > -256 && filteredNode.min.x < 512 &&
+//                filteredNode.min.z > -1536 && filteredNode.min.z < 128;
+
+//                filteredNode.min.x > 2816 && filteredNode.min.x < 3584 &&
+//                        filteredNode.min.z > 1024 && filteredNode.min.z < 2048
+//                &&
+                        (
+                        //(filteredNode.min.x==3072 && filteredNode.min.y==-2048 && filteredNode.min.z==1280) ||
+                        //(filteredNode.min.x==3328 && filteredNode.min.y==-2048 && filteredNode.min.z==1280) ||
+                        //(filteredNode.min.x==3072 && filteredNode.min.y==-2048 && filteredNode.min.z==1536) ||
+                        //(filteredNode.min.x==3072 && filteredNode.min.y==-2048 && filteredNode.min.z==1792) ||
+                        (filteredNode.min.x==3328 && filteredNode.min.y==-2048 && filteredNode.min.z==1536) ||
+                        (filteredNode.min.x==3072 && filteredNode.min.y==-2560 && filteredNode.min.z==1536)
+                );
         return res;
     }
 

@@ -21,13 +21,6 @@ constant int4 CHILD_MIN_OFFSETS[8] =
 	(int4)( 1, 1, 1, 0 ),
 };
 
-inline int field_index(const int4 pos)
-{
-	return pos.x + (pos.y * FIELD_DIM) + (pos.z * FIELD_DIM * FIELD_DIM);
-}
-
-
-
 // "Insert" a 0 bit after each of the 16 low bits of x
 uint Part1By1(uint x)
 {

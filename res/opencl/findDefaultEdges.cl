@@ -1,10 +1,5 @@
 #include "density_simplex.cl"
 
-//  int field_index(const int4 pos)
-//  {
-//  	return pos.x + (pos.y * FIELD_DIM) + (pos.z * FIELD_DIM * FIELD_DIM);
-//  }
-
 kernel void FindFieldEdges(
 	global int* materials,
 	global int* edgeOccupancy,
