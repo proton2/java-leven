@@ -18,6 +18,7 @@ import dc.impl.opencl.OCLUtils;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.RenderDebugCmdBuffer;
+import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.List;
@@ -36,6 +37,7 @@ public class ChunkOctreeWrapper extends GameObject {
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
+        SimplexNoise.getInstance("./res/textures/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = OCLUtils.getOpenCLContext();
         StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
         kernelHolder = new KernelsHolder(ctx);
@@ -48,8 +50,8 @@ public class ChunkOctreeWrapper extends GameObject {
         //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
         //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
-        VoxelOctree voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
+        VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+        //VoxelOctree voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
     }
 

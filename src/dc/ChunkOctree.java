@@ -75,7 +75,6 @@ public class ChunkOctree {
         root.min = boundsCentre.sub(new Vec3i(root.size / 2));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
 
-        SimplexNoise.getInstance("./res/textures/floatArray.dat", root.size);
         constructChildrens(root);
     }
 
