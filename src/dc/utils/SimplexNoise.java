@@ -35,15 +35,15 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 	private static SimplexNoise instance = null;
 	private static float[] densityField;
 	public static int worldSizeXZ;
-	public static SimplexNoise getInstance(String filename, int rootSize, int worldSizeXZ) {
+	public static SimplexNoise getInstance(String filename, int worldSizeXZ) {
 		if(instance == null) {
-			instance = new SimplexNoise(filename, rootSize, worldSizeXZ);
+			instance = new SimplexNoise(filename, worldSizeXZ);
 		}
 		return instance;
 	}
 
-	private SimplexNoise(String filename, int rootSize, int worldSizeXZ){
-		densityField = prepareAndStoreDensity(filename, rootSize);
+	private SimplexNoise(String filename, int worldSizeXZ){
+		densityField = prepareAndStoreDensity(filename, worldSizeXZ);
 		SimplexNoise.worldSizeXZ = worldSizeXZ;
 	}
 
