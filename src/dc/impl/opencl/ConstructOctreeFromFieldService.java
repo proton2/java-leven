@@ -4,7 +4,7 @@ import core.math.Vec4f;
 import dc.impl.GPUDensityField;
 import dc.impl.GpuOctree;
 import dc.impl.MeshGenerationContext;
-import dc.solver.QefSolver;
+import dc.solver.QEFData;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
@@ -110,7 +110,7 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(err);
     }
 
-    public void createLeafNodesKernel(KernelsHolder kernels, QefSolver[] qefs, Vec4f[] d_vertexNormals){
+    public void createLeafNodesKernel(KernelsHolder kernels, QEFData[] qefs, Vec4f[] d_vertexNormals){
         d_qefsBuf = bufferGpuService.create("d_qefsBuf", octree.getNumNodes() * Float.BYTES * 16, CL10.CL_MEM_READ_WRITE);
         CuckooHashOpenCLService edgeHashTable = new CuckooHashOpenCLService(ctx, meshGen, scanService, kernels, field.getNumEdges(), bufferGpuService);
         edgeHashTable.insertKeys(field.getEdgeIndices(), field.getNumEdges());
