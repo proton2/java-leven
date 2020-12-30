@@ -9,7 +9,7 @@ import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.GlslSvd;
-import dc.solver.QefSolver;
+import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.ArrayList;
@@ -150,7 +150,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
 
         int numVertices = activeLeafsSize;
-        QefSolver[] qefs = new QefSolver[numVertices];
+        QEFData[] qefs = new QEFData[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
         createLeafNodes(chunkSize, chunkMin, 0, numVertices, borderNodePositions,
                 d_nodeCodes, d_compactLeafEdgeInfo,
@@ -276,12 +276,12 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                                     Map<Integer, Vec4f> borderNodePositions,
                                     int[] voxelPositions,
                                     int[] voxelEdgeInfo,
-                                    Vec3f[] vertexNormals, QefSolver[] qefs) {
+                                    Vec3f[] vertexNormals, QEFData[] qefs) {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
             Vec3i position = LinearOctreeTest.positionForCode(encodedPosition);
             int corners = voxelEdgeInfo[index];
-            QefSolver qef = new QefSolver(new GlslSvd());
+            QEFData qef = new QEFData(new GlslSvd());
             if (corners==0 || corners==255){
                 Vec4f nodePos = borderNodePositions.get(encodedPosition);
                 qef.setSolvedPos(nodePos);
@@ -323,7 +323,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     }
 
     private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                          QefSolver[] qefs, Vec3f[] solvedPositions) {
+                          QEFData[] qefs, Vec3f[] solvedPositions) {
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];
             Vec3i pos = LinearOctreeTest.positionForCode(encodedPosition);

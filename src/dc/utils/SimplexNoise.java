@@ -80,7 +80,7 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 		return pos.y - (MAX_TERRAIN_HEIGHT * height) + 800;
 	}
 
-	protected float getNoiseOnFly(Vec3f pos) {
+	public static float getNoiseOnFly(Vec3f pos) {
 		float MAX_TERRAIN_HEIGHT = 1000.f;
 		float height = Terrain(new Vec2f(pos.X, pos.Z));
 		return pos.Y - (MAX_TERRAIN_HEIGHT * height) + 900;

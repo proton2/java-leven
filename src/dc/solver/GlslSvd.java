@@ -182,4 +182,19 @@ public class GlslSvd implements SvdSolver{
         x = x.add(masspoint);
         return x;
     }
+
+    @Override
+    public float solve(float[] ATA, Vec4f ATb, Vec4f pointaccum, Vec4f pos) {
+        if (pointaccum.w == 0)
+            throw new IllegalArgumentException("...");
+        Vec4f masspoint = pointaccum.div(pointaccum.w);
+        Vec4f tmpv = vmulSym(ATA, masspoint);
+        ATb = ATb.sub(tmpv);
+
+        Vec4f x = svd_solve_ATA_ATb(ATA, ATb);
+        float result = qef_calc_error(ATA, x, ATb);
+        x = x.add(masspoint);
+        pos.set(x);
+        return result;
+    }
 }

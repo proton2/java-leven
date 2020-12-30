@@ -9,7 +9,7 @@ import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.LevenQefSolver;
-import dc.solver.QefSolver;
+import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.HashMap;
@@ -83,7 +83,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
 
         int numVertices = d_nodeCodes.length;
-        QefSolver[] qefs = new QefSolver[numVertices];
+        QEFData[] qefs = new QEFData[numVertices];
         Vec4f[] d_vertexNormals = new Vec4f[numVertices];
         //////////////////////////////
         createLeafNodes(0, numVertices, d_nodeCodes, d_compactLeafEdgeInfo, normals, edgeIndicatesMap,
@@ -309,13 +309,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
-                         QefSolver[] leafQEFs, Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin)
+                         QEFData[] leafQEFs, Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin)
     {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
             Vec3i position = LinearOctreeTest.positionForCode(encodedPosition);
             int corners = voxelMaterials[index] & 255;
-            QefSolver qef = new QefSolver(new LevenQefSolver());
+            QEFData qef = new QEFData(new LevenQefSolver());
             if (corners==0 || corners==255){
                 Vec3i nodePos = new Vec3i();
                 tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, position, corners, nodePos);
@@ -372,7 +372,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private void solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                          QefSolver[] qefs, Vec4f[] solvedPositions){
+                           QEFData[] qefs, Vec4f[] solvedPositions){
         for (int index = from; index < to; index++) {
             //Vec3i pos = LinearOctreeTest.positionForCode(d_nodeCodes[index]);
             int leafSize = (chunkSize / voxelsPerChunk);

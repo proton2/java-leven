@@ -14,8 +14,8 @@ public class MeshGenerationContext {
     public final int worldSizeXZ;
     public final int worldSizeY;
     public final int numLods = 6;
-    public final int MATERIAL_AIR = 0;
-    public final int MATERIAL_SOLID = 1;
+    public static final int MATERIAL_AIR = 0;
+    public static final int MATERIAL_SOLID = 1;
     public final int MAX_OCTREE_DEPTH;
 
     public final long CUCKOO_EMPTY_VALUE = 0;

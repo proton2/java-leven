@@ -9,7 +9,7 @@ import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.GlslSvd;
-import dc.solver.QefSolver;
+import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.ArrayList;
@@ -151,7 +151,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         Vec4f averageNormal = new Vec4f();
         Vec4f[] edgePositions = new Vec4f[12];
         Vec4f[] edgeNormals = new Vec4f[12];
-        QefSolver qef = new QefSolver(new GlslSvd());
+        QEFData qef = new QEFData(new GlslSvd());
         for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
             int c1 = edgevmap[i][0];
             int c2 = edgevmap[i][1];

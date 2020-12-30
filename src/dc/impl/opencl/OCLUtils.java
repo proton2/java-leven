@@ -9,7 +9,7 @@ import dc.OctreeNodeType;
 import dc.PointerBasedOctreeNode;
 import dc.entities.MeshVertex;
 import dc.solver.LevenQefSolver;
-import dc.solver.QefSolver;
+import dc.solver.QEFData;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL;
@@ -476,14 +476,14 @@ public class OCLUtils {
         }
     }
 
-    static class QEFData{
+    static class QEFDataT{
         float[] mat3x3_tri_ATA = new float[6];
         float[] pad = new float[2];
         Vec4f ATb = new Vec4f();
         Vec4f massPoint = new Vec4f();
     }
 
-    public static void getQEFData(BufferGpu buffer, QefSolver[] qefData){
+    public static void getQEFData(BufferGpu buffer, QEFData[] qefData){
         if(qefData!=null) {
             ByteBuffer byteBuffer = BufferUtils.createByteBuffer(qefData.length * Float.BYTES * 16);
             int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer.getMem(), true, 0, byteBuffer, null, null);
@@ -491,7 +491,7 @@ public class OCLUtils {
             FloatBuffer resultBuff = byteBuffer.asFloatBuffer();
             for (int i = 0; i < qefData.length; i++) {
                 int index = i * 16;
-                QefSolver q = new QefSolver(new LevenQefSolver());
+                QEFData q = new QEFData(new LevenQefSolver());
                 q.mat3x3_tri_ATA[0] = resultBuff.get(index + 0);
                 q.mat3x3_tri_ATA[1] = resultBuff.get(index + 1);
                 q.mat3x3_tri_ATA[2] = resultBuff.get(index + 2);
