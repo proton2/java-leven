@@ -68,14 +68,14 @@ public class BufferUtil {
 			buffer.put(vertices[i].getTextureCoord().getX());
 			buffer.put(vertices[i].getTextureCoord().getY());
 
-			if (vertices[i].getTangent() != null && vertices[i].getBitangent() != null){
-				buffer.put(vertices[i].getTangent().getX());
-				buffer.put(vertices[i].getTangent().getY());
-				buffer.put(vertices[i].getTangent().getZ());
-				buffer.put(vertices[i].getBitangent().getX());
-				buffer.put(vertices[i].getBitangent().getY());
-				buffer.put(vertices[i].getBitangent().getZ());
-			}
+//			if (vertices[i].getTangent() != null && vertices[i].getBitangent() != null){
+//				buffer.put(vertices[i].getTangent().getX());
+//				buffer.put(vertices[i].getTangent().getY());
+//				buffer.put(vertices[i].getTangent().getZ());
+//				buffer.put(vertices[i].getBitangent().getX());
+//				buffer.put(vertices[i].getBitangent().getY());
+//				buffer.put(vertices[i].getBitangent().getZ());
+//			}
 		}
 		buffer.flip();
 		return buffer;

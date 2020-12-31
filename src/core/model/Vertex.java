@@ -1,18 +1,18 @@
 package core.model;
 
+import core.math.Vec2f;
 import core.math.Vec3f;
 
 public class Vertex {
-	public static final int FLOATS = 12;
-
+	public static final int FLOATS = 11;
 	private Vec3f pos;
 	private Vec3f normal;
-	private Vec3f normal2;
+	private Vec3f color;
+	private Vec2f textureCoord;
 
-	public Vertex(Vec3f pos, Vec3f color, Vec3f normal, Vec3f normal2) {
+	public Vertex(Vec3f pos, Vec3f color, Vec3f normal) {
 		this.pos = pos;
 		this.normal = normal;
-		this.normal2 = normal2;
 		this.color = color;
 	}
 
@@ -20,8 +20,6 @@ public class Vertex {
 		this.pos = pos;
 		this.color = color;
 	}
-
-	private Vec3f color;
 	
 	public Vertex(){	
 	}
@@ -32,12 +30,12 @@ public class Vertex {
 		this.setColor(new Vec3f(0,0,0));
 	}
 
-	public Vec3f getNormal2() {
-		return normal2;
+	public Vec2f getTextureCoord() {
+		return textureCoord;
 	}
 
-	public void setNormal2(Vec3f normal2) {
-		this.normal2 = normal2;
+	public void setTextureCoord(Vec2f textureCoord) {
+		this.textureCoord = textureCoord;
 	}
 
 	public Vec3f getPos() {

@@ -504,25 +504,6 @@ public abstract class AbstractDualContouring implements DualContouring{
         return v;
     }
 
-    public Vec3f CalculateSurfaceNormal(Vec3f p) {
-//	    float H = 0.001f;
-//	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField);
-//	    float dy = Density.Density_Func(p.add(new Vec3f(0.f, H, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, H, 0.f)), densityField);
-//	    float dz = Density.Density_Func(p.add(new Vec3f(0.f, 0.f, H)), densityField) - Density.Density_Func(p.sub(new Vec3f(0.f, 0.f, H)), densityField);
-
-        float H = 1f;
-        Vec3f xOffcet = new Vec3f(H, 0.f, 0.f);
-        Vec3f yOffcet = new Vec3f(0.f, H, 0.f);
-        Vec3f zOffcet = new Vec3f(0.f, 0.f, H);
-        float dx = getNoise(p.add(xOffcet)) - getNoise(p.sub(xOffcet));
-        float dy = getNoise(p.add(yOffcet)) - getNoise(p.sub(yOffcet));
-        float dz = getNoise(p.add(zOffcet)) - getNoise(p.sub(zOffcet));
-
-        Vec3f v = new Vec3f(dx, dy, dz);
-        v.normalize();
-        return v;
-    }
-
     public Vec4f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1) {
         // approximate the zero crossing by finding the min value along the edge
         float minValue = 100000.f;
