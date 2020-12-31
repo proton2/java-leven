@@ -169,4 +169,19 @@ public class LevenQefSolver implements SvdSolver{
 
         return solvedPos;
     }
+
+    @Override
+    public float solve(float[] mat3x3_tri_ATA, Vec4f ATb, Vec4f masspoint, Vec4f pos) {
+        masspoint = masspoint.div(Math.max(masspoint.w, 1.f));
+
+        Vec4f A_mp = svd_vmul_sym(mat3x3_tri_ATA, masspoint);
+        A_mp = ATb.sub(A_mp);
+
+        Vec4f solvedPos = svd_solve_ATA_ATb(mat3x3_tri_ATA, A_mp);
+
+        float error = qef_calc_error(mat3x3_tri_ATA, solvedPos, ATb);
+        solvedPos = solvedPos.add(masspoint);
+        pos.set(solvedPos);
+        return error;
+    }
 }
