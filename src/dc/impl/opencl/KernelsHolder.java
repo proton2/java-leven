@@ -5,6 +5,7 @@ import org.lwjgl.opencl.CL;
 import org.lwjgl.opencl.CL10;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.lwjgl.system.MemoryUtil.NULL;
@@ -19,6 +20,18 @@ public class KernelsHolder {
 
     public void buildKernel(KernelNames kernelName, StringBuilder buildingOptions){
         String programSource = ResourceLoader.loadShader(kernelName.getName());
+        long kernelProgram = CL10.clCreateProgramWithSource(computeContext.getClContext(), programSource, computeContext.getErrcode_ret());
+        int errcode = CL10.clBuildProgram(kernelProgram, computeContext.getClDevice(), buildingOptions==null ? "": buildingOptions, null, NULL);
+        OCLUtils.checkCLError(errcode);
+        kernels.put(kernelName.name(), kernelProgram);
+    }
+
+    public void buildKernel(KernelNames kernelName, StringBuilder buildingOptions, List<String> headers){
+        StringBuilder programSource = new StringBuilder();
+        for(String header: headers){
+            programSource.append(" \n ").append(ResourceLoader.loadShader(header));
+        }
+        programSource.append(ResourceLoader.loadShader(kernelName.getName()));
         long kernelProgram = CL10.clCreateProgramWithSource(computeContext.getClContext(), programSource, computeContext.getErrcode_ret());
         int errcode = CL10.clBuildProgram(kernelProgram, computeContext.getClDevice(), buildingOptions==null ? "": buildingOptions, null, NULL);
         OCLUtils.checkCLError(errcode);

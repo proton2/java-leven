@@ -7,7 +7,10 @@ public enum KernelNames {
     NVIDIA_SCAN("opencl/nvidia-scan.cl"),
     CUCKOO("opencl/cuckoo.cl"),
     TEST_CUCKOO("opencl/hash_test.cl"),
-    OCTREE("opencl/octree.cl");
+    OCTREE("opencl/octree.cl"),
+
+    DENSITY_L("opencl/test/density_field.cl");
+
 
     public String getName() {
         return name;
