@@ -37,6 +37,13 @@ public class Vec4f {
 		this.setZ(v.Z);
 	}
 
+	public Vec4f(Vec4f f) {
+		this.setX(f.x);
+		this.setY(f.y);
+		this.setZ(f.z);
+		this.setW(f.w);
+	}
+
 	public Vec3f getVec3f(){
 		return new Vec3f(this.x, this.y, this.z);
 	}

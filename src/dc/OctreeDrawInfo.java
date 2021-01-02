@@ -1,6 +1,7 @@
 package dc;
 
 import core.math.Vec3f;
+import dc.solver.QEFData;
 
 public class OctreeDrawInfo {
     public int index;
@@ -8,6 +9,7 @@ public class OctreeDrawInfo {
     public Vec3f position;
     public Vec3f color;
     public Vec3f averageNormal;
+    public QEFData qef;
 
     public int getIndex() {
         return index;
