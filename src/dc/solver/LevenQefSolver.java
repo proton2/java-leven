@@ -170,7 +170,6 @@ public class LevenQefSolver implements SvdSolver{
         return solvedPos;
     }
 
-    @Override
     public float solve(float[] mat3x3_tri_ATA, Vec4f ATb, Vec4f masspoint, Vec4f pos) {
         masspoint = masspoint.div(Math.max(masspoint.w, 1.f));
 

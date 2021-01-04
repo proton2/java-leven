@@ -9,6 +9,7 @@ public class QEFData {
     public Vec4f massPoint;
     public Vec4f x;
     private SvdSolver solver;
+    private float btb;
 
     public Vec4f getMasspoint() {
         return massPoint;
@@ -54,6 +55,7 @@ public class QEFData {
         atb.x += dot * n.x;
         atb.y += dot * n.y;
         atb.z += dot * n.z;
+        btb += dot * dot;
         massPoint.x += p.x;
         massPoint.y += p.y;
         massPoint.z += p.z;
@@ -72,6 +74,7 @@ public class QEFData {
         atb.x += dot * n.X;
         atb.y += dot * n.Y;
         atb.z += dot * n.Z;
+        btb += dot * dot;
         massPoint.x += p.X;
         massPoint.y += p.Y;
         massPoint.z += p.Z;
@@ -95,11 +98,17 @@ public class QEFData {
     }
 
     public Vec4f solve() {
-        return solver.solve(mat3x3_tri_ATA, atb, massPoint);
+        x = solver.solve(mat3x3_tri_ATA, atb, massPoint);
+        return x;
     }
 
-    public float solve(Vec4f pos) {
-        return solver.solve(mat3x3_tri_ATA, atb, massPoint, pos);
+    public float getError() {
+        return getError(x);
+    }
+
+    private float getError(Vec4f pos) {
+        Vec4f atax = pos.vmul(mat3x3_tri_ATA);
+        return pos.dot(atax) - 2 * pos.dot(atb) + btb;
     }
 
     public static void main(String[] args) {
