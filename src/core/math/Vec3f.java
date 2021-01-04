@@ -70,6 +70,10 @@ public class Vec3f {
 	{
 		return (float) Math.sqrt(X*X + Y*Y + Z*Z);
 	}
+
+	public float lengthSquared() {
+		return X * X + Y * Y + Z * Z;
+	}
 	
 	public float dot(Vec3f r)
 	{

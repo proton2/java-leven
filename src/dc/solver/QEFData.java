@@ -40,6 +40,10 @@ public class QEFData {
         atb.x += rhs.atb.x;
         atb.y += rhs.atb.y;
         atb.z += rhs.atb.z;
+        btb += rhs.btb;
+        massPoint.x += rhs.massPoint.x;
+        massPoint.y += rhs.massPoint.y;
+        massPoint.z += rhs.massPoint.z;
         massPoint.w = rhs.massPoint.w;
     }
 
@@ -104,6 +108,7 @@ public class QEFData {
 
     public float getError() {
         return getError(x);
+        //return solver.qef_calc_error(mat3x3_tri_ATA, x, atb);
     }
 
     private float getError(Vec4f pos) {
@@ -113,8 +118,6 @@ public class QEFData {
 
     public static void main(String[] args) {
         Vec4f pointaccum = new Vec4f(0,0,0,0);
-        float[] ATA = new float[6];
-        Vec4f ATb = new Vec4f();
         QEFData solver = new QEFData(new GlslSvd());
 
         final int count = 5;

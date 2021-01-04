@@ -23,6 +23,7 @@ import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
 import core.utils.ImageLoader;
+import org.joml.Vector3f;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,10 +81,30 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 		return pos.y - (MAX_TERRAIN_HEIGHT * height) + 800;
 	}
 
-	public static float getNoiseOnFly(Vec3f pos) {
-		float MAX_TERRAIN_HEIGHT = 1000.f;
-		float height = Terrain(new Vec2f(pos.X, pos.Z));
-		return pos.Y - (MAX_TERRAIN_HEIGHT * height) + 900;
+	public static float Sample(Vec3f pos) {
+		//return pos.getY() - Noise(pos) * 8.0f - 8;
+		//return Cuboid(pos);
+		return Sphere(pos);
+	}
+
+	private static float Noise(Vec3f pos) {
+		float r = 0.05f;
+		return (float) noise(pos.getX() * r, pos.getY() * r, pos.getZ() * r);
+	}
+
+	public static float Cuboid(Vec3f pos) {
+		float radius = (float)64 / 8.0f;
+		Vec3f local = pos.sub(new Vec3f(64 / 2, 64 / 2, 64 / 2));
+		Vec3f d = new Vec3f(Math.abs(local.X), Math.abs(local.Y), Math.abs(local.Z)).sub(new Vec3f(radius, radius, radius));
+		float m = Math.max(d.X, Math.max(d.Y, d.Z));
+		Vec3f max = d;
+		return Math.min(m, max.length());
+	}
+
+	public static float Sphere(Vec3f pos) {
+		float radius = (float)64 / 2.0f - 2.0f;
+		Vec3f origin = new Vec3f((64 - 2.0f) * 0.5f);
+		return (pos.sub(origin)).lengthSquared() - radius * radius;
 	}
 
 	private static Grad grad3[] = { new Grad(1, 1, 0), new Grad(-1, 1, 0),

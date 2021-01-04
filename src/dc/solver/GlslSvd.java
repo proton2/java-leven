@@ -161,7 +161,8 @@ public class GlslSvd implements SvdSolver{
                 0f);
     }
 
-    float qef_calc_error(float[] A, Vec4f x, Vec4f b) {
+    @Override
+    public float qef_calc_error(float[] A, Vec4f x, Vec4f b) {
 //        Vec3f atax = this.ata.Vmul(pos);
 //        return pos.dot(atax) - 2 * pos.dot(atb) + data.btb;
 
@@ -174,7 +175,8 @@ public class GlslSvd implements SvdSolver{
         if (pointaccum.w == 0)
             throw new IllegalArgumentException("...");
         Vec4f masspoint = pointaccum.div(pointaccum.w);
-        Vec4f tmpv = vmulSym(ATA, masspoint);
+        //Vec4f tmpv = vmulSym(ATA, masspoint);
+        Vec4f tmpv = masspoint.vmul(ATA);
         ATb = ATb.sub(tmpv);
 
         Vec4f x = svd_solve_ATA_ATb(ATA, ATb);

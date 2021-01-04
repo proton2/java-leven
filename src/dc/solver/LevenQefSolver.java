@@ -147,7 +147,8 @@ public class LevenQefSolver implements SvdSolver{
         return result;
     }
 
-    private float qef_calc_error(float[] mat3x3_tri_A, Vec4f x, Vec4f b) {
+    @Override
+    public float qef_calc_error(float[] mat3x3_tri_A, Vec4f x, Vec4f b) {
         Vec4f tmp = svd_vmul_sym(mat3x3_tri_A, x);
         tmp = b.sub(tmp);
 
