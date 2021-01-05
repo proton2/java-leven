@@ -158,7 +158,7 @@ public class LevenQefSolver implements SvdSolver{
     @Override
     public Vec4f solve(float[] mat3x3_tri_ATA, Vec4f ATb, Vec4f masspoint) {
         // prevent a div-by-zero exception
-        masspoint = masspoint.div(Math.max(masspoint.w, 1.f));
+        masspoint.set(masspoint.div(Math.max(masspoint.w, 1.f)));
 
         Vec4f A_mp = svd_vmul_sym(mat3x3_tri_ATA, masspoint);
         A_mp = ATb.sub(A_mp);

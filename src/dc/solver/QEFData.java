@@ -44,7 +44,7 @@ public class QEFData {
         massPoint.x += rhs.massPoint.x;
         massPoint.y += rhs.massPoint.y;
         massPoint.z += rhs.massPoint.z;
-        massPoint.w = rhs.massPoint.w;
+        massPoint.w += rhs.massPoint.w;
     }
 
     private void qef_add_point(Vec4f p, Vec4f n) {
@@ -113,7 +113,8 @@ public class QEFData {
 
     private float getError(Vec4f pos) {
         Vec4f atax = pos.vmul(mat3x3_tri_ATA);
-        return pos.dot(atax) - 2 * pos.dot(atb) + btb;
+        double result = pos.dot(atax) - 2 * pos.dot(atb) + btb;
+        return (float) Math.max(result, 0);
     }
 
     public static void main(String[] args) {
