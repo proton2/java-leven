@@ -188,13 +188,13 @@ public class GlslSvd implements SvdSolver{
     public float solve(float[] ATA, Vec4f ATb, Vec4f pointaccum, Vec4f pos) {
         if (pointaccum.w == 0)
             throw new IllegalArgumentException("...");
-        Vec4f masspoint = pointaccum.div(pointaccum.w);
-        Vec4f tmpv = vmulSym(ATA, masspoint);
+        pointaccum.set(pointaccum.div(pointaccum.w));
+        Vec4f tmpv = vmulSym(ATA, pointaccum);
         ATb = ATb.sub(tmpv);
 
         Vec4f x = svd_solve_ATA_ATb(ATA, ATb);
         float result = qef_calc_error(ATA, x, ATb);
-        x = x.add(masspoint);
+        x = x.add(pointaccum);
         pos.set(x);
         return result;
     }

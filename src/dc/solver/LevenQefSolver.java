@@ -172,7 +172,7 @@ public class LevenQefSolver implements SvdSolver{
     }
 
     public float solve(float[] mat3x3_tri_ATA, Vec4f ATb, Vec4f masspoint, Vec4f pos) {
-        masspoint = masspoint.div(Math.max(masspoint.w, 1.f));
+        masspoint.set(masspoint.div(Math.max(masspoint.w, 1.f)));
 
         Vec4f A_mp = svd_vmul_sym(mat3x3_tri_ATA, masspoint);
         A_mp = ATb.sub(A_mp);
