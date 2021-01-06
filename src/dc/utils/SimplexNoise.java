@@ -82,9 +82,9 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 	}
 
 	public static float Sample(Vec3f pos) {
-		//return pos.getY() - Noise(pos) * 8.0f - 8;
+		return pos.getY() - Noise(pos) * 8.0f - 8;
 		//return Cuboid(pos);
-		return Sphere(pos);
+		//return Sphere(pos);
 	}
 
 	private static float Noise(Vec3f pos) {
