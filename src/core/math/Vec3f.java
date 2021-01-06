@@ -88,6 +88,10 @@ public class Vec3f {
 		
 		return new Vec3f(x,y,z);
 	}
+
+	public Vec3f neg() {
+		return new Vec3f(-X, Y, Z);
+	}
 	
 	public Vec3f normalize()
 	{
