@@ -5,6 +5,7 @@ import core.buffers.MeshDcVBO;
 import core.configs.CW;
 import core.kernel.Camera;
 import core.kernel.Input;
+import core.math.Vec3f;
 import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.scene.GameObject;
@@ -51,8 +52,13 @@ public class ChunkOctreeWrapper extends GameObject {
         //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
         //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
         //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+        //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         VoxelOctree voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
+
+        Camera.getInstance().setPosition(new Vec3f(-286,0,-1908));
+        Camera.getInstance().setForward(new Vec3f(0.54f,-0.31f,0.77f).normalize());
+        Camera.getInstance().setUp(new Vec3f(0.18f,0.94f,0.26f));
     }
 
     public void update() {
@@ -131,16 +137,16 @@ public class ChunkOctreeWrapper extends GameObject {
         }
     }
 
-    private void renderDebugVoxelsBounds(ChunkNode node){
-        RenderDebugCmdBuffer renderDebugVoxelsBounds = new RenderDebugCmdBuffer();
-        for(PointerBasedOctreeNode n : node.chunkBorderNodes){
-            renderDebugVoxelsBounds.addCube(n.drawInfo.color, 0.2f, n.min, n.size);
-        }
-        DebugDrawBuffer buf = renderDebugVoxelsBounds.UpdateDebugDrawBuffer();
-        DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();
-        debugMeshBuffer.addData(buf);
-        Renderer debugRenderer = new Renderer(debugMeshBuffer);
-        debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
-        addComponent("voxel nodes " + node.min, debugRenderer);
-    }
+//    private void renderDebugVoxelsBounds(ChunkNode node){
+//        RenderDebugCmdBuffer renderDebugVoxelsBounds = new RenderDebugCmdBuffer();
+//        for(OctreeNode n : node.chunkBorderNodes){
+//            renderDebugVoxelsBounds.addCube(n.drawInfo.color, 0.2f, n.min, n.size);
+//        }
+//        DebugDrawBuffer buf = renderDebugVoxelsBounds.UpdateDebugDrawBuffer();
+//        DebugMeshVBO debugMeshBuffer = new DebugMeshVBO();
+//        debugMeshBuffer.addData(buf);
+//        Renderer debugRenderer = new Renderer(debugMeshBuffer);
+//        debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
+//        addComponent("voxel nodes " + node.min, debugRenderer);
+//    }
 }

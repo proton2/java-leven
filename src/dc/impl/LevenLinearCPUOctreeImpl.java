@@ -31,7 +31,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
+                                        List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
     {
         int[] materials = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
         //////////////////////////////
@@ -518,18 +518,16 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private void extractNodeInfo(int[] isSeamNode, Vec3f color,
                                  int leafSize, Vec3i chunkMin, int from, int to,
                                  int[] octreeCodes, int[] octreeMaterials, Vec4f[] octreePositions, Vec4f[] octreeNormals,
-                                 List<PointerBasedOctreeNode> seamNodes) {
+                                 List<OctreeNode> seamNodes) {
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]==1) {
-                PointerBasedOctreeNode node = new PointerBasedOctreeNode();
-                node.min = LinearOctreeTest.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
-                node.size = leafSize;
-                node.Type = OctreeNodeType.Node_Leaf;
+                Vec3i min = LinearOctreeTest.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
+                PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
+                node.corners = octreeMaterials[index];
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
                 drawInfo.position = octreePositions[index].getVec3f();
                 drawInfo.color = color;
                 drawInfo.averageNormal = octreeNormals[index].getVec3f();
-                drawInfo.corners = octreeMaterials[index];
                 node.drawInfo = drawInfo;
                 seamNodes.add(node);
             }

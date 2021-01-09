@@ -236,7 +236,7 @@ public class ChunkOctree {
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){
-        Set<PointerBasedOctreeNode> seamNodes = new HashSet<>(2048);
+        Set<OctreeNode> seamNodes = new HashSet<>(2048);
         for (int i = 0; i < 8; i++) {
             Vec3i neighbourMin = node.min.add(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(node.size));
             ChunkNode candidateNeighbour = findNode(root, node.size, neighbourMin);
@@ -252,19 +252,19 @@ public class ChunkOctree {
         if(seamNodes.isEmpty()) {
             return;
         }
-        ArrayList<PointerBasedOctreeNode> nodes = new ArrayList<>(seamNodes.size());
+        ArrayList<OctreeNode> nodes = new ArrayList<>(seamNodes.size());
         nodes.addAll(seamNodes);
         MeshBuffer meshBuffer = new MeshBuffer();
         voxelOctree.processNodesToMesh(nodes, node.min, node.size, true, meshBuffer);
         node.seamMesh = new RenderMesh(node.min, node.size, meshBuffer);
     }
 
-    private List<PointerBasedOctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
+    private List<OctreeNode> selectSeamNodes(ChunkNode node, ChunkNode neighbour, int neighbourIndex){
         Vec3i chunkMax = node.min.add(node.size);
         Aabb aabb = new Aabb(node.min, node.size * 2);
         int neighbourScaleSize = neighbour.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
-        List<PointerBasedOctreeNode> selectedSeamNodes = new ArrayList<>();
-        for (PointerBasedOctreeNode octreeSeamNode : neighbour.chunkBorderNodes) {
+        List<OctreeNode> selectedSeamNodes = new ArrayList<>();
+        for (OctreeNode octreeSeamNode : neighbour.chunkBorderNodes) {
             Vec3i max = octreeSeamNode.min.add(neighbourScaleSize * meshGen.leafSizeScale);
             if (!filterSeamNode(neighbourIndex, chunkMax, octreeSeamNode.min, max) || !aabb.pointIsInside(octreeSeamNode.min)) {
                 continue;
@@ -367,7 +367,7 @@ public class ChunkOctree {
 //            chunk.active = true;
 //            return chunk.active;
 //        }
-        List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
+        List<OctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
         GPUDensityField field = new GPUDensityField();
         chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, seamNodes, meshBuffer, field);

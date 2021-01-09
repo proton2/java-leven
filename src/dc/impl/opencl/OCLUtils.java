@@ -5,6 +5,7 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import dc.OctreeDrawInfo;
+import dc.OctreeNode;
 import dc.OctreeNodeType;
 import dc.PointerBasedOctreeNode;
 import dc.entities.MeshVertex;
@@ -553,25 +554,23 @@ public class OCLUtils {
         return resultBuff;
     }
 
-    public static void getListSeamNodesTriangles(BufferGpu buffer, int bufSize, Vec3i chunkMin, Vec3f color, int chunkSize, List<PointerBasedOctreeNode> seamNodes){
+    public static void getListSeamNodesTriangles(BufferGpu buffer, int bufSize, Vec3i chunkMin, Vec3f color, int chunkSize, List<OctreeNode> seamNodes){
         ByteBuffer byteBuff = BufferUtils.createByteBuffer(Float.BYTES * 4 * 3 * bufSize);
         int err = CL10.clEnqueueReadBuffer(openCLContext.getClQueue(), buffer.getMem(), true, 0, byteBuff, null, null);
         OCLUtils.checkCLError(err);
 
         for (int i = 0; i < bufSize; i++) {
             int index = i * 12 * 4;
-            PointerBasedOctreeNode node = new PointerBasedOctreeNode();
             Vec4i localspaceMin = new Vec4i();
             localspaceMin.x = byteBuff.getInt(index+0);
             localspaceMin.y = byteBuff.getInt(index+4);
             localspaceMin.z = byteBuff.getInt(index+8);
             localspaceMin.w = byteBuff.getInt(index+12);
-            node.min = localspaceMin.mul(chunkSize).add(chunkMin);
-            node.size = chunkSize;
-            node.Type = OctreeNodeType.Node_Leaf;
+            Vec3i min = localspaceMin.mul(chunkSize).add(chunkMin);
+            PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, chunkSize, OctreeNodeType.Node_Leaf);
+            node.corners = localspaceMin.w;
 
             OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-            drawInfo.corners = localspaceMin.w;
             Vec4f position = new Vec4f();
             position.x = byteBuff.getFloat(index+16);
             position.y = byteBuff.getFloat(index+20);

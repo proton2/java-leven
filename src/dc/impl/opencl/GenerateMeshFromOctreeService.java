@@ -3,6 +3,7 @@ package dc.impl.opencl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.utils.BufferUtil;
+import dc.OctreeNode;
 import dc.PointerBasedOctreeNode;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
@@ -185,7 +186,7 @@ public class GenerateMeshFromOctreeService {
         return numSeamNodes;
     }
 
-    public int gatherSeamNodesFromOctree(KernelsHolder kernels, Vec3i chunkMin, int chunkSize, List<PointerBasedOctreeNode> seamNodes, int numSeamNodes) {
+    public int gatherSeamNodesFromOctree(KernelsHolder kernels, Vec3i chunkMin, int chunkSize, List<OctreeNode> seamNodes, int numSeamNodes) {
         BufferGpu d_seamNodeInfo = bufferGpuService.create("d_seamNodeInfo", Float.BYTES * 4 * 3 * numSeamNodes, CL10.CL_MEM_READ_WRITE);
 
         long k_ExtractSeamNodeInfoKernel = clCreateKernel(kernels.getKernel(KernelNames.OCTREE), "ExtractSeamNodeInfo", ctx.getErrcode_ret());

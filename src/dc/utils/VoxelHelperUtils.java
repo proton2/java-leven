@@ -4,6 +4,7 @@ import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
 import dc.ChunkNode;
+import dc.OctreeNode;
 import dc.OctreeNodeType;
 import dc.PointerBasedOctreeNode;
 import dc.impl.MeshGenerationContext;
@@ -12,12 +13,12 @@ import java.io.File;
 import java.nio.file.Paths;
 
 public class VoxelHelperUtils {
-    static public int countLeafNodes(PointerBasedOctreeNode node){
+    static public int countLeafNodes(OctreeNode node){
         if (node.Type== OctreeNodeType.Node_Leaf){
             return 1;
         }
         int result = 0;
-        for (PointerBasedOctreeNode n : node.children){
+        for (OctreeNode n : node.children){
             if(n!=null) result += countLeafNodes(n);
         }
         return result;

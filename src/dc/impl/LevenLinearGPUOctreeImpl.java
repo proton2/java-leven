@@ -4,6 +4,7 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.utils.BufferUtil;
 import dc.AbstractDualContouring;
+import dc.OctreeNode;
 import dc.PointerBasedOctreeNode;
 import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
@@ -29,7 +30,7 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
+                                        List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
     {
         field.setMin(chunkMin);
         field.setSize(chunkSize);

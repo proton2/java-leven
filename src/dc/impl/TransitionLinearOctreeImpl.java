@@ -9,6 +9,7 @@ import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.GlslSvd;
+import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
@@ -32,13 +33,13 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                        List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
+                                        List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
 
         // experimental transitional branch. It worked successfull but seams have some holes. More faster
         return createLeafVoxelNodesExperimental(chunkSize, chunkMin, seamNodes, buffer, field);
     }
 
-    private void processDc(int chunkSize, Vec3i chunkMin, List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer,
+    private void processDc(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer,
                            Map<Integer, Integer> octreeNodes, int[] d_nodeCodes, int[] d_nodeMaterials,
                            Vec3f[] d_vertexPositions, Vec3f[] d_vertexNormals) {
         int numVertices = octreeNodes.size();
@@ -92,7 +93,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     }
 
     private boolean createLeafVoxelNodesExperimental(int chunkSize, Vec3i chunkMin,
-                                                     List<PointerBasedOctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
+                                                     List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int threadBound = (meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()) / availableProcessors;
 
@@ -281,7 +282,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
             int encodedPosition = voxelPositions[index];
             Vec3i position = LinearOctreeTest.positionForCode(encodedPosition);
             int corners = voxelEdgeInfo[index];
-            QEFData qef = new QEFData(new GlslSvd());
+            QEFData qef = new QEFData(new LevenQefSolver());
             if (corners==0 || corners==255){
                 Vec4f nodePos = borderNodePositions.get(encodedPosition);
                 qef.setSolvedPos(nodePos);
@@ -341,8 +342,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 }
             }
             //qefPosition = qefPosition.mul(leafSize).add(chunkMin.toVec3f());
-            Vec3f position = VoxelHelperUtils.isOutFromBounds(qefPosition, leaf.toVec3f(), leafSize) ? qefs[index].getMasspoint().getVec3f() : qefPosition;
-            solvedPositions[index] = position;
+            solvedPositions[index] = qefPosition;
         }
         return 1;
     }
@@ -473,18 +473,16 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     private void extractNodeInfo(boolean[] isSeamNode, Vec3f color,
                                      int leafSize, Vec3i chunkMin, int from, int to,
                                      int[] octreeCodes, int[] octreeMaterials, Vec3f[] octreePositions, Vec3f[] octreeNormals,
-                                     List<PointerBasedOctreeNode> seamNodes) {
+                                     List<OctreeNode> seamNodes) {
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]) {
-                PointerBasedOctreeNode node = new PointerBasedOctreeNode();
-                node.min = LinearOctreeTest.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
-                node.size = leafSize;
-                node.Type = OctreeNodeType.Node_Leaf;
+                Vec3i min = LinearOctreeTest.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
+                PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
                 drawInfo.position = octreePositions[index];
                 drawInfo.color = color;
                 drawInfo.averageNormal = octreeNormals[index];
-                drawInfo.corners = octreeMaterials[index];
+                node.corners = octreeMaterials[index];
                 node.drawInfo = drawInfo;
                 seamNodes.add(node);
             }
