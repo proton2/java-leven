@@ -147,9 +147,9 @@ public class ConstructOctreeFromFieldService {
         OCLUtils.checkCLError(err);
 
 
-        QefSolver[] qefs2 = new QefSolver[octree.getNumNodes()];
+        QEFData[] qefs2 = new QEFData[octree.getNumNodes()];
         OCLUtils.getQEFData(d_qefsBuf, qefs2);
-        List<QefSolver> qefSolverList = Arrays.stream(qefs2)
+        List<QEFData> qefSolverList = Arrays.stream(qefs2)
                 .filter(Objects::nonNull)
                 .filter(e->e.massPoint.w==111)
                 .collect(Collectors.toList());
