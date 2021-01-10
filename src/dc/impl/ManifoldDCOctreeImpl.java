@@ -325,7 +325,7 @@ public class ManifoldDCOctreeImpl extends AbstractDualContouring implements Voxe
             ){
                 return;
             }
-            ProcessIndexes(nodes, direction, indexes, tri_count, threshold);
+            ProcessIndexes(nodes, direction, indexes, tri_count, threshold, isSeam);
         }
         else
         {
@@ -342,7 +342,7 @@ public class ManifoldDCOctreeImpl extends AbstractDualContouring implements Voxe
         }
     }
 
-    public static void ProcessIndexes(OctreeNode[] nodes, int direction, List<Integer> indexes, List<Integer> tri_count, float threshold) {
+    public static void ProcessIndexes(OctreeNode[] nodes, int direction, List<Integer> indexes, List<Integer> tri_count, float threshold, boolean isSeam) {
         int min_size = 10000000;
         int min_index = 0;
         int[] indices = { -1, -1, -1, -1 };
