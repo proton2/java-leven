@@ -138,7 +138,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         }
     }
 
-    private Vec3i chunkMinForPosition(Vec3i min, int size) {
+    protected Vec3i chunkMinForPosition(Vec3i min, int size) {
         // http://ngildea.blogspot.com/2015/07/fixing-seams-bug.html
         int mask = ~(size - 1);
         return new Vec3i(min.x & mask, min.y & mask, min.z & mask);

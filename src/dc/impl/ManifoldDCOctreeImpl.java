@@ -239,7 +239,7 @@ public class ManifoldDCOctreeImpl extends AbstractDualContouring implements Voxe
                 face_nodes[0] = node.children[c1];
                 face_nodes[1] = node.children[c2];
 
-                ProcessFace(face_nodes, Utilities.TEdgePairs[i][2], indexes, tri_count, threshold);
+                ProcessFace(face_nodes, Utilities.TEdgePairs[i][2], indexes, tri_count, threshold, isSeam, chunkSize);
             }
 
             for (int i = 0; i < 6; i++)
@@ -251,15 +251,20 @@ public class ManifoldDCOctreeImpl extends AbstractDualContouring implements Voxe
                         node.children[Utilities.TCellProcEdgeMask[i][3]]
                 };
 
-                ProcessEdge(edge_nodes, Utilities.TCellProcEdgeMask[i][4], indexes, tri_count, threshold);
+                ProcessEdge(edge_nodes, Utilities.TCellProcEdgeMask[i][4], indexes, tri_count, threshold, isSeam, chunkSize);
             }
         }
     }
 
-    public static void ProcessFace(OctreeNode[] nodes, int direction, List<Integer> indexes, List<Integer> tri_count, float threshold)
+    public void ProcessFace(OctreeNode[] nodes, int direction, List<Integer> indexes, List<Integer> tri_count, float threshold, boolean isSeam, int chunkSize)
     {
         if (nodes[0] == null || nodes[1] == null)
             return;
+
+        // bit of a hack but it works: prevent overlapping seams by only processing edges that stradle multiple chunks
+        if (isSeam && chunkMinForPosition(nodes[0].min, chunkSize).equals(chunkMinForPosition(nodes[1].min, chunkSize))) {
+            return;
+        }
 
         if (nodes[0].Type != OctreeNodeType.Node_Leaf || nodes[1].Type != OctreeNodeType.Node_Leaf) {
             for (int i = 0; i < 4; i++) {
@@ -272,7 +277,7 @@ public class ManifoldDCOctreeImpl extends AbstractDualContouring implements Voxe
                         face_nodes[j] = nodes[j].children[Utilities.TFaceProcFaceMask[direction][i][j]];
                 }
 
-                ProcessFace(face_nodes, Utilities.TFaceProcFaceMask[direction][i][2], indexes, tri_count, threshold);
+                ProcessFace(face_nodes, Utilities.TFaceProcFaceMask[direction][i][2], indexes, tri_count, threshold, isSeam, chunkSize);
             }
 
             int[][] orders = {
@@ -290,18 +295,36 @@ public class ManifoldDCOctreeImpl extends AbstractDualContouring implements Voxe
                         edge_nodes[j] = nodes[orders[Utilities.TFaceProcEdgeMask[direction][i][0]][j]].children[Utilities.TFaceProcEdgeMask[direction][i][1 + j]];
                 }
 
-                ProcessEdge(edge_nodes, Utilities.TFaceProcEdgeMask[direction][i][5], indexes, tri_count, threshold);
+                ProcessEdge(edge_nodes, Utilities.TFaceProcEdgeMask[direction][i][5], indexes, tri_count, threshold, isSeam, chunkSize);
             }
         }
     }
 
-    public static void ProcessEdge(OctreeNode[] nodes, int direction, List<Integer> indexes, List<Integer> tri_count, float threshold)
+    public void ProcessEdge(OctreeNode[] nodes, int direction, List<Integer> indexes, List<Integer> tri_count, float threshold, boolean isSeam, int chunkSize)
     {
         if (nodes[0] == null || nodes[1] == null || nodes[2] == null || nodes[3] == null)
             return;
 
+        // bit of a hack but it works: prevent overlapping seams by only processing edges that stradle multiple chunks
+        if(isSeam) {
+            Set<Vec3i> chunks = new HashSet<>();
+            for (int i = 0; i < 4; i++) {
+                chunks.add(chunkMinForPosition(nodes[i].min, chunkSize));
+            }
+            if (chunks.size() == 1)
+                return;
+        }
+
         if (nodes[0].Type == OctreeNodeType.Node_Leaf && nodes[1].Type == OctreeNodeType.Node_Leaf && nodes[2].Type == OctreeNodeType.Node_Leaf && nodes[3].Type == OctreeNodeType.Node_Leaf)
         {
+            // To avoid overlap seam mesh with chunk mesh. If all 4 nodes of seam belong to only one chunk, then this is not a seam.
+            if(isSeam &&
+                    (nodes[0].getChunk().equals(nodes[1].getChunk()) &&
+                            nodes[1].getChunk().equals(nodes[2].getChunk()) &&
+                            nodes[2].getChunk().equals(nodes[3].getChunk()))
+            ){
+                return;
+            }
             ProcessIndexes(nodes, direction, indexes, tri_count, threshold);
         }
         else
@@ -314,7 +337,7 @@ public class ManifoldDCOctreeImpl extends AbstractDualContouring implements Voxe
                     else
                         edge_nodes[j] = nodes[j].children[Utilities.TEdgeProcEdgeMask[direction][i] [j]];
                 }
-                ProcessEdge(edge_nodes, Utilities.TEdgeProcEdgeMask[direction][i][4], indexes, tri_count, threshold);
+                ProcessEdge(edge_nodes, Utilities.TEdgeProcEdgeMask[direction][i][4], indexes, tri_count, threshold, isSeam, chunkSize);
             }
         }
     }
