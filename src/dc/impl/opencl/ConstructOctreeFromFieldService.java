@@ -9,6 +9,11 @@ import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
 
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
 import static org.lwjgl.opencl.CL10.*;
 
 public class ConstructOctreeFromFieldService {
@@ -48,6 +53,8 @@ public class ConstructOctreeFromFieldService {
         clSetKernelArg1p(findActiveKernel, 2, leafEdgeInfoBuf.getMem());
         clSetKernelArg1p(findActiveKernel, 3, leafCodesBuf.getMem());
         clSetKernelArg1p(findActiveKernel, 4, leafMaterialsBuf.getMem());// ToDo check FindDominantMaterial
+        clSetKernelArg4i(findActiveKernel, 5, field.getMin().x, field.getMin().y, field.getMin().z, 0);
+        clSetKernelArg1i(findActiveKernel, 6, field.getSize());
 
         final int dimensions = 3;
         PointerBuffer globalWorkSize = BufferUtils.createPointerBuffer(dimensions);
@@ -130,13 +137,22 @@ public class ConstructOctreeFromFieldService {
         clSetKernelArg1i(createLeafNodesKernel, 8, edgeHashTable.getPrime());
         clSetKernelArg1p(createLeafNodesKernel, 9, edgeHashTable.getHashParams().getMem());
         clSetKernelArg1i(createLeafNodesKernel, 10, edgeHashTable.getStashUsed());
+        clSetKernelArg4i(createLeafNodesKernel, 11, field.getMin().x, field.getMin().y, field.getMin().z, 0);
+        clSetKernelArg1i(createLeafNodesKernel, 12, field.getSize());
+        clSetKernelArg1p(createLeafNodesKernel, 13, octree.getNodeMaterialsBuf().getMem());
 
         PointerBuffer createLeafNodesWorkSize = BufferUtils.createPointerBuffer(1);
         createLeafNodesWorkSize.put(0, octree.getNumNodes());
         int err = clEnqueueNDRangeKernel(ctx.getClQueue(), createLeafNodesKernel, 1, null, createLeafNodesWorkSize, null, null, null);
         OCLUtils.checkCLError(err);
 
-        OCLUtils.getQEFData(d_qefsBuf, qefs);
+
+        QefSolver[] qefs2 = new QefSolver[octree.getNumNodes()];
+        OCLUtils.getQEFData(d_qefsBuf, qefs2);
+        List<QefSolver> qefSolverList = Arrays.stream(qefs2)
+                .filter(Objects::nonNull)
+                .filter(e->e.massPoint.w==111)
+                .collect(Collectors.toList());
         OCLUtils.getNormals(octree.getVertexNormalsBuf(), d_vertexNormals);
 
         err = CL10.clReleaseKernel(createLeafNodesKernel);

@@ -143,13 +143,80 @@ int FindDominantMaterial(const int m[8])
 }
 
 // ---------------------------------------------------------------------------
+    int3 getChunkBorder(int4 pos){
+        int3 faces = {0, 0, 0};
+        // checks which side this node is facing
+        if (pos.x == 0)
+            faces.x = -1;
+        else if (pos.x == VOXELS_PER_CHUNK-1)
+            faces.x = 1;
+
+        if (pos.y == 0)
+            faces.y = -1;
+        else if (pos.y == VOXELS_PER_CHUNK-1)
+            faces.y = 1;
+
+        if (pos.z == 0)
+            faces.z = -1;
+        else if (pos.z == VOXELS_PER_CHUNK-1)
+            faces.z = 1;
+        return faces;
+    }
+
+    constant int3 EDGE_OFFSETS[12] = {
+        (int3)(1, 2, 0), (int3)(1, 0, 2),
+        (int3)(2, 1, 0), (int3)(0, 1, 2),
+        (int3)(2, 0, 1), (int3)(0, 2, 1),
+        (int3)(1, 0, 0), (int3)(0, 1, 0), (int3)(0, 0, 1),
+        (int3)(1, 2, 2), (int3)(2, 2, 1), (int3)(2, 1, 2)
+    };
+
+    bool tryToCreateBoundSeamPseudoNode(int4 chunkMin, int chunkSize, int4 pos, int corners, QEFData* qef){
+        int3 chunkBorders = getChunkBorder(pos);
+        int leafSize = (chunkSize / VOXELS_PER_CHUNK);
+        int4 leafMin = pos * leafSize + chunkMin;
+
+        // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
+        if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leafSize != LEAF_SIZE_SCALE) {
+            for (int i = 0; i < 12; i++) {
+                if ((chunkBorders.x != 0 && chunkBorders.x + 1 == EDGE_OFFSETS[i].x) ||
+                    (chunkBorders.y != 0 && chunkBorders.y + 1 == EDGE_OFFSETS[i].y) ||
+                    (chunkBorders.z != 0 && chunkBorders.z + 1 == EDGE_OFFSETS[i].z)) {
+
+                    // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
+                    qef->masspoint.x = leafMin.x + (EDGE_OFFSETS[i].x) * leafSize / 2;
+                    qef->masspoint.y = leafMin.y + (EDGE_OFFSETS[i].y) * leafSize / 2;
+                    qef->masspoint.z = leafMin.z + (EDGE_OFFSETS[i].z) * leafSize / 2;
+                    qef->masspoint.w = 111;
+
+                    float density = DensityFunc(qef->masspoint);
+                    if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
+                        qef->ATb.x = pos.x;
+                        qef->ATb.y = pos.y;
+                        qef->ATb.z = pos.z;
+                        qef->ATb.w = i;
+                        qef->ATA[0] = leafMin.x;
+                        qef->ATA[1] = leafMin.y;
+                        qef->ATA[2] = leafMin.z;
+                        qef->ATA[3] = leafSize;
+                        qef->ATA[4] = corners;
+                        qef->ATA[5] = density;
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
 
 kernel void FindActiveVoxels(
 	global int* materials,
 	global int* voxelOccupancy,
 	global int* voxelEdgeInfo,
 	global int* voxelPositions,
-	global int* voxelMaterials)
+	global int* voxelMaterials,
+	const int4 chunkMin,
+    const int chunkSize)
 {
 	const int x = get_global_id(0);
 	const int y = get_global_id(1);
@@ -196,7 +263,12 @@ kernel void FindActiveVoxels(
 		edgeList |= (signChange << i);
 	}
 
-	voxelOccupancy[index] = cornerValues != 0 && cornerValues != 255;
+	QEFData qef;
+	bool haveVoxel = false;
+	if (cornerValues == 0 || cornerValues == 255) {
+	    haveVoxel = tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, pos, cornerValues, &qef);
+	}
+	voxelOccupancy[index] = haveVoxel || (cornerValues != 0 && cornerValues != 255) ? 1 : 0;
 	voxelPositions[index] = CodeForPosition(pos, MAX_OCTREE_DEPTH);
 	voxelEdgeInfo[index] = edgeList;
 
@@ -237,6 +309,20 @@ constant int EDGE_VERTEX_MAP[12][2] =
 };
 
 // ---------------------------------------------------------------------------
+    float4 calculateSurfaceNormal(float4 p)
+    {
+    	const float h = 0.001f;
+    	const float4 xOffset = { h, 0, 0, 0 };
+    	const float4 yOffset = { 0, h, 0, 0 };
+    	const float4 zOffset = { 0, 0, h, 0 };
+
+    	const float dx = DensityFunc(p + xOffset) - DensityFunc(p - xOffset);
+    	const float dy = DensityFunc(p + yOffset) - DensityFunc(p - yOffset);
+    	const float dz = DensityFunc(p + zOffset) - DensityFunc(p - zOffset);
+
+    	const float3 normal = normalize((float3)(dx, dy, dz));
+    	return (float4)(normal, 0);
+    }
 
 kernel void CreateLeafNodes(
 	const int sampleScale,
@@ -249,13 +335,26 @@ kernel void CreateLeafNodes(
 	global ulong* cuckoo_stash,
 	const uint   cuckoo_prime,
 	global uint* cuckoo_hashParams,
-	const int    cuckoo_checkStash)
+	const int    cuckoo_checkStash,
+    const int4 chunkMin,
+    const int chunkSize,
+    global int* voxelMaterials)
 {
 	const int index = get_global_id(0);
 
 	const int encodedPosition = voxelPositions[index];
 	const int4 position = PositionForCode(encodedPosition);
 	const float4 position_f = convert_float4(position);
+	const int corners = voxelMaterials[index] & 255;
+	QEFData qef;
+	if (corners==0 || corners==255){
+        tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, position, corners, &qef);
+        if(qef.masspoint.w==111){
+            leafQEFs[index] = qef;
+            vertexNormals[index] = calculateSurfaceNormal(qef.masspoint);
+        }
+        return;
+	}
 
 	const int edgeInfo = voxelEdgeInfo[index];
 	const int edgeList = edgeInfo;
@@ -299,7 +398,6 @@ kernel void CreateLeafNodes(
 		}
 	}
 
-	QEFData qef;
 	qef_create_from_points(edgePositions, edgeNormals, edgeCount, &qef);
 	leafQEFs[index] = qef;
 
@@ -334,6 +432,12 @@ kernel void SolveQEFs(
 	const int index = get_global_id(0);
 
 	QEFData qef = qefs[index];
+	if(qef.masspoint.w==111){
+    	//qef.masspoint.w = 1.f;
+	    solvedPositions[index] = qef.masspoint;
+	    return;
+	}
+
 	float4 pos = { 0.f, 0.f, 0.f, 0.f };
 	qef_solve(&qef, &pos);
 
