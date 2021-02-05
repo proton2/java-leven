@@ -189,7 +189,7 @@ public class OCLUtils {
         if(openCLContext==null) {
             try {
                 openCLContext = createOpenCLContext();
-            } catch (OclException e) {
+            } catch (Throwable e) {
                 return null;
             }
         }
@@ -209,7 +209,7 @@ public class OCLUtils {
         return rkwgs.getLong(0);
     }
 
-    private static ComputeContext createOpenCLContext() throws OclException {
+    private static ComputeContext createOpenCLContext() throws Throwable {
         long clPlatform = 0L;
         CLCapabilities clPlatformCapabilities = null;
         CLContextCallback clContextCB;
