@@ -5,7 +5,9 @@ import core.buffers.MeshDcVBO;
 import core.configs.CW;
 import core.kernel.Camera;
 import core.kernel.Input;
+import core.math.Matrix4f;
 import core.math.Vec3f;
+import core.math.Vec4f;
 import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.scene.GameObject;
@@ -29,7 +31,7 @@ import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
     private final ChunkOctree chunkOctree;
-    private final KernelsHolder kernelHolder;
+    private KernelsHolder kernelHolder;
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
     private final MeshGenerationContext meshGenCtx;
@@ -38,22 +40,26 @@ public class ChunkOctreeWrapper extends GameObject {
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
-        SimplexNoise.getInstance("./res/textures/floatArray.dat", meshGenCtx.worldSizeXZ);
+        SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = OCLUtils.getOpenCLContext();
-        StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
-        kernelHolder = new KernelsHolder(ctx);
-        kernelHolder.buildKernel(KernelNames.DENSITY, kernelBuildOptions);
-        kernelHolder.buildKernel(KernelNames.FIND_DEFAULT_EDGES, kernelBuildOptions);
-        kernelHolder.buildKernel(KernelNames.SCAN, null);
-        kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
-        kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
-
-        //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
-        //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
-        //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
-        VoxelOctree voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
+        VoxelOctree voxelOctree;
+        if(ctx!=null) {
+            StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
+            kernelHolder = new KernelsHolder(ctx);
+            kernelHolder.buildKernel(KernelNames.DENSITY, kernelBuildOptions);
+            kernelHolder.buildKernel(KernelNames.FIND_DEFAULT_EDGES, kernelBuildOptions);
+            kernelHolder.buildKernel(KernelNames.SCAN, null);
+            kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
+            kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
+            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
+        } else{
+            //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
+            //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
+            //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
+            //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+            //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
+            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+        }
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx);
 
         Camera.getInstance().setPosition(new Vec3f(-286,0,-1908));
@@ -92,7 +98,9 @@ public class ChunkOctreeWrapper extends GameObject {
     }
 
     public void cleanUp(){
-        kernelHolder.destroyContext();
+        if(kernelHolder!=null) {
+            kernelHolder.destroyContext();
+        }
         chunkOctree.clean();
     }
 
