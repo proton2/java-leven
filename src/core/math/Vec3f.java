@@ -238,4 +238,20 @@ public class Vec3f {
 	public static Vec3f max(Vec3f v, Vec3f dest) {
 		return new Vec3f(Math.max(dest.X, v.X), Math.max(dest.Y, v.Y), Math.max(dest.Z, v.Z));
 	}
+
+	public float[] to1dArray(){
+		return new float[] {X, Y, Z};
+	}
+
+	public Vec3i getVec3i(){
+		return new Vec3i(this.X, this.Y, this.Z);
+	}
+
+	public Vec3f scaleAdd(float scalar, Vec3f add) {
+		Vec3f res = new Vec3f();
+		res.X = X * scalar + add.X;
+		res.Y = Y * scalar + add.Y;
+		res.Z = Z * scalar + add.Z;
+		return res;
+	}
 }
