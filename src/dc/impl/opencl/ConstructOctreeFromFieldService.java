@@ -63,7 +63,7 @@ public class ConstructOctreeFromFieldService {
         int numNodes = scanService.exclusiveScan(leafOccupancyBuf, voxelScanBuf, chunkBufferSize);
         octree.setNumNodes(numNodes);
         if(numNodes<=0){
-            System.out.println("no voxels");
+            //System.out.println("no voxels");
             bufferGpuService.releaseAll();
             return -1;
         }

@@ -47,6 +47,10 @@ public class Vec4f {
 	public Vec3f getVec3f(){
 		return new Vec3f(this.x, this.y, this.z);
 	}
+
+	public Vec3i getVec3i(){
+		return new Vec3i(this.x, this.y, this.z);
+	}
 	
 	public Vec4f(Vec3f v, float w){
 		this.setX(v.getX());
@@ -114,6 +118,13 @@ public class Vec4f {
 		float z_ = z*r;
 		return new Vec4f(x_, y_, z_, w_);
 	}
+
+	public Vec3f mul3f(float r) {
+		float x_ = x*r;
+		float y_ = y*r;
+		float z_ = z*r;
+		return new Vec3f(x_, y_, z_);
+	}
 	
 	public Vec4f sub(Vec4f r)
 	{
@@ -122,6 +133,13 @@ public class Vec4f {
 		float y_ = y - r.getY();
 		float z_ = z - r.getZ();
 		return new Vec4f(x_, y_, z_, w_);
+	}
+
+	public Vec3f sub(Vec3f r) {
+		float x_ = x - r.getX();
+		float y_ = y - r.getY();
+		float z_ = z - r.getZ();
+		return new Vec3f(x_, y_, z_);
 	}
 	
 	public Vec4f add(Vec4f r)
@@ -205,5 +223,21 @@ public class Vec4f {
 
 	public void setW(float w) {
 		this.w = w;
+	}
+
+	public void set(float x, float y, float z, float v) {
+		this.setX(x);
+		this.setY(y);
+		this.setZ(z);
+		this.setW(w);
+	}
+
+	public Vec4f mul(Matrix4f m) {
+		Vec4f res = new Vec4f(0,0,0,0);
+		res.setX(m.get(0,0) * getX() + m.get(0,1) * getY() + m.get(0,2) * getZ() + m.get(0,3) * getW());
+		res.setY(m.get(1,0) * getX() + m.get(1,1) * getY() + m.get(1,2) * getZ() + m.get(1,3) * getW());
+		res.setZ(m.get(2,0) * getX() + m.get(2,1) * getY() + m.get(2,2) * getZ() + m.get(2,3) * getW());
+		res.setW(m.get(3,0) * getX() + m.get(3,1) * getY() + m.get(3,2) * getZ() + m.get(3,3) * getW());
+		return res;
 	}
 }

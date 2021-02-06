@@ -65,8 +65,10 @@ public class BufferUtil {
 			buffer.put(vertices[i].getNormal().getX());
 			buffer.put(vertices[i].getNormal().getY());
 			buffer.put(vertices[i].getNormal().getZ());
-			buffer.put(vertices[i].getTextureCoord().getX());
-			buffer.put(vertices[i].getTextureCoord().getY());
+			if(vertices[i].getTextureCoord()!=null) {
+				buffer.put(vertices[i].getTextureCoord().getX());
+				buffer.put(vertices[i].getTextureCoord().getY());
+			}
 
 //			if (vertices[i].getTangent() != null && vertices[i].getBitangent() != null){
 //				buffer.put(vertices[i].getTangent().getX());
