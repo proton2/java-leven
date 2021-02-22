@@ -64,7 +64,8 @@ public class ChunkOctree {
             List<RenderMesh> meshes = new ArrayList<>();
             if(renderMeshes!=null) {
                 for (RenderMesh renderMesh : renderMeshes) {
-                    if (Frustum.cubeIntoFrustum(camera.getFrustumPlanes(), renderMesh.min, renderMesh.size)) {
+                    //if (Frustum.cubeIntoFrustum(camera.getFrustumPlanes(), renderMesh.min, renderMesh.size))
+                    {
                         meshes.add(renderMesh);
                     }
                 }

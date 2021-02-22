@@ -54,8 +54,6 @@ public class JBulletPhysics implements Physics {
     private short PHYSICS_GROUP_PLAYER = 4;
     private short PHYSICS_FILTER_ALL = (short) (PHYSICS_GROUP_WORLD | PHYSICS_GROUP_ACTOR | PHYSICS_GROUP_PLAYER);
     private short PHYSICS_FILTER_NOT_PLAYER = (short) (PHYSICS_FILTER_ALL & ~PHYSICS_GROUP_PLAYER);
-    private static Vec3f convVec3f = new Vec3f();
-    private static Transform confTransform = new Transform();
 
 
     private void EnqueuePhysicsOperation(PhysicsOperationType opType, Runnable op) {
@@ -96,7 +94,8 @@ public class JBulletPhysics implements Physics {
         g_operationQueue = new ConcurrentLinkedQueue<>();
         Physics_Initialise(g_worldBounds);
         g_player = new Player();
-        Physics_SpawnPlayer(new Vec3f(-500.f, 4000.f, -500.f));
+        //Physics_SpawnPlayer(new Vec3f(-500.f, 4000.f, -500.f));
+        Physics_SpawnPlayer(new Vec3f(906,-1509,-2694));
         collisionPos = new Vec3f();
         collisionNorm = new Vec3f();
     }
@@ -295,7 +294,7 @@ public class JBulletPhysics implements Physics {
     public Vec3f Physics_GetPlayerPosition() {
         // TODO not thread safe
         if (g_player.body!=null) {
-            Vector3f origin = g_player.body.getWorldTransform(confTransform).origin;
+            Vector3f origin = g_player.body.getWorldTransform(new Transform()).origin;
             Vec3f position = new Vec3f(origin.x, origin.y, origin.z);
 
 		    float eyeOffset = (PLAYER_HEIGHT / 2.f) - 10.f;
@@ -431,6 +430,10 @@ public class JBulletPhysics implements Physics {
         Transform playerGhostTransform = new Transform();
         Vector3f bodyWorldTransformOrig = g_player.body.getWorldTransform(playerGhostTransform).origin;
         playerGhostTransform.origin.set(bodyWorldTransformOrig);
-        g_player.ghost.setWorldTransform(playerGhostTransform);
+
+        Transform ghostWorldTransform = new Transform();
+        g_player.ghost.getWorldTransform(ghostWorldTransform);
+        ghostWorldTransform.origin.set(bodyWorldTransformOrig);
+        g_player.ghost.setWorldTransform(ghostWorldTransform);
     }
 }

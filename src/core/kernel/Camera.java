@@ -69,7 +69,7 @@ public class Camera {
 	protected Camera() {
 		//this(new Vec3f(575,-930,-899), new Vec3f(-0.01f,-0.61f,0.78f).normalize(), new Vec3f(-0.f,0.78f,0.61f));
 		//this(new Vec3f(-286,-753,-1908), new Vec3f(0.54f,-0.31f,0.77f).normalize(), new Vec3f(0.18f,0.94f,0.26f));
-		this(new Vec3f(906,-3109,-2694), new Vec3f(-0.12f,-0.99f,-0.001f).normalize(), new Vec3f(-0.99f,0.12f,-0.008f));
+		this(new Vec3f(906,-1509,-2694), new Vec3f(-0.12f,-0.99f,-0.001f).normalize(), new Vec3f(-0.99f,0.12f,-0.008f));
 		setProjection(70, Window.getInstance().getWidth(), Window.getInstance().getHeight());
 		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
@@ -282,11 +282,11 @@ public class Camera {
 //		right = yawMatrix.mul(right);
 
 		if(physics!=null) {
-			//setPosition(physics.Physics_GetPlayerPosition());
+			setPosition(physics.Physics_GetPlayerPosition());
 			velocity = velocity.add(forward.mul(movAmt));
 			velocity = velocity.add(up.mul(movAmt));
 			velocity = velocity.add(getRight().mul(movAmt));
-			physics.Physics_SetPlayerVelocity(velocity);
+			//physics.Physics_SetPlayerVelocity(velocity);
 		}
 		initfrustum();
 	}
