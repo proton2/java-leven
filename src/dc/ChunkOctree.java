@@ -1,20 +1,24 @@
 package dc;
 
 import core.kernel.Camera;
-import core.math.Vec3f;
-import core.math.Vec3i;
+import core.math.*;
+import core.physics.Physics;
+import core.physics.WorldCollisionNode;
+import core.utils.Constants;
+import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.impl.GPUDensityField;
 import dc.impl.MeshGenerationContext;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
-import dc.utils.SimplexNoise;
+import dc.utils.RenderShape;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -26,16 +30,30 @@ public class ChunkOctree {
     private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
     private List<RenderMesh> invalidateMeshes;
+    private ConcurrentLinkedDeque<CSGOperationInfo> g_operationQueue = new ConcurrentLinkedDeque<>();
+    private final Physics physics;
+    private Vec3f camRayEnd;
+    private boolean checkRayCollision;
+
+    public Vec3f getCamRayEnd() {
+        return camRayEnd;
+    }
+
+    public Vec3f getRayCollisionPos(){
+        return physics.getCollisionPos();
+    }
 
     public List<RenderMesh> getInvalidateMeshes() {
         return invalidateMeshes;
     }
 
-    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen) {
+    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, boolean rayCast) {
         this.meshGen = meshGen;
+        this.physics = physics;
         this.voxelOctree = voxelOctree;
         service = Executors.newFixedThreadPool(1);
         buildChunkOctree();
+        this.checkRayCollision = rayCast;
         update(Camera.getInstance());
     }
 
@@ -56,24 +74,23 @@ public class ChunkOctree {
     }
 
     private void buildChunkOctree() {
-        root = new ChunkNode();
-
-        Vec3i worldSize = new Vec3i(meshGen.worldSizeXZ, meshGen.worldSizeY, meshGen.worldSizeXZ);
-        Vec3i worldOrigin = new Vec3i(0);
-        Vec3i worldBoundsMin = worldOrigin.sub(worldSize.div(2));
-        Vec3i worldBoundsMax = worldOrigin.add(worldSize.div(2));
-
+        Vec3i worldBoundsMin = meshGen.worldOrigin.sub(meshGen.worldSize.div(2));
+        Vec3i worldBoundsMax = meshGen.worldOrigin.add(meshGen.worldSize.div(2));
         Vec3i boundsSize = worldBoundsMax.sub(worldBoundsMin);
+        Vec3i boundsCentre = worldBoundsMin.add(boundsSize.div(2));
         float maxSize = Math.max(boundsSize.x, Math.max(boundsSize.y, boundsSize.z));
+
         int factor = (int) maxSize / meshGen.clipmapLeafSize;
         factor = 1 << VoxelHelperUtils.log2(factor);
         while ((factor * meshGen.clipmapLeafSize) < maxSize) {
             factor *= 2;
         }
+
+        root = new ChunkNode();
         root.size = factor * meshGen.clipmapLeafSize;
-        Vec3i boundsCentre = worldBoundsMin.add(boundsSize.div(2));
         root.min = boundsCentre.sub(new Vec3i(root.size / 2));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
+        root.worldNode = new WorldCollisionNode();
 
         constructChildrens(root);
     }
@@ -86,6 +103,7 @@ public class ChunkOctree {
             ChunkNode child = new ChunkNode();
             child.size = node.size / 2;
             child.min = node.min.add(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(child.size));
+            child.worldNode = new WorldCollisionNode();
             node.children[i] = child;
         }
         for (int i = 0; i < 8; i++) {
@@ -158,10 +176,18 @@ public class ChunkOctree {
         } else {
             update(camera);
         }
+
+        float rayLength = Constants.ZFAR;
+        Vec3f start = cam.getPosition();
+        camRayEnd = cam.getForward().scaleAdd(rayLength, start);
+        if(checkRayCollision) {
+            physics.Physics_CastRay(start, camRayEnd);
+        }
     }
 
     public void clean(){
         service.shutdown();
+        physics.Physics_Shutdown();
     }
 
     public void update(Camera camera) {
@@ -201,6 +227,9 @@ public class ChunkOctree {
             if (filteredNode.renderMesh !=null || (filteredNode.chunkBorderNodes !=null && filteredNode.chunkBorderNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
+                if(checkRayCollision) {
+                    physics.Physics_UpdateWorldNodeMainMesh(true, filteredNode);
+                }
             } else {
                 filteredNode.empty = true; // no meshes in chunk - empty chunk
                 emptyNodes.add(filteredNode);
@@ -230,6 +259,9 @@ public class ChunkOctree {
                 seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
+            if(checkRayCollision && seamUpdateNode.seamMesh!=null) {
+                physics.Physics_UpdateWorldNodeMainMesh(false, seamUpdateNode);
+            }
         }
         this.renderMeshes = getRenderMeshes(activeNodes);
         this.invalidateMeshes = invalidatedMeshes;
@@ -256,6 +288,9 @@ public class ChunkOctree {
         nodes.addAll(seamNodes);
         MeshBuffer meshBuffer = new MeshBuffer();
         voxelOctree.processNodesToMesh(nodes, node.min, node.size, true, meshBuffer);
+        if(meshBuffer.getNumIndicates() < 1){
+            return;
+        }
         node.seamMesh = new RenderMesh(node.min, node.size, meshBuffer);
     }
 
@@ -326,25 +361,12 @@ public class ChunkOctree {
         }
     }
 
-
-
     private boolean filterNodesForDebug(ChunkNode filteredNode){
-        boolean res =
-//                filteredNode.min.x > -256 && filteredNode.min.x < 512 &&
-//                filteredNode.min.z > -1536 && filteredNode.min.z < 128;
-
-//                filteredNode.min.x > 2816 && filteredNode.min.x < 3584 &&
-//                        filteredNode.min.z > 1024 && filteredNode.min.z < 2048
-//                &&
-                        (
-                        //(filteredNode.min.x==3072 && filteredNode.min.y==-2048 && filteredNode.min.z==1280) ||
-                        //(filteredNode.min.x==3328 && filteredNode.min.y==-2048 && filteredNode.min.z==1280) ||
-                        //(filteredNode.min.x==3072 && filteredNode.min.y==-2048 && filteredNode.min.z==1536) ||
-                        //(filteredNode.min.x==3072 && filteredNode.min.y==-2048 && filteredNode.min.z==1792) ||
-                        (filteredNode.min.x==3328 && filteredNode.min.y==-2048 && filteredNode.min.z==1536) ||
-                        (filteredNode.min.x==3072 && filteredNode.min.y==-2560 && filteredNode.min.z==1536)
-                );
-        return res;
+        Aabb bbox = new Aabb(filteredNode.min, filteredNode.size);
+        if (bbox.pointIsInside(Camera.getInstance().getPosition())) {
+            return true;
+        }
+        return false;
     }
 
     private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){
@@ -389,6 +411,106 @@ public class ChunkOctree {
         node.empty = true;
         for (int i = 0; i < 8; i++) {
             propagateEmptyStateDownward(node.children[i]);
+        }
+    }
+
+    Aabb calcCSGOperationBounds(CSGOperationInfo opInfo) {
+	    Vec3i boundsHalfSize = (opInfo.getDimensions().mul3f(meshGen.leafSizeScale)).add(meshGen.CSG_BOUNDS_FUDGE);
+        Vec3i scaledOrigin = (opInfo.getOrigin().sub(meshGen.CSG_OFFSET)).mul3i((float)meshGen.leafSizeScale);
+        return new Aabb(scaledOrigin.sub(boundsHalfSize), scaledOrigin.add(boundsHalfSize));
+    }
+
+    Aabb calcSelectOperationBounds(CSGOperationInfo opInfo) {
+        Vec3i boundsHalfSize = (opInfo.getDimensions().mul3f(meshGen.leafSizeScale)).add(meshGen.CSG_BOUNDS_FUDGE);
+        Vec3i scaledOrigin = (opInfo.getOrigin().sub(meshGen.CSG_OFFSET)).mul3i((float)meshGen.leafSizeScale);
+        return new Aabb(scaledOrigin.sub(boundsHalfSize), scaledOrigin.add(boundsHalfSize));
+    }
+
+    public void queueCSGOperation(Vec3f origin, Vec3f brushSize, RenderShape brushShape, int brushMaterial, boolean isAddOperation) {
+        CSGOperationInfo opInfo = new CSGOperationInfo();
+        opInfo.setOrigin(new Vec4f(origin.div((float)meshGen.leafSizeScale).add(meshGen.CSG_OFFSET), 0.f));
+        opInfo.setDimensions(new Vec4f(brushSize.div(2.f), 0.f).div((float)meshGen.leafSizeScale));
+        opInfo.setBrushShape(brushShape);
+        opInfo.setMaterial(isAddOperation ? brushMaterial : meshGen.MATERIAL_AIR);
+        opInfo.setType(isAddOperation ? 0 : 1);
+
+        g_operationQueue.addLast(opInfo);
+    }
+
+    void processCSGOperationsImpl(){
+            ArrayList<CSGOperationInfo> operations = new ArrayList<>(g_operationQueue);
+            g_operationQueue.clear();
+
+        if (operations.isEmpty()) {
+            return;
+        }
+
+        Set<ChunkNode> touchedNodes = new HashSet<>();
+        for (CSGOperationInfo opInfo: operations){
+            //touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
+            //new Aabb(opInfo.getMouseDir().sub(boundsHalfSize), opInfo.getMouseDir().add(boundsHalfSize));
+            touchedNodes.addAll(findSelectedNodes(calcCSGOperationBounds(opInfo)));
+        }
+        System.out.println(touchedNodes.size());
+    }
+
+    void findSelectedNodes(ChunkNode node, Aabb aabb, List<ChunkNode> nodes) {
+        if (node==null) {
+            return;
+        }
+
+        Aabb nodeBB = new Aabb(node.min, node.size);
+        if (!aabb.overlaps(nodeBB)) {
+            return;
+        }
+
+        for (int i = 0; i < 8; i++) {
+            findNodesInsideAABB(node.children[i], aabb, nodes);
+        }
+
+        // traversal order is arbitrary
+        if (node.active && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
+            nodes.add(node);
+        }
+    }
+
+    void findNodesInsideAABB(ChunkNode node, Aabb aabb, List<ChunkNode> nodes) {
+        if (node==null) {
+            return;
+        }
+
+        Aabb nodeBB = new Aabb(node.min, node.size);
+        if (!aabb.overlaps(nodeBB)) {
+            return;
+        }
+
+        for (int i = 0; i < 8; i++) {
+            findNodesInsideAABB(node.children[i], aabb, nodes);
+        }
+
+        // traversal order is arbitrary
+        if (node.active && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
+            nodes.add(node);
+        }
+    }
+
+    List<ChunkNode> findSelectedNodes(Aabb aabb) {
+        ArrayList<ChunkNode> nodes = new ArrayList<>();
+        findNodesInsideAABB(root, aabb, nodes);
+        return nodes;
+    }
+
+    List<ChunkNode> findNodesInsideAABB(Aabb aabb) {
+        ArrayList<ChunkNode> nodes = new ArrayList<>();
+        findNodesInsideAABB(root, aabb, nodes);
+        return nodes;
+    }
+
+    public void processCSGOperations(boolean multiTread) {
+        if (multiTread) {
+            service.submit(this::processCSGOperationsImpl);
+        } else {
+            processCSGOperationsImpl();
         }
     }
 }

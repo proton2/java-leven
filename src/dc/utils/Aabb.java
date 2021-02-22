@@ -39,6 +39,12 @@ public class Aabb {
                 (point.z >= min.z && point.z < max.z);
     }
 
+    public boolean pointIsInside(Vec3f point) {
+        return (point.X >= min.x && point.X < max.x) &&
+                (point.Y >= min.y && point.Y < max.y) &&
+                (point.Z >= min.z && point.Z < max.z);
+    }
+
     Vec3i getOrigin() {
 		Vec3i dim = max.sub(min);
         return min.add(dim.div(2));

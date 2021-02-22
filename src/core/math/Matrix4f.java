@@ -2,6 +2,8 @@ package core.math;
 
 import core.kernel.Window;
 
+import java.nio.FloatBuffer;
+
 
 public class Matrix4f {
 
@@ -41,6 +43,10 @@ public class Matrix4f {
 		mat[14] = m[3][2];
 		mat[15] = m[3][3];
 		return mat;
+	}
+
+	public FloatBuffer convToFloatBuff(){
+		return FloatBuffer.wrap(contTo1dFloat());
 	}
 	
 	public Matrix4f Identity()

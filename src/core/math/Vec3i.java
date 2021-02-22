@@ -1,5 +1,7 @@
 package core.math;
 
+import com.jme3.math.Vector3f;
+
 public class Vec3i {
     public int x;
     public int y;
@@ -27,6 +29,10 @@ public class Vec3i {
 
     public Vec3f toVec3f(){
         return new Vec3f(this.x, this.y, this.z);
+    }
+
+    public Vector3f toVector3f(){
+        return new Vector3f(this.x, this.y, this.z);
     }
 
     public Vec4f toVec4f(){
@@ -85,6 +91,13 @@ public class Vec3i {
         this.z = z;
     }
 
+    public void set(Vec3i that)
+    {
+        this.x = that.x;
+        this.y = that.y;
+        this.z = that.z;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -112,5 +125,20 @@ public class Vec3i {
 
     public int[] to1dArray(){
         return new int[] {x, y, z};
+    }
+
+    private int sign(int x){
+        return Integer.compare(x, 0);
+    }
+
+    Vec3i snapPositionToBrushCentre(Vec3i position, Vec3i brushSize) {
+        Vec3i halfBrushSize = brushSize.div(2);
+
+        // round the position toward the next half size position, when in quadrants with -ve values
+        // we need to snap in the opposite direction, so control the direction by multiplying by sign()
+        return new Vec3i(
+                position.x + (sign(position.x) * halfBrushSize.x - (position.x % brushSize.x)),
+                position.y + (sign(position.y) * halfBrushSize.y - (position.y % brushSize.y)),
+                position.z + (sign(position.z) * halfBrushSize.z - (position.z % brushSize.z)));
     }
 }
