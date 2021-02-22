@@ -1,9 +1,9 @@
 package core.physics;
 
-import com.badlogic.gdx.math.Vector3;
-import com.badlogic.gdx.physics.bullet.collision.*;
-import com.badlogic.gdx.physics.bullet.dynamics.*;
-import com.badlogic.gdx.utils.SharedLibraryLoader;
+//import com.badlogic.gdx.math.Vector3;
+//import com.badlogic.gdx.physics.bullet.collision.*;
+//import com.badlogic.gdx.physics.bullet.dynamics.*;
+//import com.badlogic.gdx.utils.SharedLibraryLoader;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import dc.ChunkNode;
@@ -22,39 +22,43 @@ import static core.physics.PhysicsOperationType.PhysicsOp_RayCast;
 import static core.physics.PhysicsOperationType.PhysicsOp_WorldUpdate;
 
 public class LibGdxBulletPhysics implements Physics{
-
     final public static Logger logger = Logger.getLogger(LibGdxBulletPhysics.class.getName());
-
-    // i.e. 1 voxel is PHYSICS_SCALE meters
-    //final float PHYSICS_SCALE = 0.05f;
-    final float PHYSICS_SCALE = 1f;
-    public btCollisionWorld collisionWorld;
-
-    private Aabb g_worldBounds;
-    private boolean g_physicsQuit = false;
-    private ConcurrentLinkedQueue<Runnable> g_operationQueue;
-    private Thread g_physicsThread;
-    private ExecutorService service;
-    private volatile boolean g_rayCastPending = false;
-    private Vector3 collisionPos;
-    private Vector3 collisionNorm;
     private Vec3f collPos = new Vec3f();
     private Vec3f collNorm = new Vec3f();
+//    final float PHYSICS_SCALE = 1f;
+//    public btCollisionWorld collisionWorld;
+//    private Aabb g_worldBounds;
+//    private boolean g_physicsQuit = false;
+//    private ConcurrentLinkedQueue<Runnable> g_operationQueue;
+//    private Thread g_physicsThread;
+//    private ExecutorService service;
+//    private volatile boolean g_rayCastPending = false;
+//    private Vector3 collisionPos = new Vector3();
+//    private Vector3 collisionNorm = new Vector3();
+//    private float closestHitFraction = Float.MAX_VALUE;
+//    ClosestRayResultCallback rayTestCB;
+//    Vector3 rayFrom = new Vector3();
+//    Vector3 rayTo = new Vector3();
+//    public int maxSubSteps = 5;
+//    public float fixedTimeStep = 1f / 60f;
 
-    private float closestHitFraction = Float.MAX_VALUE;
+    public LibGdxBulletPhysics(Aabb g_worldBounds) {
+//        service = Executors.newFixedThreadPool(6);
+//        g_operationQueue = new ConcurrentLinkedQueue<>();
+//        Physics_Initialise(g_worldBounds);
+    }
 
-    ClosestRayResultCallback rayTestCB;
-    Vector3 rayFrom = new Vector3();
-    Vector3 rayTo = new Vector3();
-    public int maxSubSteps = 5;
-    public float fixedTimeStep = 1f / 60f;
+    @Override
+    public void Physics_TogglePlayerNoClip() {
+    }
 
-    private void EnqueuePhysicsOperation(PhysicsOperationType opType, Runnable op) {
-        try {
-            g_operationQueue.add(op);
-        } catch (Throwable e){
-            e.printStackTrace();
-        }
+    @Override
+    public void Physics_PlayerJump() {
+    }
+
+    @Override
+    public Vec3f Physics_GetPlayerPosition() {
+        return new Vec3f();
     }
 
     @Override
@@ -67,24 +71,58 @@ public class LibGdxBulletPhysics implements Physics{
         return collPos;
     }
 
-    private Vec3f Scale_WorldToPhysics(Vec3f worldValue) {
-        return new Vec3f(worldValue.X * PHYSICS_SCALE, worldValue.Y * PHYSICS_SCALE, worldValue.Z * PHYSICS_SCALE);
+    @Override
+    public void Physics_SetPlayerVelocity(Vec3f velocity) {
+
     }
 
-    private Vector3f Scale_WorldToPhysics(Vector3f worldValue) {
-        return new Vector3f(worldValue.x * PHYSICS_SCALE, worldValue.y * PHYSICS_SCALE, worldValue.z * PHYSICS_SCALE);
+    @Override
+    public void Physics_UpdateWorldNodeMainMesh(boolean updateMain, ChunkNode chunkNode) {
+//        if((updateMain && chunkNode.renderMesh==null) || (!updateMain && chunkNode.seamMesh==null)){
+//            return;
+//        }
+//        MeshBuffer meshBuffer = updateMain ? chunkNode.renderMesh.meshBuffer : chunkNode.seamMesh.meshBuffer;
+//        EnqueuePhysicsOperation(PhysicsOp_WorldUpdate,
+//                ()->UpdateCollisionNode(updateMain, chunkNode.worldNode, chunkNode.min, meshBuffer));
     }
 
-    private Vector3f Scale_PhysicsToWorld(Vector3f worldValue) {
-        return new Vector3f(worldValue.x / PHYSICS_SCALE, worldValue.y / PHYSICS_SCALE, worldValue.z / PHYSICS_SCALE);
+    @Override
+    public void RemoveMeshData(PhysicsMeshData meshData) {
+//        collisionWorld.removeCollisionObject(meshData.gdxBody);
+//        meshData.body = null;
+//        meshData.shape = null;
+//        meshData.buffer = null;
     }
 
-    public LibGdxBulletPhysics(Aabb g_worldBounds) {
-        service = Executors.newFixedThreadPool(1);
-        g_operationQueue = new ConcurrentLinkedQueue<>();
-        Physics_Initialise(g_worldBounds);
-        collisionPos = new Vector3();
-        collisionNorm = new Vector3();
+    @Override
+    public void Physics_CastRay(Vec3f start, Vec3f end) {
+//        if (!g_rayCastPending) {
+//            g_rayCastPending = true;
+//            EnqueuePhysicsOperation(PhysicsOp_RayCast, () -> CastRayImpl(start, end));
+//        }
+    }
+
+    @Override
+    public void Physics_Shutdown() {
+//        g_operationQueue.clear();
+//        g_physicsQuit = true;
+//        try {
+//            g_physicsThread.join();
+//        } catch (InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//        if (rayTestCB != null) rayTestCB.dispose();
+//        rayTestCB = null;
+//        collisionWorld.dispose();
+    }
+
+    /*
+    private void EnqueuePhysicsOperation(PhysicsOperationType opType, Runnable op) {
+        try {
+            g_operationQueue.add(op);
+        } catch (Throwable e){
+            e.printStackTrace();
+        }
     }
 
     private void Physics_Initialise(Aabb worldBounds) {
@@ -115,15 +153,6 @@ public class LibGdxBulletPhysics implements Physics{
         g_physicsThread.start();
 
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Physics", "Initialise"});
-    }
-
-    @Override
-    public void Physics_UpdateWorldNodeMainMesh(boolean updateMain, ChunkNode chunkNode) {
-        if((updateMain && chunkNode.renderMesh==null) || (!updateMain && chunkNode.seamMesh==null)){
-            return;
-        }
-        MeshBuffer meshBuffer = updateMain ? chunkNode.renderMesh.meshBuffer : chunkNode.seamMesh.meshBuffer;
-        EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, ()->UpdateCollisionNode(updateMain, chunkNode.worldNode, chunkNode.min, meshBuffer));
     }
 
     // call after node is update (CSG operation)
@@ -194,14 +223,6 @@ public class LibGdxBulletPhysics implements Physics{
         }
     }
 
-    @Override
-    public void RemoveMeshData(PhysicsMeshData meshData) {
-        collisionWorld.removeCollisionObject(meshData.gdxBody);
-        meshData.body = null;
-        meshData.shape = null;
-        meshData.buffer = null;
-    }
-
     private void CastRayImpl(Vec3f start, Vec3f end){
         Vector3 rayStart = new Vector3(start.X, start.Y, start.Z);
         Vector3 rayEnd = new Vector3(end.X, end.Y, end.Z);
@@ -236,14 +257,6 @@ public class LibGdxBulletPhysics implements Physics{
         g_rayCastPending = false;
     }
 
-    @Override
-    public void Physics_CastRay(Vec3f start, Vec3f end) {
-        if (!g_rayCastPending) {
-            g_rayCastPending = true;
-            EnqueuePhysicsOperation(PhysicsOp_RayCast, () -> CastRayImpl(start, end));
-        }
-    }
-
     private void PhysicsThreadFunction() {
         long prevTime = System.nanoTime();
         while (!g_physicsQuit) {
@@ -270,18 +283,5 @@ public class LibGdxBulletPhysics implements Physics{
                 ((btDynamicsWorld)collisionWorld).stepSimulation(dt, maxSubSteps, fixedTimeStep);
         }
     }
-
-    @Override
-    public void Physics_Shutdown() {
-        g_operationQueue.clear();
-        g_physicsQuit = true;
-        try {
-            g_physicsThread.join();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        if (rayTestCB != null) rayTestCB.dispose();
-        rayTestCB = null;
-        collisionWorld.dispose();
-    }
+*/
 }

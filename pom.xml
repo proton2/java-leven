@@ -123,11 +123,11 @@
 	  </dependency>
 
 	  <!-- https://mvnrepository.com/artifact/com.github.stephengold/Libbulletjme -->
-	  <dependency>
-		  <groupId>com.github.stephengold</groupId>
-		  <artifactId>Libbulletjme</artifactId>
-		  <version>10.1.0</version>
-	  </dependency>
+<!--	  <dependency>-->
+<!--		  <groupId>com.github.stephengold</groupId>-->
+<!--		  <artifactId>Libbulletjme</artifactId>-->
+<!--		  <version>10.1.0</version>-->
+<!--	  </dependency>-->
 	  <dependency>
 		  <groupId>cz.advel.jbullet</groupId>
 		  <artifactId>jbullet</artifactId>
@@ -135,19 +135,17 @@
 	  </dependency>
 
 	  <!-- https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-bullet -->
-	  <dependency>
-		  <groupId>com.badlogicgames.gdx</groupId>
-		  <artifactId>gdx-bullet</artifactId>
-		  <version>1.9.14</version>
-	  </dependency>
-	  <dependency>
-		  <groupId>com.badlogicgames.gdx</groupId>
-		  <artifactId>gdx-bullet-platform</artifactId>
-		  <version>1.9.14</version>
-		  <classifier>natives-desktop</classifier>
-	  </dependency>
-
-
+<!--	  <dependency>-->
+<!--		  <groupId>com.badlogicgames.gdx</groupId>-->
+<!--		  <artifactId>gdx-bullet</artifactId>-->
+<!--		  <version>1.9.14</version>-->
+<!--	  </dependency>-->
+<!--	  <dependency>-->
+<!--		  <groupId>com.badlogicgames.gdx</groupId>-->
+<!--		  <artifactId>gdx-bullet-platform</artifactId>-->
+<!--		  <version>1.9.14</version>-->
+<!--		  <classifier>natives-desktop</classifier>-->
+<!--	  </dependency>-->
   </dependencies>
 
 	<repositories>

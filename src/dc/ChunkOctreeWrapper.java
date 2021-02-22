@@ -60,6 +60,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private Matrix4f invViewMatrix;
     private Vec3f mouseDir;
     private Vec4f tmpVec;
+    private Physics physics;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
@@ -71,7 +72,8 @@ public class ChunkOctreeWrapper extends GameObject {
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = OCLUtils.getOpenCLContext();
-        Physics physics = new JBulletPhysics(meshGenCtx.worldBounds);
+        physics = new JBulletPhysics(meshGenCtx.worldBounds);
+        Camera.getInstance().setPhysics(physics);
         VoxelOctree voxelOctree;
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
@@ -143,6 +145,15 @@ public class ChunkOctreeWrapper extends GameObject {
             Vec3f cam = Camera.getInstance().getPosition();
             sleep(200);
         }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_SPACE)) {
+            physics.Physics_PlayerJump();
+            sleep(200);
+        }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_F10)) {
+            sleep(200);
+            physics.Physics_TogglePlayerNoClip();
+        }
+
         glPolygonMode(GL_FRONT_AND_BACK, drawWireframe ? GL_LINE : GL_FILL);
         if(!drawWireframe){
             glDisable(GL_CULL_FACE);

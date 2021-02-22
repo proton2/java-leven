@@ -1,7 +1,5 @@
 package core.math;
 
-import com.jme3.math.Vector3f;
-
 public class Vec3i {
     public int x;
     public int y;
@@ -29,10 +27,6 @@ public class Vec3i {
 
     public Vec3f toVec3f(){
         return new Vec3f(this.x, this.y, this.z);
-    }
-
-    public Vector3f toVector3f(){
-        return new Vector3f(this.x, this.y, this.z);
     }
 
     public Vec4f toVec4f(){
