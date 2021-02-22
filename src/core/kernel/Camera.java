@@ -3,6 +3,7 @@ package core.kernel;
 import core.math.Matrix4f;
 import core.math.Vec3f;
 import core.math.Vec4f;
+import core.physics.Physics;
 import core.utils.Constants;
 import core.utils.Util;
 
@@ -53,6 +54,8 @@ public class Camera {
 
 	private Vec4f[] frustumPlanes = new Vec4f[6];
 	private Vec3f[] frustumCorners = new Vec3f[8];
+	private Vec3f velocity = new Vec3f();
+	private Physics physics;
 	  
 	public static Camera getInstance() 
 	{
@@ -66,7 +69,7 @@ public class Camera {
 	protected Camera() {
 		//this(new Vec3f(575,-930,-899), new Vec3f(-0.01f,-0.61f,0.78f).normalize(), new Vec3f(-0.f,0.78f,0.61f));
 		//this(new Vec3f(-286,-753,-1908), new Vec3f(0.54f,-0.31f,0.77f).normalize(), new Vec3f(0.18f,0.94f,0.26f));
-		this(new Vec3f(0,0,0), new Vec3f(1,0,0).normalize(), new Vec3f(0,1,0));
+		this(new Vec3f(906,-3109,-2694), new Vec3f(-0.12f,-0.99f,-0.001f).normalize(), new Vec3f(-0.99f,0.12f,-0.008f));
 		setProjection(70, Window.getInstance().getWidth(), Window.getInstance().getHeight());
 		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
@@ -272,12 +275,29 @@ public class Camera {
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
 		setViewProjectionMatrix(projectionMatrix.mul(viewMatrix));
 
+//		Matrix4f pitchMatrix = new Matrix4f().Rotation1(new Vec3f(forward.X, 0, 0));
+//		Matrix4f yawMatrix = new Matrix4f().Rotation1(new Vec3f(0, forward.Y, 0));
+//		Vec4f right = new Vec4f(1.f, 0.f, 0.f, 0.f);
+//		right = pitchMatrix.mul(right);
+//		right = yawMatrix.mul(right);
+
+		if(physics!=null) {
+			//setPosition(physics.Physics_GetPlayerPosition());
+			velocity = velocity.add(forward.mul(movAmt));
+			velocity = velocity.add(up.mul(movAmt));
+			velocity = velocity.add(getRight().mul(movAmt));
+			physics.Physics_SetPlayerVelocity(velocity);
+		}
 		initfrustum();
+	}
+
+	public void setPhysics(Physics physics){
+		this.physics = physics;
 	}
 	
 	public void move(Vec3f dir, float amount)
 	{
-		Vec3f newPos = position.add(dir.mul(amount));	
+		Vec3f newPos = position.add(dir.mul(amount));
 		setPosition(newPos);
 	}
 	

@@ -4,6 +4,7 @@ import org.joml.Vector3f;
 import org.joml.Vector3fc;
 
 public class Vec3f {
+	static javax.vecmath.Vector3f newVec = new javax.vecmath.Vector3f();
 	
 	public float X;
 	public float Y;
@@ -137,6 +138,11 @@ public class Vec3f {
 	{
 		return new Vec3f(this.X + r.getX(), this.Y + r.getY(), this.Z + r.getZ());
 	}
+
+	public Vec3i add(Vec3i r)
+	{
+		return new Vec3i(this.X + r.x, this.Y + r.y, this.Z + r.z);
+	}
 	
 	public Vec3f add(float r)
 	{
@@ -167,6 +173,11 @@ public class Vec3f {
 	{
 		return new Vec3f(this.X * r, this.Y * r, this.Z * r);
 	}
+
+	public Vec3i mul3i(float r)
+	{
+		return new Vec3i(this.X * r, this.Y * r, this.Z * r);
+	}
 	
 	public Vec3f div(Vec3f r)
 	{
@@ -181,6 +192,29 @@ public class Vec3f {
 	public Vec3f abs()
 	{
 		return new Vec3f(Math.abs(X), Math.abs(Y), Math.abs(Z));
+	}
+
+	public Vec3f getNormalDominantAxis() {
+		// use the dominant axis of the node
+		Vec3f dir = new Vec3f();
+		Vec3f absNormal = this.abs();
+		if (absNormal.Y >= absNormal.X) {
+			if (absNormal.Y >= absNormal.Z) {
+				dir.Y = this.Y;
+			}
+			else {
+				dir.Z = this.Z;
+			}
+		}
+		else {
+			if (absNormal.X >= absNormal.Z) {
+				dir.X = this.X;
+			}
+			else {
+				dir.Z = this.Z;
+			}
+		}
+		return dir.normalize();
 	}
 	
 	public boolean equals(Object obj) {
@@ -253,5 +287,23 @@ public class Vec3f {
 		res.Y = Y * scalar + add.Y;
 		res.Z = Z * scalar + add.Z;
 		return res;
+	}
+
+	public javax.vecmath.Vector3f convert() {
+		convert(this, newVec);
+		return newVec;
+	}
+
+	public static javax.vecmath.Vector3f convert(Vec3f oldVec, javax.vecmath.Vector3f newVec) {
+		newVec.x = oldVec.X;
+		newVec.y = oldVec.Y;
+		newVec.z = oldVec.Z;
+		return newVec;
+	}
+
+	public void set(javax.vecmath.Vector3f v){
+		this.X = v.x;
+		this.Y = v.y;
+		this.Z = v.z;
 	}
 }

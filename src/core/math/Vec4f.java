@@ -240,4 +240,8 @@ public class Vec4f {
 		res.setW(m.get(3,0) * getX() + m.get(3,1) * getY() + m.get(3,2) * getZ() + m.get(3,3) * getW());
 		return res;
 	}
+
+	public float[] to1dArray(){
+		return new float[] {x, y, z, w};
+	}
 }
