@@ -1,9 +1,6 @@
 package core.physics;
 
-import com.bulletphysics.collision.broadphase.AxisSweep3;
-import com.bulletphysics.collision.broadphase.BroadphaseInterface;
-import com.bulletphysics.collision.broadphase.BroadphasePair;
-import com.bulletphysics.collision.broadphase.HashedOverlappingPairCache;
+import com.bulletphysics.collision.broadphase.*;
 import com.bulletphysics.collision.dispatch.*;
 import com.bulletphysics.collision.narrowphase.ManifoldPoint;
 import com.bulletphysics.collision.narrowphase.PersistentManifold;
@@ -268,6 +265,8 @@ public class JBulletPhysics implements Physics {
             dynamicsWorld.stepSimulation(dt);
 
             UpdatePlayer(dt, elapsedTime);
+
+            test();
         }
     }
 
@@ -336,12 +335,12 @@ public class JBulletPhysics implements Physics {
 
         RigidBodyConstructionInfo bodyInfo = new RigidBodyConstructionInfo(mass, motionState, collisionShape, ineritia);
 
-        g_player.body = new RigidBody(bodyInfo);
+        g_player.body = new RigidBodyCustom(bodyInfo);
         g_player.body.setActivationState(CollisionObject.DISABLE_DEACTIVATION);
         g_player.body.setAngularFactor(0.f);
         dynamicsWorld.addRigidBody(g_player.body);
 
-        g_player.ghost = new PairCachingGhostObject();
+        g_player.ghost = new PairCachingGhostObjectCustom();
         g_player.ghost.setCollisionShape(collisionShape);
         g_player.ghost.setCollisionFlags(CollisionFlags.NO_CONTACT_RESPONSE);
         g_player.ghost.setWorldTransform(transform);
@@ -355,8 +354,7 @@ public class JBulletPhysics implements Physics {
             return;
         }
 
-        Transform worldTransform = new Transform();
-        Vector3f origin = g_player.body.getWorldTransform(worldTransform).origin;
+        Vector3f origin = g_player.body.getWorldTransform().origin;
 
         float bottomOffset = (PLAYER_WIDTH / 2.f) + (PLAYER_HEIGHT / 2.f);
         Vector3f rayEnd = new Vector3f();
@@ -382,7 +380,7 @@ public class JBulletPhysics implements Physics {
             }
 
             for (PersistentManifold m : manifolds) {
-                boolean isFirstBody = m.getBody0() == g_player.ghost;
+                boolean isFirstBody = m.getBody0().equals(g_player.ghost);
                 float dir = isFirstBody ? -1.f : 1.f;
                 for (int c = 0; c < m.getNumContacts(); c++) {
                     ManifoldPoint pt = m.getContactPoint(c);
@@ -427,13 +425,33 @@ public class JBulletPhysics implements Physics {
             g_player.body.setLinearVelocity(new Vector3f(inputVelocity.X, inputVelocity.Y, inputVelocity.Z));
         }
 
-        Transform playerGhostTransform = new Transform();
-        Vector3f bodyWorldTransformOrig = g_player.body.getWorldTransform(playerGhostTransform).origin;
-        playerGhostTransform.origin.set(bodyWorldTransformOrig);
+        g_player.ghost.getWorldTransform().origin.set(g_player.body.getWorldTransform().origin);
+        int t=3;
+    }
 
-        Transform ghostWorldTransform = new Transform();
-        g_player.ghost.getWorldTransform(ghostWorldTransform);
-        ghostWorldTransform.origin.set(bodyWorldTransformOrig);
-        g_player.ghost.setWorldTransform(ghostWorldTransform);
+    void test(){
+        Dispatcher dispatcher = dynamicsWorld.getDispatcher();
+        int manifoldCount = dispatcher.getNumManifolds();
+        for (int i = 0; i < manifoldCount; i++) {
+            PersistentManifold manifold = dispatcher.getManifoldByIndexInternal(i);
+            // The following two lines are optional.
+//            RigidBody object1 = (RigidBody)manifold.getBody0();
+//            RigidBody object2 = (RigidBody)manifold.getBody1();
+//            MyPhysicsObject physicsObject1 = (MyPhysicsObject)object1.getUserPointer();
+//            MyPhysicsObject physicsObject2 = (MyPhysicsObject)object2.getUserPointer();
+            boolean hit = false;
+            Vector3f normal = null;
+            for (int j = 0; j < manifold.getNumContacts(); j++) {
+                ManifoldPoint contactPoint = manifold.getContactPoint(j);
+                if (contactPoint.getDistance() < 0.0f) {
+                    hit = true;
+                    normal = contactPoint.normalWorldOnB;
+                    break;
+                }
+            }
+            if (hit) {
+                // Collision happened between physicsObject1 and physicsObject2. Collision normal is in variable 'normal'.
+            }
+        }
     }
 }
