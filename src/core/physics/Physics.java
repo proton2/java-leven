@@ -17,4 +17,5 @@ public interface Physics {
     void Physics_Shutdown();
     void RemoveMeshData(PhysicsMeshData meshData);
     Vec3f Physics_GetPlayerPosition();
+    void Physics_SpawnPlayer(Vec3f origin);
 }

@@ -71,9 +71,13 @@ public class ChunkOctreeWrapper extends GameObject {
 
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
-        ctx = OCLUtils.getOpenCLContext();
+        ctx = null;
         physics = new JBulletPhysics(meshGenCtx.worldBounds);
-        Camera.getInstance().setPhysics(physics);
+        Camera camera = Camera.getInstance();
+        camera.setPosition(new Vec3f(-131.29f,-158.04f,-1921.52f));
+        camera.setForward(new Vec3f(0.54f,-0.31f,0.77f).normalize());
+        camera.setUp(new Vec3f(0.18f,0.94f,0.26f));
+        camera.setPhysics(physics);
         VoxelOctree voxelOctree;
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
@@ -96,7 +100,7 @@ public class ChunkOctreeWrapper extends GameObject {
         //        Camera.getInstance().setPosition(new Vec3f(906,-3109,-2694));
 //        Camera.getInstance().setForward(new Vec3f(-0.12f,-0.99f,-0.001f).normalize());
 //        Camera.getInstance().setUp(new Vec3f(-0.99f,0.12f,-0.008f));
-        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, true);
+        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, true, camera);
 
 //        Camera.getInstance().setPosition(new Vec3f(-286,0,-1908));
 //        Camera.getInstance().setForward(new Vec3f(0.54f,-0.31f,0.77f).normalize());

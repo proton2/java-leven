@@ -62,6 +62,10 @@ public class LibGdxBulletPhysics implements Physics{
     }
 
     @Override
+    public void Physics_SpawnPlayer(Vec3f origin) {
+    }
+
+    @Override
     public Vec3f getCollisionNorm() {
         return collNorm;
     }

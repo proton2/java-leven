@@ -70,6 +70,10 @@ public class JniNativeBulletPhysics implements Physics {
     }
 
     @Override
+    public void Physics_SpawnPlayer(Vec3f origin) {
+    }
+
+    @Override
     public void Physics_UpdateWorldNodeMainMesh(boolean updateMain, ChunkNode chunkNode) {
 //        if((updateMain && chunkNode.renderMesh==null) || (!updateMain && chunkNode.seamMesh==null)){
 //            return;

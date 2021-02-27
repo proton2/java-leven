@@ -91,8 +91,6 @@ public class JBulletPhysics implements Physics {
         g_operationQueue = new ConcurrentLinkedQueue<>();
         Physics_Initialise(g_worldBounds);
         g_player = new Player();
-        //Physics_SpawnPlayer(new Vec3f(-500.f, 4000.f, -500.f));
-        Physics_SpawnPlayer(new Vec3f(906,-1509,-2694));
         collisionPos = new Vec3f();
         collisionNorm = new Vec3f();
     }
@@ -180,7 +178,7 @@ public class JBulletPhysics implements Physics {
 //        transform.origin.z = nodeMin.z * PHYSICS_SCALE;
 //
 //        meshData.body.setWorldTransform(transform);
-//        meshData.body.setCollisionFlags(meshData.body.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
+        meshData.body.setCollisionFlags(meshData.body.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
         return meshData;
     }
 
@@ -264,9 +262,9 @@ public class JBulletPhysics implements Physics {
             float elapsedTime = ((float) prevTime / 1000.f) - startTime;
             dynamicsWorld.stepSimulation(dt);
 
-            UpdatePlayer(dt, elapsedTime);
+            //UpdatePlayer(dt, elapsedTime);
 
-            test();
+            test(dt, elapsedTime);
         }
     }
 
@@ -285,7 +283,8 @@ public class JBulletPhysics implements Physics {
         dynamicsWorld.destroy();
     }
 
-    private void Physics_SpawnPlayer(Vec3f origin) {
+    @Override
+    public void Physics_SpawnPlayer(Vec3f origin) {
         EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, () -> SpawnPlayerImpl(origin));
     }
 
@@ -328,7 +327,7 @@ public class JBulletPhysics implements Physics {
         transform.setIdentity();
         transform.origin.set(origin.X, origin.Y, origin.Z);
 
-        float mass = 10.f;
+        float mass = 0.f;
         Vector3f ineritia = new Vector3f();
         MotionState motionState = new DefaultMotionState(transform);
         collisionShape.calculateLocalInertia(mass, ineritia);
@@ -429,9 +428,15 @@ public class JBulletPhysics implements Physics {
         int t=3;
     }
 
-    void test(){
+    void test(float deltaT, float elapsedTime){
+        if (g_player==null || g_player.body == null || g_player.ghost == null) {
+            return;
+        }
         Dispatcher dispatcher = dynamicsWorld.getDispatcher();
         int manifoldCount = dispatcher.getNumManifolds();
+        float onGroundDot = 0.f;
+        boolean onGround = false;
+        Vector3f origin = g_player.body.getWorldTransform().origin;
         for (int i = 0; i < manifoldCount; i++) {
             PersistentManifold manifold = dispatcher.getManifoldByIndexInternal(i);
             // The following two lines are optional.
@@ -443,15 +448,43 @@ public class JBulletPhysics implements Physics {
             Vector3f normal = null;
             for (int j = 0; j < manifold.getNumContacts(); j++) {
                 ManifoldPoint contactPoint = manifold.getContactPoint(j);
-                if (contactPoint.getDistance() < 0.0f) {
+                if (contactPoint.getDistance() < 0.0f &&
+                        (manifold.getBody0().getClass().isAssignableFrom(RigidBody.class) || manifold.getBody1().getClass().isAssignableFrom(RigidBody.class))) {
                     hit = true;
                     normal = contactPoint.normalWorldOnB;
-                    break;
+                    boolean isFirstBody = manifold.getBody0().equals(g_player.ghost);
+                    Vector3f p1 = isFirstBody ? contactPoint.getPositionWorldOnA(new Vector3f()) : contactPoint.getPositionWorldOnB(new Vector3f());
+                    Vector3f d = new Vector3f();
+                    d.sub(origin, p1);
+                    d.normalize();
+                    onGroundDot = Math.max(onGroundDot, d.dot(new Vector3f(0.f, 1.f, 0.f)));
+                    int t=3;
                 }
             }
             if (hit) {
                 // Collision happened between physicsObject1 and physicsObject2. Collision normal is in variable 'normal'.
             }
         }
+
+        float checkGroundTime = 0.f;
+        if (g_player.falling && checkGroundTime < elapsedTime) {
+            if (onGroundDot > 0.85f) {
+                onGround = true;
+                g_player.falling = false;
+            }
+        }
+        Vector3f out = new Vector3f();
+        Vector3f currentVelocty = g_player.body.getLinearVelocity(out);
+        Vec3f inputVelocity = g_player.velocity.mul(750.f);
+        if (!g_player.noclip) {
+            float velocity = currentVelocty.y;
+            if (!g_player.falling) {
+                velocity = Math.min(0.f, velocity) - (10 * deltaT);
+            }
+            g_player.body.setLinearVelocity(new Vector3f(inputVelocity.X, velocity, inputVelocity.Z));
+        }
+
+        g_player.ghost.getWorldTransform().origin.set(g_player.body.getWorldTransform().origin);
+        int t=3;
     }
 }

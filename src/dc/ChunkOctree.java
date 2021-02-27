@@ -47,14 +47,15 @@ public class ChunkOctree {
         return invalidateMeshes;
     }
 
-    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, boolean rayCast) {
+    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, boolean rayCast, Camera cam) {
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
         service = Executors.newFixedThreadPool(1);
         buildChunkOctree();
         this.checkRayCollision = rayCast;
-        update(Camera.getInstance());
+        update(cam);
+        physics.Physics_SpawnPlayer(cam.getPosition());
     }
 
     public List<RenderMesh> getRenderMeshes(boolean frustumCulling) {
@@ -223,7 +224,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> emptyNodes = new ArrayList<>();
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
-            boolean result = //filterNodesForDebug(filteredNode) &&
+            boolean result = filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
             if (filteredNode.renderMesh !=null || (filteredNode.chunkBorderNodes !=null && filteredNode.chunkBorderNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
