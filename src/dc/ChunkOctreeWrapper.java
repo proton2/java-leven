@@ -96,15 +96,7 @@ public class ChunkOctreeWrapper extends GameObject {
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
             voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
         }
-
-        //        Camera.getInstance().setPosition(new Vec3f(906,-3109,-2694));
-//        Camera.getInstance().setForward(new Vec3f(-0.12f,-0.99f,-0.001f).normalize());
-//        Camera.getInstance().setUp(new Vec3f(-0.99f,0.12f,-0.008f));
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, true, camera);
-
-//        Camera.getInstance().setPosition(new Vec3f(-286,0,-1908));
-//        Camera.getInstance().setForward(new Vec3f(0.54f,-0.31f,0.77f).normalize());
-//        Camera.getInstance().setUp(new Vec3f(0.18f,0.94f,0.26f));
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
     }
 
