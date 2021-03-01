@@ -109,4 +109,8 @@ public class Vec3i {
     {
         return "[" + this.x + "," + this.y + "," + this.z + "]";
     }
+
+    public int[] to1dArray(){
+        return new int[] {x, y, z};
+    }
 }

@@ -206,6 +206,18 @@ public class Matrix4f {
 		
 		return res;
 	}
+
+	public Vec4f mul(Vec4f v)
+	{
+		Vec4f res = new Vec4f(0,0,0,0);
+
+		res.setX(m[0][0] * v.getX() + m[0][1] * v.getY() + m[0][2] * v.getZ() + m[0][3] * v.getW());
+		res.setY(m[1][0] * v.getX() + m[1][1] * v.getY() + m[1][2] * v.getZ() + m[1][3] * v.getW());
+		res.setZ(m[2][0] * v.getX() + m[2][1] * v.getY() + m[2][2] * v.getZ() + m[2][3] * v.getW());
+		res.setW(m[3][0] * v.getX() + m[3][1] * v.getY() + m[3][2] * v.getZ() + m[3][3] * v.getW());
+
+		return res;
+	}
 	
 	public Matrix4f transpose()
 	{
@@ -283,6 +295,10 @@ public class Matrix4f {
 	public void set(int x, int y, float value)
 	{
 		this.m[x][y] = value;
+	}
+
+	public void set (Matrix4f that){
+		this.setM(that.getM());
 	}
 	
 	public float get(int x, int y)

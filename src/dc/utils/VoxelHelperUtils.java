@@ -1,5 +1,6 @@
 package dc.utils;
 
+import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
@@ -127,5 +128,50 @@ public class VoxelHelperUtils {
             default:
                 return new Vec3f(0.5f, 0.0f, 0.f);
         }
+    }
+
+    public static boolean intersectRayAab(Vec3f origin, Vec3f dir, Vec3f min, Vec3f max, Vec2f result) {
+        return intersectRayAab(origin.X, origin.Y, origin.Z, dir.X, dir.Y, dir.Z, min.X, min.Y, min.Z, max.X, max.Y, max.Z, result);
+    }
+
+    public static boolean intersectRayAab(float originX, float originY, float originZ, float dirX, float dirY, float dirZ,
+                                          float minX, float minY, float minZ, float maxX, float maxY, float maxZ, Vec2f result) {
+        float invDirX = 1.0f / dirX, invDirY = 1.0f / dirY, invDirZ = 1.0f / dirZ;
+        float tNear, tFar, tymin, tymax, tzmin, tzmax;
+        if (invDirX >= 0.0f) {
+            tNear = (minX - originX) * invDirX;
+            tFar = (maxX - originX) * invDirX;
+        } else {
+            tNear = (maxX - originX) * invDirX;
+            tFar = (minX - originX) * invDirX;
+        }
+        if (invDirY >= 0.0f) {
+            tymin = (minY - originY) * invDirY;
+            tymax = (maxY - originY) * invDirY;
+        } else {
+            tymin = (maxY - originY) * invDirY;
+            tymax = (minY - originY) * invDirY;
+        }
+        if (tNear > tymax || tymin > tFar)
+            return false;
+        if (invDirZ >= 0.0f) {
+            tzmin = (minZ - originZ) * invDirZ;
+            tzmax = (maxZ - originZ) * invDirZ;
+        } else {
+            tzmin = (maxZ - originZ) * invDirZ;
+            tzmax = (minZ - originZ) * invDirZ;
+        }
+        if (tNear > tzmax || tzmin > tFar)
+            return false;
+        tNear = tymin > tNear || Float.isNaN(tNear) ? tymin : tNear;
+        tFar = tymax < tFar || Float.isNaN(tFar) ? tymax : tFar;
+        tNear = tzmin > tNear ? tzmin : tNear;
+        tFar = tzmax < tFar ? tzmax : tFar;
+        if (tNear < tFar && tFar >= 0.0f) {
+            result.X = tNear;
+            result.Y = tFar;
+            return true;
+        }
+        return false;
     }
 }

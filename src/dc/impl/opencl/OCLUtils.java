@@ -187,9 +187,19 @@ public class OCLUtils {
 
     public static ComputeContext getOpenCLContext() {
         if(openCLContext==null) {
-            openCLContext = createOpenCLContext();
+            try {
+                openCLContext = createOpenCLContext();
+            } catch (Throwable e) {
+                return null;
+            }
         }
         return openCLContext;
+    }
+
+    public static void checkCLErrorEx(int errcode) throws OclException {
+        if (errcode != CL_SUCCESS) {
+            throw new OclException("OpenCL error " + stringFor_errorCode(errcode));
+        }
     }
 
     public static long getMaxWorkGroupSize(long kernel) {
@@ -199,7 +209,7 @@ public class OCLUtils {
         return rkwgs.getLong(0);
     }
 
-    private static ComputeContext createOpenCLContext(){
+    private static ComputeContext createOpenCLContext() throws Throwable {
         long clPlatform = 0L;
         CLCapabilities clPlatformCapabilities = null;
         CLContextCallback clContextCB;
@@ -208,7 +218,7 @@ public class OCLUtils {
         // Get the first available platform
         try (MemoryStack stack = stackPush()) {
             IntBuffer pi = stack.mallocInt(1);
-            checkCLError(clGetPlatformIDs(null, pi));
+            checkCLErrorEx(clGetPlatformIDs(null, pi));
             if (pi.get(0) == 0) {
                 throw new IllegalStateException("No OpenCL platforms found.");
             }

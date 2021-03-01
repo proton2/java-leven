@@ -58,7 +58,7 @@ public final class FindDefaultEdgesOpenCLService {
         int numEdges = scanOpenCLService.exclusiveScan(edgeOccupancyBuffer, edgeScanBuffer, edgeBufferSize);
         field.setNumEdges(numEdges);
         if (field.getNumEdges() <= 0) {
-            System.out.println("FindDefaultEdges: ExclusiveScan error=%d\n" + field.getNumEdges());
+            //System.out.println("FindDefaultEdges: ExclusiveScan error=%d\n" + field.getNumEdges());
             bufferGpuService.releaseAll();
             return -1;
         }

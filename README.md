@@ -15,6 +15,10 @@ Features:
   - Nick Gildea Leven OpenCL Dual contouring implementation. In this implementation LevenLinearGPUOctreeImpl.java I call OpenCL kernels in java .
 
 ## Build Instructions
+please, perform
+<br>
+mvn clean install
+
 The dependencies are:
   * Maven
   * Java 11
