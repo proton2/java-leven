@@ -261,10 +261,7 @@ public class JBulletPhysics implements Physics {
             prevTime = System.nanoTime();
             float elapsedTime = ((float) prevTime / 1000.f) - startTime;
             dynamicsWorld.stepSimulation(dt);
-
-            //UpdatePlayer(dt, elapsedTime);
-
-            test(dt, elapsedTime);
+            UpdatePlayer(dt, elapsedTime);
         }
     }
 
@@ -327,7 +324,7 @@ public class JBulletPhysics implements Physics {
         transform.setIdentity();
         transform.origin.set(origin.X, origin.Y, origin.Z);
 
-        float mass = 0.f;
+        float mass = 10.f;
         Vector3f ineritia = new Vector3f();
         MotionState motionState = new DefaultMotionState(transform);
         collisionShape.calculateLocalInertia(mass, ineritia);
@@ -355,12 +352,12 @@ public class JBulletPhysics implements Physics {
 
         Vector3f origin = g_player.body.getWorldTransform().origin;
 
-        float bottomOffset = (PLAYER_WIDTH / 2.f) + (PLAYER_HEIGHT / 2.f);
-        Vector3f rayEnd = new Vector3f();
-        rayEnd.sub(origin, Scale_WorldToPhysics(new Vector3f(0.f, bottomOffset + 0.f, 0.f)));
-
-        CollisionWorld.ClosestRayResultCallback callback = new CollisionWorld.ClosestRayResultCallback(origin, rayEnd);
-        dynamicsWorld.rayTest(origin, rayEnd, callback);
+//        float bottomOffset = (PLAYER_WIDTH / 2.f) + (PLAYER_HEIGHT / 2.f);
+//        Vector3f rayEnd = new Vector3f();
+//        rayEnd.sub(origin, Scale_WorldToPhysics(new Vector3f(0.f, bottomOffset + 0.f, 0.f)));
+//
+//        CollisionWorld.ClosestRayResultCallback callback = new CollisionWorld.ClosestRayResultCallback(origin, rayEnd);
+//        dynamicsWorld.rayTest(origin, rayEnd, callback);
 
         boolean onGround = false;
         float onGroundDot = 0.f;
@@ -425,7 +422,6 @@ public class JBulletPhysics implements Physics {
         }
 
         g_player.ghost.getWorldTransform().origin.set(g_player.body.getWorldTransform().origin);
-        int t=3;
     }
 
     void test(float deltaT, float elapsedTime){

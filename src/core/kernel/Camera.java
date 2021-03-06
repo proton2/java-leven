@@ -286,7 +286,7 @@ public class Camera {
 			velocity = velocity.add(forward.mul(movAmt));
 			velocity = velocity.add(up.mul(movAmt));
 			velocity = velocity.add(getRight().mul(movAmt));
-			physics.Physics_SetPlayerVelocity(velocity);
+			physics.Physics_SetPlayerVelocity(forward);
 		}
 		initfrustum();
 	}
