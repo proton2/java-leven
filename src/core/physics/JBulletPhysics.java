@@ -318,7 +318,7 @@ public class JBulletPhysics implements Physics {
         if (g_player.body != null || g_player.ghost != null) {
             return;
         }
-        CapsuleShape collisionShape = new CapsuleShape(PLAYER_WIDTH / 2, PLAYER_HEIGHT);
+        CapsuleShape collisionShape = new CapsuleShape(3f, 4f);
 
         Transform transform = new Transform();
         transform.setIdentity();
@@ -402,7 +402,7 @@ public class JBulletPhysics implements Physics {
         //printf("onGroundDot=%.2f falling=%s\n", onGroundDot, g_player.falling ? "True" : "False");
         Vector3f out = new Vector3f();
         Vector3f currentVelocty = g_player.body.getLinearVelocity(out);
-        Vec3f inputVelocity = g_player.velocity.mul(750.f);
+        Vec3f inputVelocity = g_player.velocity.mul(0.05f);
         if (!g_player.noclip) {
             float velocity = currentVelocty.y;
             if (!g_player.falling) {
@@ -471,7 +471,7 @@ public class JBulletPhysics implements Physics {
         }
         Vector3f out = new Vector3f();
         Vector3f currentVelocty = g_player.body.getLinearVelocity(out);
-        Vec3f inputVelocity = g_player.velocity.mul(750.f);
+        Vec3f inputVelocity = g_player.velocity.mul(0.05f);
         if (!g_player.noclip) {
             float velocity = currentVelocty.y;
             if (!g_player.falling) {
@@ -481,6 +481,5 @@ public class JBulletPhysics implements Physics {
         }
 
         g_player.ghost.getWorldTransform().origin.set(g_player.body.getWorldTransform().origin);
-        int t=3;
     }
 }

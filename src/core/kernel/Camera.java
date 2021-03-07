@@ -171,19 +171,19 @@ public class Camera {
 		//movAmt = 1;
 		
 		if(Input.getInstance().isKeyHold(GLFW_KEY_W)) {
-			speed.Z = -1.f;
+			speed.Z = movAmt;
 			move(getForward(), movAmt);
 		}
 		if(Input.getInstance().isKeyHold(GLFW_KEY_S)) {
-			speed.Z = 1.f;
+			speed.Z = -movAmt;
 			move(getForward(), -movAmt);
 		}
 		if(Input.getInstance().isKeyHold(GLFW_KEY_A)) {
-			speed.X = -1.f;
+			speed.X = -movAmt;
 			move(getLeft(), movAmt);
 		}
 		if(Input.getInstance().isKeyHold(GLFW_KEY_D)) {
-			speed.X = 1.f;
+			speed.X = movAmt;
 			move(getRight(), movAmt);
 		}
 
