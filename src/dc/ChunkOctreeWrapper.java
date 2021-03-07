@@ -75,8 +75,6 @@ public class ChunkOctreeWrapper extends GameObject {
         physics = new JBulletPhysics(meshGenCtx.worldBounds);
         Camera camera = Camera.getInstance();
         camera.setPosition(new Vec3f(-131.29f,-158.04f,-1921.52f));
-        camera.setForward(new Vec3f(0.54f,-0.31f,0.77f).normalize());
-        camera.setUp(new Vec3f(0.18f,0.94f,0.26f));
         camera.setPhysics(physics);
         VoxelOctree voxelOctree;
         if(ctx!=null) {
@@ -143,7 +141,6 @@ public class ChunkOctreeWrapper extends GameObject {
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_SPACE)) {
             physics.Physics_PlayerJump();
-            sleep(200);
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F10)) {
             sleep(200);

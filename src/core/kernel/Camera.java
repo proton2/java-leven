@@ -22,7 +22,8 @@ public class Camera {
 	private static Camera instance = null;
 
 	private final Vec3f yAxis = new Vec3f(0,1,0);
-	
+	private final Vec3f speed = new Vec3f(0);
+
 	private Vec3f position;
 	private Vec3f previousPosition;
 	private Vec3f forward;
@@ -67,9 +68,7 @@ public class Camera {
 	}
 	
 	protected Camera() {
-		//this(new Vec3f(575,-930,-899), new Vec3f(-0.01f,-0.61f,0.78f).normalize(), new Vec3f(-0.f,0.78f,0.61f));
-		//this(new Vec3f(-286,-753,-1908), new Vec3f(0.54f,-0.31f,0.77f).normalize(), new Vec3f(0.18f,0.94f,0.26f));
-		this(new Vec3f(906,-1509,-2694), new Vec3f(-0.12f,-0.99f,-0.001f).normalize(), new Vec3f(-0.99f,0.12f,-0.008f));
+		this(new Vec3f(906,-1509,-2694),  new Vec3f(1,0,0).normalize(), new Vec3f(0,1,0));
 		setProjection(70, Window.getInstance().getWidth(), Window.getInstance().getHeight());
 		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
@@ -171,14 +170,29 @@ public class Camera {
 		movAmt = Math.max(0.02f, movAmt);
 		//movAmt = 1;
 		
-		if(Input.getInstance().isKeyHold(GLFW_KEY_W))
+		if(Input.getInstance().isKeyHold(GLFW_KEY_W)) {
+			speed.Z = -1.f;
 			move(getForward(), movAmt);
-		if(Input.getInstance().isKeyHold(GLFW_KEY_S))
+		}
+		if(Input.getInstance().isKeyHold(GLFW_KEY_S)) {
+			speed.Z = 1.f;
 			move(getForward(), -movAmt);
-		if(Input.getInstance().isKeyHold(GLFW_KEY_A))
+		}
+		if(Input.getInstance().isKeyHold(GLFW_KEY_A)) {
+			speed.X = -1.f;
 			move(getLeft(), movAmt);
-		if(Input.getInstance().isKeyHold(GLFW_KEY_D))
+		}
+		if(Input.getInstance().isKeyHold(GLFW_KEY_D)) {
+			speed.X = 1.f;
 			move(getRight(), movAmt);
+		}
+
+		if(Input.getInstance().isKeyReleased(GLFW_KEY_W) || Input.getInstance().isKeyReleased(GLFW_KEY_S)) {
+			speed.Z = 0.f;
+		}
+		if(Input.getInstance().isKeyReleased(GLFW_KEY_A) || Input.getInstance().isKeyReleased(GLFW_KEY_D)) {
+			speed.X = 0.f;
+		}
 				
 		if(Input.getInstance().isKeyHold(GLFW_KEY_UP))
 			rotateX(-rotAmt/8f);
@@ -275,18 +289,12 @@ public class Camera {
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
 		setViewProjectionMatrix(projectionMatrix.mul(viewMatrix));
 
-//		Matrix4f pitchMatrix = new Matrix4f().Rotation1(new Vec3f(forward.X, 0, 0));
-//		Matrix4f yawMatrix = new Matrix4f().Rotation1(new Vec3f(0, forward.Y, 0));
-//		Vec4f right = new Vec4f(1.f, 0.f, 0.f, 0.f);
-//		right = pitchMatrix.mul(right);
-//		right = yawMatrix.mul(right);
-
 		if(physics!=null) {
 			setPosition(physics.Physics_GetPlayerPosition());
-			velocity = velocity.add(forward.mul(movAmt));
-			velocity = velocity.add(up.mul(movAmt));
-			velocity = velocity.add(getRight().mul(movAmt));
-			physics.Physics_SetPlayerVelocity(forward);
+			velocity = velocity.add(forward.mul(speed.Z));
+			velocity = velocity.add(up.mul(speed.Y));
+			velocity = velocity.add(getRight().mul(speed.X));
+			physics.Physics_SetPlayerVelocity(velocity);
 		}
 		initfrustum();
 	}
