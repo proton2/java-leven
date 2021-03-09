@@ -5,7 +5,7 @@ import dc.ChunkNode;
 
 public interface Physics {
     float PLAYER_WIDTH = 48.f;
-    float PLAYER_HEIGHT = 120.f - PLAYER_WIDTH;   // the capsule height is (2 * radius + height)
+    float PLAYER_HEIGHT = 6;   // the capsule height is (2 * radius + height)
 
     void Physics_TogglePlayerNoClip();
     void Physics_PlayerJump();
