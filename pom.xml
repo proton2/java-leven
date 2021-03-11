@@ -134,10 +134,15 @@
 <!--		  <artifactId>Libbulletjme</artifactId>-->
 <!--		  <version>10.1.0</version>-->
 <!--	  </dependency>-->
+<!--	  <dependency>-->
+<!--		  <groupId>cz.advel.jbullet</groupId>-->
+<!--		  <artifactId>jbullet</artifactId>-->
+<!--		  <version>20101010-1</version>-->
+<!--	  </dependency>-->
 	  <dependency>
-		  <groupId>cz.advel.jbullet</groupId>
-		  <artifactId>jbullet</artifactId>
-		  <version>20101010-1</version>
+		  <groupId>java3d</groupId>
+		  <artifactId>vecmath</artifactId>
+		  <version>1.3.1</version>
 	  </dependency>
 
 	  <!-- https://mvnrepository.com/artifact/com.badlogicgames.gdx/gdx-bullet -->
