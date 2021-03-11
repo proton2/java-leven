@@ -292,7 +292,7 @@ public class JBulletPhysics implements Physics {
             Vector3f origin = g_player.body.getWorldTransform(new Transform()).origin;
             Vec3f position = new Vec3f(origin.x, origin.y, origin.z);
 
-		    float eyeOffset = (PLAYER_HEIGHT / 2.f) - 10.f;
+		    float eyeOffset = (PLAYER_HEIGHT / 2.f) - 1.f;
             position.Y += eyeOffset;
             return position;
         }
