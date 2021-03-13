@@ -169,6 +169,14 @@ public class ChunkOctree {
             invalidatedMeshes.add(node.seamMesh);
             node.seamMesh = null;
         }
+        if(node.worldNode!=null){
+            if(node.worldNode.mainMesh!=null){
+                node.worldNode.mainMesh = null;
+            }
+            if(node.worldNode.seamMesh!=null){
+                node.worldNode.seamMesh = null;
+            }
+        }
     }
 
     public void update(Camera cam, boolean multiTread){
