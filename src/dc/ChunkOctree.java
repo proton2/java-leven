@@ -170,12 +170,10 @@ public class ChunkOctree {
             node.seamMesh = null;
         }
         if(node.worldNode!=null){
-            if(node.worldNode.mainMesh!=null) {
-                //physics.RemoveMeshData(node.worldNode.mainMesh);
+            if(node.worldNode.mainMesh!=null){
                 node.worldNode.mainMesh = null;
             }
-            if(node.worldNode.seamMesh!=null) {
-                //physics.RemoveMeshData(node.worldNode.seamMesh);
+            if(node.worldNode.seamMesh!=null){
                 node.worldNode.seamMesh = null;
             }
         }
