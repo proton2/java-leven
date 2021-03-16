@@ -143,6 +143,7 @@ public class JBulletPhysics implements Physics {
         ByteBuffer indicatesByteBuffer = ByteBuffer.allocate(Integer.BYTES * meshBuffer.getNumIndicates());
         indicatesByteBuffer.asIntBuffer().put(meshBuffer.getIndicates());
         meshBuffer.getIndicates().flip();
+        indicatesByteBuffer.rewind();
 
         ByteBuffer verticesByteBuffer = ByteBuffer.allocate(Float.BYTES * 3 * meshBuffer.getNumVertices());
         for (int i = 0; i < meshBuffer.getNumVertices(); i++) {
@@ -154,6 +155,7 @@ public class JBulletPhysics implements Physics {
             verticesByteBuffer.putFloat(y);
             verticesByteBuffer.putFloat(z);
         }
+        verticesByteBuffer.flip();
 
         IndexedMesh indexedMesh = new IndexedMesh();
         indexedMesh.vertexBase = verticesByteBuffer;
