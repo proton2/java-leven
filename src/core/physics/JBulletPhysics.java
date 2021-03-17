@@ -26,6 +26,8 @@ import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static core.physics.PhysicsOperationType.PhysicsOp_RayCast;
 import static core.physics.PhysicsOperationType.PhysicsOp_WorldUpdate;
@@ -40,7 +42,7 @@ public class JBulletPhysics implements Physics {
     private boolean g_physicsQuit = false;
     private ConcurrentLinkedQueue<Runnable> g_operationQueue;
     private Thread g_physicsThread;
-    private ExecutorService service;
+    private ExecutorService executorService;
     private volatile boolean g_rayCastPending = false;
     private Vec3f collisionPos;
     private Vec3f collisionNorm;
@@ -87,7 +89,16 @@ public class JBulletPhysics implements Physics {
     }
 
     public JBulletPhysics(Aabb g_worldBounds) {
-        service = Executors.newFixedThreadPool(6);
+        executorService = Executors.newFixedThreadPool(6, new ThreadFactory() {
+                    private AtomicInteger count = new AtomicInteger();
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        Thread thread = new Thread(r);
+                        thread.setName("JBulletPhysics " + count.getAndIncrement());
+                        return thread;
+                    }
+                }
+        );
         g_operationQueue = new ConcurrentLinkedQueue<>();
         Physics_Initialise(g_worldBounds);
         g_player = new Player();
@@ -125,9 +136,13 @@ public class JBulletPhysics implements Physics {
         EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, () -> UpdateCollisionNode(updateMain, chunkNode.worldNode, chunkNode.min, meshBuffer));
     }
 
+    public void RemoveMeshData(PhysicsMeshData meshData){
+        EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, () -> RemovePhysicsMeshData(meshData));
+    }
+
     // call after node is update (CSG operation)
     private void UpdateCollisionNode(boolean updateMain, WorldCollisionNode node, Vec3i min, MeshBuffer meshBuffer) {
-        service.submit(() -> {
+        executorService.submit(() -> {
             if (meshBuffer != null) {
                 try {
                     PhysicsMeshData newMesh = addMeshToWorldImpl(min, meshBuffer);
@@ -202,8 +217,10 @@ public class JBulletPhysics implements Physics {
         }
     }
 
-    public void RemoveMeshData(PhysicsMeshData meshData) {
-        dynamicsWorld.removeRigidBody(meshData.body);
+    private void RemovePhysicsMeshData(PhysicsMeshData meshData) {
+        if(meshData.body!=null) {
+            dynamicsWorld.removeRigidBody(meshData.body);
+        }
         meshData.body = null;
         meshData.shape = null;
         meshData.buffer = null;
@@ -421,65 +438,6 @@ public class JBulletPhysics implements Physics {
             }
         } else {
             g_player.body.setLinearVelocity(new Vector3f(inputVelocity.X, inputVelocity.Y, inputVelocity.Z));
-        }
-
-        g_player.ghost.getWorldTransform().origin.set(g_player.body.getWorldTransform().origin);
-    }
-
-    void test(float deltaT, float elapsedTime){
-        if (g_player==null || g_player.body == null || g_player.ghost == null) {
-            return;
-        }
-        Dispatcher dispatcher = dynamicsWorld.getDispatcher();
-        int manifoldCount = dispatcher.getNumManifolds();
-        float onGroundDot = 0.f;
-        boolean onGround = false;
-        Vector3f origin = g_player.body.getWorldTransform().origin;
-        for (int i = 0; i < manifoldCount; i++) {
-            PersistentManifold manifold = dispatcher.getManifoldByIndexInternal(i);
-            // The following two lines are optional.
-//            RigidBody object1 = (RigidBody)manifold.getBody0();
-//            RigidBody object2 = (RigidBody)manifold.getBody1();
-//            MyPhysicsObject physicsObject1 = (MyPhysicsObject)object1.getUserPointer();
-//            MyPhysicsObject physicsObject2 = (MyPhysicsObject)object2.getUserPointer();
-            boolean hit = false;
-            Vector3f normal = null;
-            for (int j = 0; j < manifold.getNumContacts(); j++) {
-                ManifoldPoint contactPoint = manifold.getContactPoint(j);
-                if (contactPoint.getDistance() < 0.0f &&
-                        (manifold.getBody0().getClass().isAssignableFrom(RigidBody.class) || manifold.getBody1().getClass().isAssignableFrom(RigidBody.class))) {
-                    hit = true;
-                    normal = contactPoint.normalWorldOnB;
-                    boolean isFirstBody = manifold.getBody0().equals(g_player.ghost);
-                    Vector3f p1 = isFirstBody ? contactPoint.getPositionWorldOnA(new Vector3f()) : contactPoint.getPositionWorldOnB(new Vector3f());
-                    Vector3f d = new Vector3f();
-                    d.sub(origin, p1);
-                    d.normalize();
-                    onGroundDot = Math.max(onGroundDot, d.dot(new Vector3f(0.f, 1.f, 0.f)));
-                    int t=3;
-                }
-            }
-            if (hit) {
-                // Collision happened between physicsObject1 and physicsObject2. Collision normal is in variable 'normal'.
-            }
-        }
-
-        float checkGroundTime = 0.f;
-        if (g_player.falling && checkGroundTime < elapsedTime) {
-            if (onGroundDot > 0.85f) {
-                onGround = true;
-                g_player.falling = false;
-            }
-        }
-        Vector3f out = new Vector3f();
-        Vector3f currentVelocty = g_player.body.getLinearVelocity(out);
-        Vec3f inputVelocity = g_player.velocity.mul(0.05f);
-        if (!g_player.noclip) {
-            float velocity = currentVelocty.y;
-            if (!g_player.falling) {
-                velocity = Math.min(0.f, velocity) - (10 * deltaT);
-            }
-            g_player.body.setLinearVelocity(new Vector3f(inputVelocity.X, velocity, inputVelocity.Z));
         }
 
         g_player.ghost.getWorldTransform().origin.set(g_player.body.getWorldTransform().origin);

@@ -171,9 +171,11 @@ public class ChunkOctree {
         }
         if(node.worldNode!=null){
             if(node.worldNode.mainMesh!=null){
+                physics.RemoveMeshData(node.worldNode.mainMesh);
                 node.worldNode.mainMesh = null;
             }
             if(node.worldNode.seamMesh!=null){
+                physics.RemoveMeshData(node.worldNode.seamMesh);
                 node.worldNode.seamMesh = null;
             }
         }
