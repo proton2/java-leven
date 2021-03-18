@@ -53,7 +53,7 @@ public class JBulletPhysics implements Physics {
     private short PHYSICS_GROUP_PLAYER = 4;
     private short PHYSICS_FILTER_ALL = (short) (PHYSICS_GROUP_WORLD | PHYSICS_GROUP_ACTOR | PHYSICS_GROUP_PLAYER);
     private short PHYSICS_FILTER_NOT_PLAYER = (short) (PHYSICS_FILTER_ALL & ~PHYSICS_GROUP_PLAYER);
-
+    private int maxChunkSize;
 
     private void EnqueuePhysicsOperation(PhysicsOperationType opType, Runnable op) {
         try {
@@ -88,7 +88,7 @@ public class JBulletPhysics implements Physics {
         return new javax.vecmath.Vector3f(worldValue.x / PHYSICS_SCALE, worldValue.y / PHYSICS_SCALE, worldValue.z / PHYSICS_SCALE);
     }
 
-    public JBulletPhysics(Aabb g_worldBounds) {
+    public JBulletPhysics(Aabb g_worldBounds, int maxChunkSize) {
         executorService = Executors.newFixedThreadPool(6, new ThreadFactory() {
                     private AtomicInteger count = new AtomicInteger();
                     @Override
@@ -104,6 +104,7 @@ public class JBulletPhysics implements Physics {
         g_player = new Player();
         collisionPos = new Vec3f();
         collisionNorm = new Vec3f();
+        this.maxChunkSize = maxChunkSize;
     }
 
     private void Physics_Initialise(Aabb worldBounds) {
@@ -129,7 +130,7 @@ public class JBulletPhysics implements Physics {
 
     @Override
     public void Physics_UpdateWorldNodeMainMesh(boolean updateMain, ChunkNode chunkNode) {
-        if ((updateMain && chunkNode.renderMesh == null) || (!updateMain && chunkNode.seamMesh == null)) {
+        if ((updateMain && chunkNode.renderMesh == null) || (!updateMain && chunkNode.seamMesh == null)|| chunkNode.size > maxChunkSize) {
             return;
         }
         MeshBuffer meshBuffer = updateMain ? chunkNode.renderMesh.meshBuffer : chunkNode.seamMesh.meshBuffer;
