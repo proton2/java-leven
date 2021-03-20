@@ -1,10 +1,11 @@
 package dc;
 
 import core.kernel.Camera;
-import core.math.*;
+import core.math.Vec3f;
+import core.math.Vec3i;
+import core.math.Vec4f;
 import core.physics.Physics;
 import core.physics.WorldCollisionNode;
-import core.utils.Constants;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.impl.GPUDensityField;
@@ -32,12 +33,7 @@ public class ChunkOctree {
     private List<RenderMesh> invalidateMeshes;
     private ConcurrentLinkedDeque<CSGOperationInfo> g_operationQueue = new ConcurrentLinkedDeque<>();
     private final Physics physics;
-    private Vec3f camRayEnd;
-    private boolean checkRayCollision;
-
-    public Vec3f getCamRayEnd() {
-        return camRayEnd;
-    }
+    private final boolean enablePhysics;
 
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
@@ -47,13 +43,13 @@ public class ChunkOctree {
         return invalidateMeshes;
     }
 
-    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, boolean rayCast, Camera cam) {
+    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, boolean enablePhysics, Camera cam) {
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
         service = Executors.newFixedThreadPool(1);
         buildChunkOctree();
-        this.checkRayCollision = rayCast;
+        this.enablePhysics = enablePhysics;
         update(cam);
         physics.Physics_SpawnPlayer(cam.getPosition());
     }
@@ -170,18 +166,18 @@ public class ChunkOctree {
             node.seamMesh = null;
         }
         if(node.worldNode!=null){
-            if(node.worldNode.mainMesh!=null){
+            if(node.worldNode.mainMesh!=null && enablePhysics){
                 physics.RemoveMeshData(node.worldNode.mainMesh);
                 node.worldNode.mainMesh = null;
             }
-            if(node.worldNode.seamMesh!=null){
+            if(node.worldNode.seamMesh!=null && enablePhysics){
                 physics.RemoveMeshData(node.worldNode.seamMesh);
                 node.worldNode.seamMesh = null;
             }
         }
     }
 
-    public void update(Camera cam, boolean multiTread){
+    public void update(Camera cam, boolean multiTread, Vec3f rayStart, Vec3f rayEnd){
         this.camera = cam;
         if (multiTread) {
             service.submit(() -> update(camera));
@@ -189,17 +185,16 @@ public class ChunkOctree {
             update(camera);
         }
 
-        float rayLength = Constants.ZFAR;
-        Vec3f start = cam.getPosition();
-        camRayEnd = cam.getForward().scaleAdd(rayLength, start);
-        if(checkRayCollision) {
-            physics.Physics_CastRay(start, camRayEnd);
+        if(enablePhysics) {
+            physics.Physics_CastRay(rayStart, rayEnd);
         }
     }
 
     public void clean(){
         service.shutdown();
-        physics.Physics_Shutdown();
+        if(enablePhysics) {
+            physics.Physics_Shutdown();
+        }
     }
 
     public void update(Camera camera) {
@@ -239,7 +234,7 @@ public class ChunkOctree {
             if (filteredNode.renderMesh !=null || (filteredNode.chunkBorderNodes !=null && filteredNode.chunkBorderNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
-                if(checkRayCollision) {
+                if(enablePhysics) {
                     physics.Physics_UpdateWorldNodeMainMesh(true, filteredNode);
                 }
             } else {
@@ -271,7 +266,7 @@ public class ChunkOctree {
                 seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
-            if(checkRayCollision && seamUpdateNode.seamMesh!=null) {
+            if(enablePhysics && seamUpdateNode.seamMesh!=null) {
                 physics.Physics_UpdateWorldNodeMainMesh(false, seamUpdateNode);
             }
         }

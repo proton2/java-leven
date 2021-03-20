@@ -7,16 +7,11 @@ import core.configs.CCW;
 import core.configs.CW;
 import core.kernel.Camera;
 import core.kernel.Input;
-import core.kernel.Window;
-import core.math.Matrix4f;
 import core.math.Vec2f;
 import core.math.Vec3f;
-import core.math.Vec4f;
 import core.model.Mesh;
 import core.model.Vertex;
 import core.physics.JBulletPhysics;
-import core.physics.JniNativeBulletPhysics;
-import core.physics.LibGdxBulletPhysics;
 import core.physics.Physics;
 import core.renderer.RenderInfo;
 import core.renderer.Renderer;
@@ -29,11 +24,10 @@ import dc.impl.MeshGenerationContext;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
-import dc.impl.opencl.OCLUtils;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
+import dc.utils.Ray;
 import dc.utils.RenderDebugCmdBuffer;
-import dc.utils.RenderShape;
 import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
 
@@ -52,23 +46,13 @@ public class ChunkOctreeWrapper extends GameObject {
     private KernelsHolder kernelHolder;
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
-    protected boolean drawCamRay = false;
+    protected boolean drawRayPick = false;
     private final MeshGenerationContext meshGenCtx;
     private final ComputeContext ctx;
-
-    private Matrix4f invProjectionMatrix;
-    private Matrix4f invViewMatrix;
-    private Vec3f mouseDir;
-    private Vec4f tmpVec;
     private Physics physics;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
-        invProjectionMatrix = new Matrix4f();
-        invViewMatrix = new Matrix4f();
-        mouseDir = new Vec3f();
-        tmpVec = new Vec4f();
-
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = null;
@@ -100,16 +84,21 @@ public class ChunkOctreeWrapper extends GameObject {
 
     public void update() {
         if (refreshMesh) {
-            if(Input.getInstance().isButtonHolding(1)){
-                selectItem(mouseDir);
-                Vec3f dir = Camera.getInstance().getForward().getNormalDominantAxis();
-                Vec3f brushSize = new Vec3f(1);
-                Vec3f offset = dir.mul(brushSize);
-                Vec3f origin = offset.add(mouseDir);
-                chunkOctree.queueCSGOperation(origin, brushSize, RenderShape.RenderShape_None, 1, true);
-            }
-            chunkOctree.processCSGOperations(false);
-            chunkOctree.update(Camera.getInstance(), true);
+//            if(Input.getInstance().isButtonHolding(1)){
+//                selectItem(mouseDir);
+//                Vec3f dir = Camera.getInstance().getForward().getNormalDominantAxis();
+//                Vec3f brushSize = new Vec3f(1);
+//                Vec3f offset = dir.mul(brushSize);
+//                Vec3f origin = offset.add(mouseDir);
+//                chunkOctree.queueCSGOperation(origin, brushSize, RenderShape.RenderShape_None, 1, true);
+//            }
+//            chunkOctree.processCSGOperations(false);
+
+            Camera cam = Camera.getInstance();
+            Vec2f curPos = Input.getInstance().getCursorPosition();
+            Ray ray = cam.getMousePickRay(curPos.X, curPos.Y);
+            Vec3f rayTo = new Vec3f(ray.direction.scaleAdd(Constants.ZFAR, ray.origin));
+            chunkOctree.update(cam, true, ray.origin, rayTo);
         }
 
         if (refreshMesh) {
@@ -133,7 +122,7 @@ public class ChunkOctreeWrapper extends GameObject {
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F5)) {
             sleep(200);
-            drawCamRay = !drawCamRay;
+            drawRayPick = !drawRayPick;
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F6)) {
             Vec3f cam = Camera.getInstance().getPosition();
@@ -202,12 +191,10 @@ public class ChunkOctreeWrapper extends GameObject {
             addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
         }
 
-        if (drawCamRay) {
+        if (drawRayPick && Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
-            Vec3f camRayEnd = chunkOctree.getRayCollisionPos();
-            //chunkOctree.getCollisionPos()
             //camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getCollisionPos(), 10);
-            camRayCmds.addWireCube(Constants.Yellow, 0.2f, camRayEnd, 10);
+            camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getRayCollisionPos(), 10);
             //camRayCmds.addSphere(Constants.Red, 0.2f, camRayEnd, 10);
             //camRayCmds.addLine(Constants.Red, 0.2f, Camera.getInstance().getPosition(), camRayEnd);
 
@@ -231,29 +218,6 @@ public class ChunkOctreeWrapper extends GameObject {
         Renderer debugRenderer = new Renderer(debugMeshBuffer);
         debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
         addComponent("voxel nodes " + node.min, debugRenderer);
-    }
-
-    private void selectItem(Vec3f mouseDir){
-        int wdwWitdh = Window.getInstance().getWidth();
-        int wdwHeight = Window.getInstance().getHeight();
-        Vec2f mousePos = Input.getInstance().getCursorPosition();
-        Camera camera = Camera.getInstance();
-
-        float x = (2 * mousePos.X) / (float)wdwWitdh - 1.0f;
-        float y = 1.0f - (2 * mousePos.Y) / (float)wdwHeight;
-        float z = -1.0f;
-
-        invProjectionMatrix.set(camera.getProjectionMatrix().invert());
-
-        tmpVec.set(x, y, z, 1.0f);
-        tmpVec.set(tmpVec.mul(invProjectionMatrix));
-        tmpVec.z = -1.0f;
-        tmpVec.w = 0.0f;
-
-        invViewMatrix.set(camera.getViewMatrix().invert());
-        tmpVec.set(tmpVec.mul(invViewMatrix));
-
-        mouseDir.set(tmpVec.x, tmpVec.y, tmpVec.z);
     }
 
     private void testPlane() {

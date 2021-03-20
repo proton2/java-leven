@@ -233,12 +233,11 @@ public class Vec4f {
 	}
 
 	public Vec4f mul(Matrix4f m) {
-		Vec4f res = new Vec4f(0,0,0,0);
-		res.setX(m.get(0,0) * getX() + m.get(0,1) * getY() + m.get(0,2) * getZ() + m.get(0,3) * getW());
-		res.setY(m.get(1,0) * getX() + m.get(1,1) * getY() + m.get(1,2) * getZ() + m.get(1,3) * getW());
-		res.setZ(m.get(2,0) * getX() + m.get(2,1) * getY() + m.get(2,2) * getZ() + m.get(2,3) * getW());
-		res.setW(m.get(3,0) * getX() + m.get(3,1) * getY() + m.get(3,2) * getZ() + m.get(3,3) * getW());
-		return res;
+		float x = m.get(0,0) * getX() + m.get(0,1) * getY() + m.get(0,2) * getZ() + m.get(0,3) * getW();
+		float y = m.get(1,0) * getX() + m.get(1,1) * getY() + m.get(1,2) * getZ() + m.get(1,3) * getW();
+		float z = m.get(2,0) * getX() + m.get(2,1) * getY() + m.get(2,2) * getZ() + m.get(2,3) * getW();
+		float w = m.get(3,0) * getX() + m.get(3,1) * getY() + m.get(3,2) * getZ() + m.get(3,3) * getW();
+		return new Vec4f(x, y, z, w);
 	}
 
 	public float[] to1dArray(){

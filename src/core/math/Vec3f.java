@@ -306,4 +306,14 @@ public class Vec3f {
 		this.Y = v.y;
 		this.Z = v.z;
 	}
+
+	public Vec3f project (final Matrix4f m) {
+		final float l_w = 1f / (X * m.get(3,0) + Y * m.get(3,1) + Z * m.get(3,2) + m.get(3,3));
+
+		float mx = (X * m.get(0,0) + Y * m.get(0,1) + Z * m.get(0,2) + m.get(0,3)) * l_w;
+		float my = (X * m.get(1,0) + Y * m.get(1,1) + Z * m.get(1,2) + m.get(1,3)) * l_w;
+		float mz = (X * m.get(2,0) + Y * m.get(2,1) + Z * m.get(2,2) + m.get(2,3)) * l_w;
+
+		return new Vec3f(mx,my,mz);
+	}
 }
