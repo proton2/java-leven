@@ -54,4 +54,12 @@ public class ChunkNode {
         result = 31 * result + (active ? 1 : 0);
         return result;
     }
+
+    @Override
+    public String toString() {
+        return "ChunkNode{" +
+                "min=" + min +
+                ", size=" + size +
+                '}';
+    }
 }

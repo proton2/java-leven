@@ -22,6 +22,7 @@ import java.util.concurrent.Future;
 
 import static dc.OctreeNodeType.Node_Leaf;
 import static dc.utils.SimplexNoise.getNoise;
+import static java.lang.Math.max;
 
 public class PointerBasedOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     private final boolean multiThreadCalculation;
@@ -114,7 +115,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
     private boolean multiThreadCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                     List<OctreeNode> chunkNodes,
                                                     List<OctreeNode> seamNodes) throws Exception {
-        int availableProcessors = Runtime.getRuntime().availableProcessors();
+        int availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         int threadBound = (meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()) / availableProcessors;
 
         ExecutorService service = Executors.newFixedThreadPool(availableProcessors);

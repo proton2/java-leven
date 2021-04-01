@@ -15,6 +15,7 @@ import dc.utils.Frustum;
 import dc.utils.RenderShape;
 import dc.utils.VoxelHelperUtils;
 
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +35,7 @@ public class ChunkOctree {
     private ConcurrentLinkedDeque<CSGOperationInfo> g_operationQueue = new ConcurrentLinkedDeque<>();
     private final Physics physics;
     private final boolean enablePhysics;
+    private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
 
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
@@ -229,8 +231,14 @@ public class ChunkOctree {
         ArrayList<ChunkNode> emptyNodes = new ArrayList<>();
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
+            long time1 = System.nanoTime();
             boolean result = //filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
+            long time2 = System.nanoTime();
+            if(result) {
+                System.out.println("Async. created chunk " + filteredNode + " in " + INT_FORMATTER.format((time2 - time1) / (long) 1E3));
+            }
+
             if (filteredNode.renderMesh !=null || (filteredNode.chunkBorderNodes !=null && filteredNode.chunkBorderNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
