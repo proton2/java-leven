@@ -7,8 +7,10 @@ Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation i
 CPU and OpenCL GPU implementations.
 
 Features:
-- Pointer based octree Dual contouring implementation;
-- Linear octree Dual contouring implementations: <br>
+- Used JBullet physics engine (ray pick and collision detection);
+- Many octree Dual contouring implementations:  
+  Pointer based octree Dual contouring implementation,<br>
+  Linear octree Dual contouring implementations: <br>
   - Simple implementation, in series steps to calculate leafs data.
   - Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation - TransitionLinearOctreeImpl.java. This is my favorite implementation.
   - Nick Gildea Leven Dual contouring implementation translated to Java CPU realization - LevenLinearCPUOctreeImpl.java
@@ -57,9 +59,15 @@ F3 - enable / disable frustum culling
 
 F4 - show bounds of the seam octree nodes 
 
-middle mouse - camera walking
+middle mouse with mouse move - camera walking (without change direction of movement)
+
+right mouse - ray pick from mouse cursor to intersection point with landscape
+
+arrows - change camera direction (with change direction of movement)
 
 Use:
+
+JBullet - I use my modified version of JBullet https://github.com/proton2/jbullet
 
 Oreon Engine (Java - OpenGL/Vulkan) https://github.com/fynnfluegge/oreon-engine
 

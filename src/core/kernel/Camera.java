@@ -3,25 +3,20 @@ package core.kernel;
 import core.math.Matrix4f;
 import core.math.Vec3f;
 import core.math.Vec4f;
+import core.physics.Physics;
 import core.utils.Constants;
 import core.utils.Util;
+import dc.utils.Ray;
 
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_W;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_S;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_A;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_D;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_UP;
-import static org.lwjgl.glfw.GLFW.GLFW_KEY_DOWN;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPos;
+import static org.lwjgl.glfw.GLFW.*;
 
 public class Camera {
 	
 	private static Camera instance = null;
 
 	private final Vec3f yAxis = new Vec3f(0,1,0);
-	
+	private final Vec3f speed = new Vec3f(0);
+
 	private Vec3f position;
 	private Vec3f previousPosition;
 	private Vec3f forward;
@@ -53,6 +48,9 @@ public class Camera {
 
 	private Vec4f[] frustumPlanes = new Vec4f[6];
 	private Vec3f[] frustumCorners = new Vec3f[8];
+	private Vec3f velocity = new Vec3f();
+	private Physics physics;
+	private final Ray ray = new Ray(new Vec3f(), new Vec3f());
 	  
 	public static Camera getInstance() 
 	{
@@ -64,9 +62,7 @@ public class Camera {
 	}
 	
 	protected Camera() {
-		//this(new Vec3f(575,-930,-899), new Vec3f(-0.01f,-0.61f,0.78f).normalize(), new Vec3f(-0.f,0.78f,0.61f));
-		//this(new Vec3f(-286,-753,-1908), new Vec3f(0.54f,-0.31f,0.77f).normalize(), new Vec3f(0.18f,0.94f,0.26f));
-		this(new Vec3f(0,0,0), new Vec3f(1,0,0).normalize(), new Vec3f(0,1,0));
+		this(new Vec3f(906,-1509,-2694),  new Vec3f(1,0,0).normalize(), new Vec3f(0,1,0));
 		setProjection(70, Window.getInstance().getWidth(), Window.getInstance().getHeight());
 		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
@@ -168,14 +164,29 @@ public class Camera {
 		movAmt = Math.max(0.02f, movAmt);
 		//movAmt = 1;
 		
-		if(Input.getInstance().isKeyHold(GLFW_KEY_W))
+		if(Input.getInstance().isKeyHold(GLFW_KEY_W)) {
+			speed.Z = movAmt;
 			move(getForward(), movAmt);
-		if(Input.getInstance().isKeyHold(GLFW_KEY_S))
+		}
+		if(Input.getInstance().isKeyHold(GLFW_KEY_S)) {
+			speed.Z = -movAmt;
 			move(getForward(), -movAmt);
-		if(Input.getInstance().isKeyHold(GLFW_KEY_A))
+		}
+		if(Input.getInstance().isKeyHold(GLFW_KEY_A)) {
+			speed.X = -movAmt;
 			move(getLeft(), movAmt);
-		if(Input.getInstance().isKeyHold(GLFW_KEY_D))
+		}
+		if(Input.getInstance().isKeyHold(GLFW_KEY_D)) {
+			speed.X = movAmt;
 			move(getRight(), movAmt);
+		}
+
+		if(Input.getInstance().isKeyReleased(GLFW_KEY_W) || Input.getInstance().isKeyReleased(GLFW_KEY_S)) {
+			speed.Z = 0.f;
+		}
+		if(Input.getInstance().isKeyReleased(GLFW_KEY_A) || Input.getInstance().isKeyReleased(GLFW_KEY_D)) {
+			speed.X = 0.f;
+		}
 				
 		if(Input.getInstance().isKeyHold(GLFW_KEY_UP))
 			rotateX(-rotAmt/8f);
@@ -272,12 +283,23 @@ public class Camera {
 				new Matrix4f().Translation(this.getPosition().mul(-1))));
 		setViewProjectionMatrix(projectionMatrix.mul(viewMatrix));
 
+		if(physics!=null) {
+			setPosition(physics.Physics_GetPlayerPosition());
+			velocity = velocity.add(forward.mul(speed.Z));
+			velocity = velocity.add(up.mul(speed.Y));
+			velocity = velocity.add(getRight().mul(speed.X));
+			physics.Physics_SetPlayerVelocity(velocity);
+		}
 		initfrustum();
+	}
+
+	public void setPhysics(Physics physics){
+		this.physics = physics;
 	}
 	
 	public void move(Vec3f dir, float amount)
 	{
-		Vec3f newPos = position.add(dir.mul(amount));	
+		Vec3f newPos = position.add(dir.mul(amount));
 		setPosition(newPos);
 	}
 	
@@ -425,5 +447,43 @@ public class Camera {
 
 	private void setPreviousForward(Vec3f previousForward) {
 		this.previousForward = previousForward;
+	}
+
+	public Vec3f unproject (Vec3f screenCoords, float viewportX, float viewportY, float viewportWidth, float viewportHeight) {
+		float x = screenCoords.X, y = screenCoords.Y;
+		x = x - viewportX;
+		y = Window.getInstance().getHeight() - y;
+		y = y - viewportY;
+
+		Vec3f tmpVec = new Vec3f();
+		tmpVec.X = (2 * x) / viewportWidth - 1;
+		tmpVec.Y = (2 * y) / viewportHeight - 1;
+		tmpVec.Z = 2 * screenCoords.Z - 1;
+		Matrix4f invProjectionView = viewProjectionMatrix.invert();
+		return tmpVec.project(invProjectionView);
+	}
+
+	public Ray getCrossHairRay(float rayLength) {
+		Vec3f start = getPosition();
+		Vec3f camRayEnd = getForward().scaleAdd(rayLength, start);
+		this.ray.origin.set(start);
+		this.ray.direction.set(camRayEnd);
+		return ray;
+	}
+
+	private Ray getPickRay(float screenX, float screenY, float viewportX, float viewportY, float viewportWidth, float viewportHeight) {
+		Vec3f origin = new Vec3f(screenX, screenY, 0);
+		Vec3f direction = new Vec3f(screenX, screenY, 1);
+		Vec3f worldSpaceOrigin = unproject(origin, viewportX, viewportY, viewportWidth, viewportHeight);
+		Vec3f worldSpaceDirection = unproject(direction, viewportX, viewportY, viewportWidth, viewportHeight);
+		worldSpaceDirection = worldSpaceDirection.sub(worldSpaceOrigin).normalize();
+
+		this.ray.origin.set(worldSpaceOrigin);
+		this.ray.direction.set(worldSpaceDirection);
+		return ray;
+	}
+
+	public Ray getMousePickRay(float screenX, float screenY) {
+		return getPickRay(screenX, screenY, 0, 0, Window.getInstance().getWidth(), Window.getInstance().getHeight());
 	}
 }

@@ -1,7 +1,7 @@
 package dc;
 
 import core.math.Vec3i;
-import dc.entities.MeshBuffer;
+import core.physics.WorldCollisionNode;
 
 import java.util.List;
 
@@ -13,7 +13,8 @@ public class ChunkNode {
     boolean	invalidated = false;
     boolean	empty = false;
     List<OctreeNode> chunkBorderNodes;
-    RenderMesh renderMesh, seamMesh;
+    public RenderMesh renderMesh, seamMesh;
+    public WorldCollisionNode worldNode;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);
@@ -22,6 +23,7 @@ public class ChunkNode {
         for (int i = 0; i < 8; i++) {
             children[i] = null;
         }
+        worldNode = new WorldCollisionNode();
     }
 
     private boolean pointIsInCube(Vec3i p, float x_min, float y_min, float z_min, float size) {
@@ -51,5 +53,13 @@ public class ChunkNode {
         result = 31 * result + size;
         result = 31 * result + (active ? 1 : 0);
         return result;
+    }
+
+    @Override
+    public String toString() {
+        return "ChunkNode{" +
+                "min=" + min +
+                ", size=" + size +
+                '}';
     }
 }

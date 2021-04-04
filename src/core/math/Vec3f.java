@@ -137,6 +137,11 @@ public class Vec3f {
 	{
 		return new Vec3f(this.X + r.getX(), this.Y + r.getY(), this.Z + r.getZ());
 	}
+
+	public Vec3i add(Vec3i r)
+	{
+		return new Vec3i(this.X + r.x, this.Y + r.y, this.Z + r.z);
+	}
 	
 	public Vec3f add(float r)
 	{
@@ -167,6 +172,11 @@ public class Vec3f {
 	{
 		return new Vec3f(this.X * r, this.Y * r, this.Z * r);
 	}
+
+	public Vec3i mul3i(float r)
+	{
+		return new Vec3i(this.X * r, this.Y * r, this.Z * r);
+	}
 	
 	public Vec3f div(Vec3f r)
 	{
@@ -181,6 +191,29 @@ public class Vec3f {
 	public Vec3f abs()
 	{
 		return new Vec3f(Math.abs(X), Math.abs(Y), Math.abs(Z));
+	}
+
+	public Vec3f getNormalDominantAxis() {
+		// use the dominant axis of the node
+		Vec3f dir = new Vec3f();
+		Vec3f absNormal = this.abs();
+		if (absNormal.Y >= absNormal.X) {
+			if (absNormal.Y >= absNormal.Z) {
+				dir.Y = this.Y;
+			}
+			else {
+				dir.Z = this.Z;
+			}
+		}
+		else {
+			if (absNormal.X >= absNormal.Z) {
+				dir.X = this.X;
+			}
+			else {
+				dir.Z = this.Z;
+			}
+		}
+		return dir.normalize();
 	}
 	
 	public boolean equals(Object obj) {
@@ -253,5 +286,34 @@ public class Vec3f {
 		res.Y = Y * scalar + add.Y;
 		res.Z = Z * scalar + add.Z;
 		return res;
+	}
+
+	public javax.vecmath.Vector3f convert() {
+		javax.vecmath.Vector3f newVec = new javax.vecmath.Vector3f();
+		convert(this, newVec);
+		return newVec;
+	}
+
+	public static javax.vecmath.Vector3f convert(Vec3f oldVec, javax.vecmath.Vector3f newVec) {
+		newVec.x = oldVec.X;
+		newVec.y = oldVec.Y;
+		newVec.z = oldVec.Z;
+		return newVec;
+	}
+
+	public void set(javax.vecmath.Vector3f v){
+		this.X = v.x;
+		this.Y = v.y;
+		this.Z = v.z;
+	}
+
+	public Vec3f project (final Matrix4f m) {
+		final float l_w = 1f / (X * m.get(3,0) + Y * m.get(3,1) + Z * m.get(3,2) + m.get(3,3));
+
+		float mx = (X * m.get(0,0) + Y * m.get(0,1) + Z * m.get(0,2) + m.get(0,3)) * l_w;
+		float my = (X * m.get(1,0) + Y * m.get(1,1) + Z * m.get(1,2) + m.get(1,3)) * l_w;
+		float mz = (X * m.get(2,0) + Y * m.get(2,1) + Z * m.get(2,2) + m.get(2,3)) * l_w;
+
+		return new Vec3f(mx,my,mz);
 	}
 }
