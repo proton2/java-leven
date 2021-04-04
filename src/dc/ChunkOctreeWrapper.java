@@ -18,12 +18,11 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.LevenLinearCPUOctreeImpl;
-import dc.impl.LevenLinearGPUOctreeImpl;
-import dc.impl.MeshGenerationContext;
+import dc.impl.*;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
+import dc.impl.opencl.OCLUtils;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.Ray;
@@ -46,20 +45,22 @@ public class ChunkOctreeWrapper extends GameObject {
     private KernelsHolder kernelHolder;
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
-    protected boolean drawRayPick = false;
     private final MeshGenerationContext meshGenCtx;
     private final ComputeContext ctx;
     private Physics physics;
+    private boolean enablePhysics = true;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
-        ctx = null;
+        ctx = OCLUtils.getOpenCLContext();
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 1024);
         Camera camera = Camera.getInstance();
         camera.setPosition(new Vec3f(-131.29f,-158.04f,-1921.52f));
-        camera.setPhysics(physics);
+        if(enablePhysics) {
+            camera.setPhysics(physics);
+        }
         VoxelOctree voxelOctree;
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
@@ -71,14 +72,14 @@ public class ChunkOctreeWrapper extends GameObject {
             kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
             voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
         } else{
-            //VoxelOctree voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
-            //VoxelOctree voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
+            voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
+            //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
             //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
             //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
-            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+            //voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
         }
-        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, true, camera);
+        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, enablePhysics, camera);
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
     }
 
@@ -119,10 +120,6 @@ public class ChunkOctreeWrapper extends GameObject {
         if (Input.getInstance().isKeyHold(GLFW_KEY_F4)) {
             sleep(200);
             drawSeamBounds = !drawSeamBounds;
-        }
-        if (Input.getInstance().isKeyHold(GLFW_KEY_F5)) {
-            sleep(200);
-            drawRayPick = !drawRayPick;
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F6)) {
             Vec3f cam = Camera.getInstance().getPosition();
@@ -191,7 +188,7 @@ public class ChunkOctreeWrapper extends GameObject {
             addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
         }
 
-        if (drawRayPick && Input.getInstance().isButtonHolding(1)) {
+        if (enablePhysics && Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
             //camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getCollisionPos(), 10);
             camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getRayCollisionPos(), 10);

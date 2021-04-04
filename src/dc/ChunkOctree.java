@@ -53,7 +53,9 @@ public class ChunkOctree {
         buildChunkOctree();
         this.enablePhysics = enablePhysics;
         update(cam);
-        physics.Physics_SpawnPlayer(cam.getPosition());
+        if(enablePhysics) {
+            physics.Physics_SpawnPlayer(cam.getPosition());
+        }
     }
 
     public List<RenderMesh> getRenderMeshes(boolean frustumCulling) {
