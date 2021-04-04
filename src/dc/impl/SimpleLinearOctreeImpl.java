@@ -8,17 +8,17 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
+import dc.entities.VoxelTypes;
 import dc.solver.GlslSvd;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.*;
 
 import static dc.utils.SimplexNoise.getNoise;
+import static java.lang.Math.max;
 
 /*
     Simple Linear octree dual contouring implementation, in series steps to calculate leafs data
@@ -36,11 +36,16 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                                         List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
 
         // usyal in serial calculating leaf nodes data. More slowly.
-        return createLeafVoxelNodesTraditional(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), seamNodes, buffer, field);
+        try {
+            return createLeafVoxelNodesTraditionalConcurrent(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), seamNodes, buffer);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     public boolean createLeafVoxelNodesTraditional(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                   List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
+                                                   List<OctreeNode> seamNodes, MeshBuffer buffer)
     {
         ArrayList<LinearLeafHolder> listHolder = new ArrayList<>();
         Map<Integer, Integer> octreeNodes = new HashMap<>();
@@ -71,6 +76,140 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
         return true;
+    }
+
+    public boolean createLeafVoxelNodesTraditionalConcurrent(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
+                                                   List<OctreeNode> seamNodes, MeshBuffer buffer) throws Exception {
+
+        Map<Integer, Integer> octreeNodes = new ConcurrentHashMap<>();
+        ArrayList<LinearLeafHolder> listHolders = new ArrayList<>();
+        List<Callable<List<LinearLeafHolder>>> tasks = new ArrayList<>();
+
+        int availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
+        ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
+        int size = voxelsPerChunk*voxelsPerChunk*voxelsPerChunk;
+        int threadBound = (size) / availableProcessors;
+
+        for (int i=0; i<availableProcessors; i++){
+            int finalI = i;
+            Callable<List<LinearLeafHolder>> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                int current = from;
+                List<LinearLeafHolder> listHolder = new ArrayList<>();
+                for (int it = from; it < to; it++) {
+                    int indexShift = VoxelHelperUtils.log2(voxelsPerChunk); // max octree depth
+                    int x = (it >> (indexShift * 0)) & voxelsPerChunk - 1;
+                    int y = (it >> (indexShift * 1)) & voxelsPerChunk - 1;
+                    int z = (it >> (indexShift * 2)) & voxelsPerChunk - 1;
+                    Vec3i pos = new Vec3i(x, y, z);
+                    LinearLeafHolder linearLeafHolder = constructLeaf(pos, chunkMin, chunkSize);
+                    if(linearLeafHolder!=null){
+                        listHolder.add(linearLeafHolder);
+                        octreeNodes.put(linearLeafHolder.encodedVoxelPosition, current);
+                        ++current;
+                    }
+                }
+                return listHolder;
+            };
+            tasks.add(task);
+        }
+
+        List<Future<List<LinearLeafHolder>>> futures = service.invokeAll(tasks);
+        service.shutdown();
+        for (Future<List<LinearLeafHolder>> future : futures){
+            listHolders.addAll(future.get());
+        }
+
+        if(listHolders.size()==0){
+            return false;
+        }
+
+        int[] d_nodeCodes = listHolders.stream().mapToInt(e->e.encodedVoxelPosition).toArray();
+        int[] d_nodeMaterials = listHolders.stream().mapToInt(e->e.materialIndex).toArray();
+        Vec4f[] d_vertexPositions = listHolders.stream().map(e->e.solvedPosition).toArray(Vec4f[]::new);
+        Vec4f[] d_vertexNormals = listHolders.stream().map(e->e.averageNormal).toArray(Vec4f[]::new);
+
+        processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes,
+                d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
+        return true;
+    }
+
+    public boolean createLeafVoxelNodesM(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
+                                                   List<OctreeNode> seamNodes, MeshBuffer buffer)
+    {
+        Map<Integer, Integer> octreeNodes = new ConcurrentHashMap<>();
+        int size = voxelsPerChunk*voxelsPerChunk*voxelsPerChunk;
+
+        int availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
+        ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
+        int threadBound = (size) / availableProcessors;
+
+        int[] d_nodeCodes = new int[size];
+        int[] d_nodeMaterials = new int[size];
+        Vec4f[] d_vertexPositions = new Vec4f[size];
+        Vec4f[] d_vertexNormals = new Vec4f[size];
+
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        for (int i=0; i<availableProcessors; i++){
+            int finalI = i;
+            Callable<Integer> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                int current = from;
+                Integer count=0;
+                for (int it = from; it < to; it++) {
+                    int indexShift = VoxelHelperUtils.log2(voxelsPerChunk); // max octree depth
+                    int x = (it >> (indexShift * 0)) & voxelsPerChunk - 1;
+                    int y = (it >> (indexShift * 1)) & voxelsPerChunk - 1;
+                    int z = (it >> (indexShift * 2)) & voxelsPerChunk - 1;
+                    Integer encodedVoxelPosition = constructLeafM(new Vec3i(x, y, z), chunkMin, chunkSize, current,
+                            d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
+                    if(encodedVoxelPosition!=null){
+                        octreeNodes.put(encodedVoxelPosition, current);
+                        ++current;
+                        ++count;
+                    }
+                }
+                return count;
+            };
+            tasks.add(task);
+        }
+        try {
+            service.invokeAll(tasks);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        if(octreeNodes.size()==0){
+            return false;
+        }
+
+        int[] nodeCodes = new int[octreeNodes.size()];
+        int[] nodeMaterials = new int[octreeNodes.size()];
+        Vec4f[] vertexPositions = new Vec4f[octreeNodes.size()];
+        Vec4f[] vertexNormals = new Vec4f[octreeNodes.size()];
+
+        compactVoxels(d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals,
+                nodeCodes, nodeMaterials, vertexPositions, vertexNormals);
+
+        processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes,
+                nodeCodes, nodeMaterials, vertexPositions, vertexNormals);
+        return true;
+    }
+
+    private void compactVoxels(int[] d_nodeCodes, int[] d_nodeMaterials,  Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals,
+                               int[] nodeCodes, int[] nodeMaterials, Vec4f[] vertexPositions, Vec4f[] vertexNormals){
+        int current = 0;
+        for (int i = 0; i < d_nodeCodes.length; i++) {
+            if (d_vertexPositions[i]!=null) {
+                nodeCodes[current] = d_nodeCodes[i];
+                nodeMaterials[current] = d_nodeMaterials[i];
+                vertexPositions[current] = d_vertexPositions[i];
+                vertexNormals[current] = d_vertexNormals[i];
+                ++current;
+            }
+        }
     }
 
     private void processDc(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, List<OctreeNode> seamNodes,
@@ -109,7 +248,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
     private static class LinearLeafHolder{
         int materialIndex;
-        int voxelEdgeInfo;
         int encodedVoxelPosition;
         Vec4f solvedPosition;
         Vec4f averageNormal;
@@ -130,19 +268,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale);
-            if(nodePos==null){
-                return null;
-            } else {
-                LinearLeafHolder leafHolder = new LinearLeafHolder();
-                leafHolder.solvedPosition = nodePos;
-                int materialIndex = findDominantMaterial(cornerMaterials);
-                leafHolder.materialIndex = (materialIndex << 8) | corners;
-                leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
-                leafHolder.voxelEdgeInfo = corners;//edgeList;
-                leafHolder.averageNormal = CalculateSurfaceNormal(nodePos);
-                return leafHolder;
-            }
+            return getLinearLeafHolder(pos, leafSize, leafMin, cornerMaterials, corners);
         }
         int edgeList = 0;
 
@@ -179,9 +305,100 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int materialIndex = findDominantMaterial(cornerMaterials);
         leafHolder.materialIndex = (materialIndex << 8) | corners;
         leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
-        leafHolder.voxelEdgeInfo = edgeList;
+        //leafHolder.voxelEdgeInfo = edgeList;
         leafHolder.averageNormal = averageNormal.div((float)edgeCount).normalize();
         return leafHolder;
+    }
+
+    private LinearLeafHolder getLinearLeafHolder(Vec3i pos, int leafSize, Vec3i leafMin, int[] cornerMaterials, int corners) {
+        Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale);
+        if(nodePos==null){
+            return null;
+        } else {
+            LinearLeafHolder leafHolder = new LinearLeafHolder();
+            leafHolder.solvedPosition = nodePos;
+            int materialIndex = findDominantMaterial(cornerMaterials);
+            leafHolder.materialIndex = (materialIndex << 8) | corners;
+            leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            //leafHolder.voxelEdgeInfo = corners;//edgeList;
+            leafHolder.averageNormal = CalculateSurfaceNormal(nodePos);
+            return leafHolder;
+        }
+    }
+
+    private Integer constructLeafM(Vec3i pos, Vec3i chunkMin, int chunkSize, int current,
+                                           int[] d_nodeCodes, int[] d_nodeMaterials, Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals)
+    {
+        int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
+        Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
+        int[] cornerMaterials = new int[8];
+        int corners = 0;
+        for (int i = 0; i < 8; i++) {
+            Vec3f cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize)).toVec3f();
+            float density = getNoise(cornerPos);
+            int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
+            cornerMaterials[i] = material;
+            corners |= (material << i);
+        }
+        if (corners == 0 || corners == 255) {
+            // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
+            //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
+            return getLinearLeafHolder(pos, leafSize, leafMin, cornerMaterials, corners, current,
+                    d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
+        }
+        int edgeList = 0;
+
+        // otherwise the voxel contains the surface, so find the edge intersections
+        int MAX_CROSSINGS = 6;
+        int edgeCount = 0;
+        Vec4f averageNormal = new Vec4f();
+        Vec4f[] edgePositions = new Vec4f[12];
+        Vec4f[] edgeNormals = new Vec4f[12];
+        QEFData qef = new QEFData(new LevenQefSolver());
+        for (int i = 0; i < 12 && edgeCount < MAX_CROSSINGS; i++) {
+            int c1 = edgevmap[i][0];
+            int c2 = edgevmap[i][1];
+            int m1 = (corners >> c1) & 1;
+            int m2 = (corners >> c2) & 1;
+            int signChange = m1 != m2 ? 1 : 0;
+            edgeList |= (signChange << i);
+            if ((m1 == meshGen.MATERIAL_AIR && m2 == meshGen.MATERIAL_AIR) || (m1 == meshGen.MATERIAL_SOLID && m2 == meshGen.MATERIAL_SOLID)) {
+                continue; // no zero crossing on this edge
+            }
+            Vec3f p1 = leafMin.add(CHILD_MIN_OFFSETS[c1].mul(leafSize)).toVec3f();
+            Vec3f p2 = leafMin.add(CHILD_MIN_OFFSETS[c2].mul(leafSize)).toVec3f();
+            Vec4f p = ApproximateZeroCrossingPosition(p1, p2);
+            Vec4f n = CalculateSurfaceNormal(p);
+            edgePositions[edgeCount] = p;
+            edgeNormals[edgeCount] = n;
+            averageNormal = averageNormal.add(n);
+            edgeCount++;
+        }
+        qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
+
+        d_vertexPositions[current] = qef.solve();
+        int materialIndex = findDominantMaterial(cornerMaterials);
+        d_nodeMaterials[current] = (materialIndex << 8) | corners;
+        Integer encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+        d_nodeCodes[current] = encodedVoxelPos;
+        d_vertexNormals[current] = averageNormal.div((float)edgeCount).normalize();
+        return encodedVoxelPos;
+    }
+
+    private Integer getLinearLeafHolder(Vec3i pos, int leafSize, Vec3i leafMin, int[] cornerMaterials, int corners, int current,
+                                                 int[] d_nodeCodes, int[] d_nodeMaterials, Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals) {
+        Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale);
+        if(nodePos==null){
+            return null;
+        } else {
+            d_vertexPositions[current] = nodePos;
+            int materialIndex = findDominantMaterial(cornerMaterials);
+            d_nodeMaterials[current] = (materialIndex << 8) | corners;
+            Integer encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            d_nodeCodes[current] = encodedVoxelPos;
+            d_vertexNormals[current] = CalculateSurfaceNormal(nodePos);
+            return encodedVoxelPos;
+        }
     }
 
     private int findSeamNodes(int[] nodeCodes, boolean[] isSeamNode, int from, int to) {
