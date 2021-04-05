@@ -6,7 +6,7 @@ Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation i
 
 CPU and OpenCL GPU implementations.
 
-Features:
+## Features:
 - Used JBullet physics engine (ray pick and collision detection);
 - Many octree Dual contouring implementations:  
   Pointer based octree Dual contouring implementation,<br>
