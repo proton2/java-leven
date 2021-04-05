@@ -64,8 +64,8 @@ middle mouse with mouse move - camera walking (without change direction of movem
 right mouse - ray pick from mouse cursor to intersection point with landscape
 
 arrows - change camera direction (with change direction of movement)
-
-Use:
+<br>
+## Use:
 
 JBullet - I use my modified version of JBullet https://github.com/proton2/jbullet
 
@@ -73,7 +73,7 @@ Oreon Engine (Java - OpenGL/Vulkan) https://github.com/fynnfluegge/oreon-engine
 
 <br>
 
-Other interesting implementations for research:
+## Other interesting implementations for research:
 
 - Nick Gildea Dual Contouring
 https://github.com/nickgildea/leven
