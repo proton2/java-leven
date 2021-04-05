@@ -8,13 +8,14 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.entities.VoxelTypes;
-import dc.solver.GlslSvd;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 
 import static dc.utils.SimplexNoise.getNoise;
@@ -80,8 +81,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
     public boolean createLeafVoxelNodesTraditionalConcurrent(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
                                                    List<OctreeNode> seamNodes, MeshBuffer buffer) throws Exception {
-
-        Map<Integer, Integer> octreeNodes = new ConcurrentHashMap<>();
         ArrayList<LinearLeafHolder> listHolders = new ArrayList<>();
         List<Callable<List<LinearLeafHolder>>> tasks = new ArrayList<>();
 
@@ -95,7 +94,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             Callable<List<LinearLeafHolder>> task = () -> {
                 int from = finalI * threadBound;
                 int to = from + threadBound;
-                int current = from;
                 List<LinearLeafHolder> listHolder = new ArrayList<>();
                 for (int it = from; it < to; it++) {
                     int indexShift = VoxelHelperUtils.log2(voxelsPerChunk); // max octree depth
@@ -106,8 +104,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                     LinearLeafHolder linearLeafHolder = constructLeaf(pos, chunkMin, chunkSize);
                     if(linearLeafHolder!=null){
                         listHolder.add(linearLeafHolder);
-                        octreeNodes.put(linearLeafHolder.encodedVoxelPosition, current);
-                        ++current;
                     }
                 }
                 return listHolder;
@@ -123,6 +119,10 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 
         if(listHolders.size()==0){
             return false;
+        }
+        Map<Integer, Integer> octreeNodes = new HashMap<>();
+        for(int i=0; i<listHolders.size(); i++){
+            octreeNodes.put(listHolders.get(i).encodedVoxelPosition, i);
         }
 
         int[] d_nodeCodes = listHolders.stream().mapToInt(e->e.encodedVoxelPosition).toArray();
