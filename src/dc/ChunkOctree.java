@@ -238,7 +238,7 @@ public class ChunkOctree {
                     ConstructChunkNodeData(filteredNode);
             long time2 = System.nanoTime();
             if(result) {
-                System.out.println("Async. created chunk " + filteredNode + " in " + INT_FORMATTER.format((time2 - time1) / (long) 1E3));
+                System.out.println("created chunk " + filteredNode + " in " + INT_FORMATTER.format((time2 - time1) / (long) 1E3));
             }
 
             if (filteredNode.renderMesh !=null || (filteredNode.chunkBorderNodes !=null && filteredNode.chunkBorderNodes.size()> 0)) {

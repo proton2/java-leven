@@ -39,6 +39,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         // usyal in serial calculating leaf nodes data. More slowly.
         try {
             return createLeafVoxelNodesTraditionalConcurrent(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), seamNodes, buffer);
+            //return createLeafVoxelNodesM(chunkSize, chunkMin, meshGen.getVoxelsPerChunk(), seamNodes, buffer);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
@@ -136,9 +137,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     public boolean createLeafVoxelNodesM(int chunkSize, Vec3i chunkMin, int voxelsPerChunk,
-                                                   List<OctreeNode> seamNodes, MeshBuffer buffer)
-    {
-        Map<Integer, Integer> octreeNodes = new ConcurrentHashMap<>();
+                                                   List<OctreeNode> seamNodes, MeshBuffer buffer) throws Exception {
         int size = voxelsPerChunk*voxelsPerChunk*voxelsPerChunk;
 
         int availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
@@ -157,16 +156,15 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 int from = finalI * threadBound;
                 int to = from + threadBound;
                 int current = from;
-                Integer count=0;
+                int count=0;
                 for (int it = from; it < to; it++) {
                     int indexShift = VoxelHelperUtils.log2(voxelsPerChunk); // max octree depth
                     int x = (it >> (indexShift * 0)) & voxelsPerChunk - 1;
                     int y = (it >> (indexShift * 1)) & voxelsPerChunk - 1;
                     int z = (it >> (indexShift * 2)) & voxelsPerChunk - 1;
-                    Integer encodedVoxelPosition = constructLeafM(new Vec3i(x, y, z), chunkMin, chunkSize, current,
+                    boolean res = constructLeafM(new Vec3i(x, y, z), chunkMin, chunkSize, current,
                             d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
-                    if(encodedVoxelPosition!=null){
-                        octreeNodes.put(encodedVoxelPosition, current);
+                    if(res){
                         ++current;
                         ++count;
                     }
@@ -175,22 +173,24 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             };
             tasks.add(task);
         }
-        try {
-            service.invokeAll(tasks);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+
+        List<Future<Integer>> futures = service.invokeAll(tasks);
+        service.shutdown();
+        int compactSize = 0;
+        for (Future<Integer> future : futures){
+            compactSize += future.get();
         }
 
-        if(octreeNodes.size()==0){
+        if(compactSize==0){
             return false;
         }
 
-        int[] nodeCodes = new int[octreeNodes.size()];
-        int[] nodeMaterials = new int[octreeNodes.size()];
-        Vec4f[] vertexPositions = new Vec4f[octreeNodes.size()];
-        Vec4f[] vertexNormals = new Vec4f[octreeNodes.size()];
+        int[] nodeCodes = new int[compactSize];
+        int[] nodeMaterials = new int[compactSize];
+        Vec4f[] vertexPositions = new Vec4f[compactSize];
+        Vec4f[] vertexNormals = new Vec4f[compactSize];
 
-        compactVoxels(d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals,
+        Map<Integer, Integer> octreeNodes = compactVoxels(d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals,
                 nodeCodes, nodeMaterials, vertexPositions, vertexNormals);
 
         processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes,
@@ -198,11 +198,13 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         return true;
     }
 
-    private void compactVoxels(int[] d_nodeCodes, int[] d_nodeMaterials,  Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals,
+    private  Map<Integer, Integer> compactVoxels(int[] d_nodeCodes, int[] d_nodeMaterials,  Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals,
                                int[] nodeCodes, int[] nodeMaterials, Vec4f[] vertexPositions, Vec4f[] vertexNormals){
+        Map<Integer, Integer> octreeNodes = new HashMap<>(nodeCodes.length);
         int current = 0;
         for (int i = 0; i < d_nodeCodes.length; i++) {
             if (d_vertexPositions[i]!=null) {
+                octreeNodes.put(d_nodeCodes[i], current);
                 nodeCodes[current] = d_nodeCodes[i];
                 nodeMaterials[current] = d_nodeMaterials[i];
                 vertexPositions[current] = d_vertexPositions[i];
@@ -210,6 +212,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 ++current;
             }
         }
+        return octreeNodes;
     }
 
     private void processDc(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, List<OctreeNode> seamNodes,
@@ -326,7 +329,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         }
     }
 
-    private Integer constructLeafM(Vec3i pos, Vec3i chunkMin, int chunkSize, int current,
+    private boolean constructLeafM(Vec3i pos, Vec3i chunkMin, int chunkSize, int current,
                                            int[] d_nodeCodes, int[] d_nodeMaterials, Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals)
     {
         int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
@@ -379,25 +382,25 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         d_vertexPositions[current] = qef.solve();
         int materialIndex = findDominantMaterial(cornerMaterials);
         d_nodeMaterials[current] = (materialIndex << 8) | corners;
-        Integer encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+        int encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
         d_nodeCodes[current] = encodedVoxelPos;
         d_vertexNormals[current] = averageNormal.div((float)edgeCount).normalize();
-        return encodedVoxelPos;
+        return true;
     }
 
-    private Integer getLinearLeafHolder(Vec3i pos, int leafSize, Vec3i leafMin, int[] cornerMaterials, int corners, int current,
+    private boolean getLinearLeafHolder(Vec3i pos, int leafSize, Vec3i leafMin, int[] cornerMaterials, int corners, int current,
                                                  int[] d_nodeCodes, int[] d_nodeMaterials, Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals) {
         Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale);
         if(nodePos==null){
-            return null;
+            return false;
         } else {
             d_vertexPositions[current] = nodePos;
             int materialIndex = findDominantMaterial(cornerMaterials);
             d_nodeMaterials[current] = (materialIndex << 8) | corners;
-            Integer encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            int encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
             d_nodeCodes[current] = encodedVoxelPos;
             d_vertexNormals[current] = CalculateSurfaceNormal(nodePos);
-            return encodedVoxelPos;
+            return true;
         }
     }
 
