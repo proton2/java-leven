@@ -59,7 +59,7 @@ public class ChunkOctreeWrapper extends GameObject {
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
-        ctx = OCLUtils.getOpenCLContext();
+        ctx = null;//OCLUtils.getOpenCLContext();
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 1024);
         Camera camera = Camera.getInstance();
@@ -200,15 +200,10 @@ public class ChunkOctreeWrapper extends GameObject {
             //camRayCmds.addSphere(Constants.Red, 0.2f, chunkOctree.getRayCollisionPos(), 10);
             //camRayCmds.addLine(Constants.Green, 0.2f, Camera.getInstance().getPosition(), chunkOctree.getRayCollisionPos());
 
-//            DebugDrawBuffer buf = camRayCmds.UpdateDebugDrawBuffer();
-//            DebugMeshVBO camRayBuff = new DebugMeshVBO();
-//            camRayBuff.addData(buf);
-
             /*Renderer debugRenderer = new Renderer(actorCSGCube.getVbo());
             actorCSGCube.setTranslation(chunkOctree.getRayCollisionPos());
             CSGActorShader csgActorShader = CSGActorShader.getInstance();
             csgActorShader.updateTransform(actorCSGCube);
-
             debugRenderer.setRenderInfo(new RenderInfo(new CW(), csgActorShader));
              */
             DebugDrawBuffer buf = camRayCmds.UpdateDebugDrawBuffer();
@@ -216,6 +211,7 @@ public class ChunkOctreeWrapper extends GameObject {
             camRayBuff.addData(buf);
             Renderer debugRenderer = new Renderer(camRayBuff);
             debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
+
             addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
         }
     }
