@@ -18,11 +18,15 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.*;
+import dc.entities.ModelEntity;
+import dc.impl.LevenLinearGPUOctreeImpl;
+import dc.impl.MeshGenerationContext;
+import dc.impl.SimpleLinearOctreeImpl;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
 import dc.impl.opencl.OCLUtils;
+import dc.shaders.CSGActorShader;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.Ray;
@@ -49,12 +53,14 @@ public class ChunkOctreeWrapper extends GameObject {
     private final ComputeContext ctx;
     private Physics physics;
     private boolean enablePhysics = true;
+    //private ModelEntity actorCSGCube;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = OCLUtils.getOpenCLContext();
+        //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 1024);
         Camera camera = Camera.getInstance();
         camera.setPosition(new Vec3f(-131.29f,-158.04f,-1921.52f));
@@ -190,11 +196,21 @@ public class ChunkOctreeWrapper extends GameObject {
 
         if (enablePhysics && Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
-            //camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getCollisionPos(), 10);
             camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getRayCollisionPos(), 10);
-            //camRayCmds.addSphere(Constants.Red, 0.2f, camRayEnd, 10);
-            //camRayCmds.addLine(Constants.Red, 0.2f, Camera.getInstance().getPosition(), camRayEnd);
+            //camRayCmds.addSphere(Constants.Red, 0.2f, chunkOctree.getRayCollisionPos(), 10);
+            //camRayCmds.addLine(Constants.Green, 0.2f, Camera.getInstance().getPosition(), chunkOctree.getRayCollisionPos());
 
+//            DebugDrawBuffer buf = camRayCmds.UpdateDebugDrawBuffer();
+//            DebugMeshVBO camRayBuff = new DebugMeshVBO();
+//            camRayBuff.addData(buf);
+
+            /*Renderer debugRenderer = new Renderer(actorCSGCube.getVbo());
+            actorCSGCube.setTranslation(chunkOctree.getRayCollisionPos());
+            CSGActorShader csgActorShader = CSGActorShader.getInstance();
+            csgActorShader.updateTransform(actorCSGCube);
+
+            debugRenderer.setRenderInfo(new RenderInfo(new CW(), csgActorShader));
+             */
             DebugDrawBuffer buf = camRayCmds.UpdateDebugDrawBuffer();
             DebugMeshVBO camRayBuff = new DebugMeshVBO();
             camRayBuff.addData(buf);

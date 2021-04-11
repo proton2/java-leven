@@ -1,8 +1,10 @@
 package dc.utils;
 
+import core.buffers.DebugMeshVBO;
 import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec4f;
+import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
 
 
@@ -44,7 +46,7 @@ public class RenderDebugCmdBuffer {
     int indexBufferSize = 0;
     int currVertexBufferSize, currIndexBufferSize;
 
-    public void addWireCube(Vec3f rgb, float alpha, Vec3f min, int size) {
+    public RenderDebugCmd addWireCube(Vec3f rgb, float alpha, Vec3f min, int size) {
         RenderDebugCmd cmd = new RenderDebugCmd();
         cmd.shape = RenderShape_WireCube;
         cmd.alpha = alpha;
@@ -53,6 +55,7 @@ public class RenderDebugCmdBuffer {
         cmd.cube.min = min;
         cmd.cube.max = new Vec3f(min.X + size, min.Y + size, min.Z + size);
         cmds.add(cmd);
+        return cmd;
     }
 
     public void addCube(Vec3f rgb, float alpha, Vec3f min, int size) {
@@ -192,7 +195,6 @@ public class RenderDebugCmdBuffer {
             for (int j = numVerticesBefore; j < currVertexBufferSize; j++) {
                 colourBuffer[j] = colour;
             }
-            int t=3;
         }
         assert(vertexBufferSize==currVertexBufferSize);
         assert(vertexBufferSize==vertexBuffer.length);
@@ -358,5 +360,52 @@ public class RenderDebugCmdBuffer {
             }
         }
         int t=3;
+    }
+
+    private void getSingleWireCubeData(Vec3f min, Vec3f max, Vec4f[] vertexDataBuffer, int[] indexDataBuffer) {
+        vertexDataBuffer[0] = new Vec4f(min.X, min.Y, min.Z, 0.f);
+        vertexDataBuffer[1] = new Vec4f(min.X, max.Y, min.Z, 0.f);
+        vertexDataBuffer[2] = new Vec4f(max.X, max.Y, min.Z, 0.f);
+        vertexDataBuffer[3] = new Vec4f(max.X, min.Y, min.Z, 0.f);
+        vertexDataBuffer[4] = new Vec4f(min.X, min.Y, max.Z, 0.f);
+        vertexDataBuffer[5] = new Vec4f(min.X, max.Y, max.Z, 0.f);
+        vertexDataBuffer[6] = new Vec4f(max.X, max.Y, max.Z, 0.f);
+        vertexDataBuffer[7] = new Vec4f(max.X, min.Y, max.Z, 0.f);
+
+        int[] edgeElementArray = {
+                0,1,  1,5,  5,4,  4,0,    // edges of the top face
+                7,3,  3,2,  2,6,  6,7,    // edges of the bottom face
+                1,2,  0,3,  4,7,  5,6
+        }; // edges connecting top face to bottom face
+
+        System.arraycopy(edgeElementArray, 0, indexDataBuffer, 0, 24);
+    }
+
+    public DebugMeshVBO createCube(){
+        RenderDebugCmd cubeCmd = addWireCube(Constants.Yellow, 0.2f, new Vec3f(), 10);
+        int[] res = GetWireCubeDataSizes();
+        int vertices = res[0];
+        int indices = res[1];
+        Vec4f[] vertexBuffer = new Vec4f[vertices];
+        Vec4f[] colourBuffer = new Vec4f[vertices];
+        int[] indexBuffer = new int[indices];
+
+        Vec4f colour = new Vec4f(cubeCmd.rgb, cubeCmd.alpha);
+        for (int i=0; i<vertices; i++){
+            colourBuffer[i] = colour;
+        }
+
+        getSingleWireCubeData(cubeCmd.cube.min, cubeCmd.cube.max, vertexBuffer, indexBuffer);
+
+        DebugDrawBuffer buffer = new DebugDrawBuffer();
+        buffer.setVertexBuffer(vertexBuffer);
+        buffer.setIndexBuffer(indexBuffer);
+        buffer.setColourBuffer(colourBuffer);
+        buffer.setNumIndices(indices);
+        buffer.setNumVertices(vertices);
+
+        DebugMeshVBO camRayBuff = new DebugMeshVBO();
+        camRayBuff.addData(buffer);
+        return camRayBuff;
     }
 }

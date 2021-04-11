@@ -13,6 +13,7 @@ import java.util.HashMap;
 import core.math.*;
 import core.scene.GameObject;
 import core.utils.BufferUtil;
+import dc.entities.ModelEntity;
 
 /**
  * 
@@ -183,5 +184,8 @@ public abstract class Shader {
 		return this.program;
 	}
 	
-	public void updateUniforms(GameObject object){};
+	public void updateUniforms(GameObject object){}
+
+	public void updateTransform(ModelEntity modelEntity) {
+	}
 }
