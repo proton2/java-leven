@@ -53,6 +53,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private final ComputeContext ctx;
     private Physics physics;
     private boolean enablePhysics = true;
+    private int brushSize = 10;
     //private ModelEntity actorCSGCube;
 
     // Uncomment necessary implementation in constructor
@@ -138,6 +139,14 @@ public class ChunkOctreeWrapper extends GameObject {
             sleep(200);
             physics.Physics_TogglePlayerNoClip();
         }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_RIGHT_BRACKET)) {
+            sleep(100);
+            brushSize +=5;
+        }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_LEFT_BRACKET)) {
+            sleep(100);
+            brushSize -=5;
+        }
 
         glPolygonMode(GL_FRONT_AND_BACK, drawWireframe ? GL_LINE : GL_FILL);
         if(!drawWireframe){
@@ -196,7 +205,7 @@ public class ChunkOctreeWrapper extends GameObject {
 
         if (enablePhysics && Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
-            camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getRayCollisionPos(), 10);
+            camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getRayCollisionPos(), brushSize);
             //camRayCmds.addSphere(Constants.Red, 0.2f, chunkOctree.getRayCollisionPos(), 10);
             //camRayCmds.addLine(Constants.Green, 0.2f, Camera.getInstance().getPosition(), chunkOctree.getRayCollisionPos());
 
