@@ -4,6 +4,7 @@ import core.kernel.Camera;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
+import core.math.Vec4i;
 import core.physics.Physics;
 import core.physics.WorldCollisionNode;
 import dc.entities.CSGOperationInfo;
@@ -16,10 +17,7 @@ import dc.utils.RenderShape;
 import dc.utils.VoxelHelperUtils;
 
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -36,6 +34,17 @@ public class ChunkOctree {
     private final Physics physics;
     private final boolean enablePhysics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
+    private Map<Vec4i, OctreeCacheHolder> octreeCache = new HashMap<>();
+
+    private static class OctreeCacheHolder{
+        MeshBuffer meshBuffer;
+        List<OctreeNode> seamNodes;
+
+        public OctreeCacheHolder(MeshBuffer meshBuffer, List<OctreeNode> seamNodes) {
+            this.meshBuffer = meshBuffer;
+            this.seamNodes = seamNodes;
+        }
+    }
 
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
@@ -49,7 +58,7 @@ public class ChunkOctree {
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
-        service = Executors.newFixedThreadPool(1);
+        service = Executors.newSingleThreadExecutor();
         buildChunkOctree();
         this.enablePhysics = enablePhysics;
         update(cam);
@@ -402,14 +411,20 @@ public class ChunkOctree {
     }
 
     private boolean ConstructChunkNodeData(ChunkNode chunk) {
-//        if (chunk.renderMesh !=null || (chunk.borderNodes !=null && chunk.borderNodes.size()> 0)){
-//            chunk.active = true;
-//            return chunk.active;
-//        }
+        Vec4i key = new Vec4i(chunk.min, chunk.size);
+        OctreeCacheHolder holder = octreeCache.get(key);
+        if (holder!=null){
+            chunk.active = true;
+            chunk.chunkBorderNodes = holder.seamNodes;
+            if (holder.meshBuffer.getNumIndicates() > 0) {
+                chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, holder.meshBuffer);
+            }
+            return true;
+        }
+
         List<OctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
-        GPUDensityField field = new GPUDensityField();
-        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, seamNodes, meshBuffer, field);
+        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, seamNodes, meshBuffer);
         chunk.chunkBorderNodes = seamNodes;
         if(!chunk.active){
             return false;
@@ -418,6 +433,7 @@ public class ChunkOctree {
         if (meshBuffer.getNumIndicates() > 0) {
             chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, meshBuffer);
         }
+        octreeCache.put(key, new OctreeCacheHolder(meshBuffer, seamNodes));
         return chunk.active;
     }
 
@@ -468,7 +484,15 @@ public class ChunkOctree {
             //new Aabb(opInfo.getMouseDir().sub(boundsHalfSize), opInfo.getMouseDir().add(boundsHalfSize));
             touchedNodes.addAll(findSelectedNodes(calcCSGOperationBounds(opInfo)));
         }
-        System.out.println(touchedNodes.size());
+        //System.out.println(touchedNodes.size());
+
+        for(ChunkNode clipmapNode : touchedNodes) {
+            // free the current octree to force a reconstruction
+            Vec4i key = new Vec4i(clipmapNode.min, clipmapNode.size);
+            octreeCache.remove(key);
+            clipmapNode.invalidated = true;
+            clipmapNode.empty = false;
+        }
     }
 
     void findSelectedNodes(ChunkNode node, Aabb aabb, List<ChunkNode> nodes) {
@@ -523,11 +547,7 @@ public class ChunkOctree {
         return nodes;
     }
 
-    public void processCSGOperations(boolean multiTread) {
-        if (multiTread) {
-            service.submit(this::processCSGOperationsImpl);
-        } else {
-            processCSGOperationsImpl();
-        }
+    public void processCSGOperations() {
+        service.submit(this::processCSGOperationsImpl);
     }
 }

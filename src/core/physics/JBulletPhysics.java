@@ -134,7 +134,7 @@ public class JBulletPhysics implements Physics {
             return;
         }
         MeshBuffer meshBuffer = updateMain ? chunkNode.renderMesh.meshBuffer : chunkNode.seamMesh.meshBuffer;
-        EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, () -> UpdateCollisionNode(updateMain, chunkNode.worldNode, chunkNode.min, meshBuffer));
+        EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, () -> UpdateCollisionNode(updateMain, chunkNode.worldNode, meshBuffer));
     }
 
     public void RemoveMeshData(PhysicsMeshData meshData){
@@ -142,11 +142,11 @@ public class JBulletPhysics implements Physics {
     }
 
     // call after node is update (CSG operation)
-    private void UpdateCollisionNode(boolean updateMain, WorldCollisionNode node, Vec3i min, MeshBuffer meshBuffer) {
+    private void UpdateCollisionNode(boolean updateMain, WorldCollisionNode node, MeshBuffer meshBuffer) {
         executorService.submit(() -> {
             if (meshBuffer != null) {
                 try {
-                    PhysicsMeshData newMesh = addMeshToWorldImpl(min, meshBuffer);
+                    PhysicsMeshData newMesh = addMeshToWorldImpl(meshBuffer);
                     EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, () -> ReplaceCollisionNodeMesh(updateMain, node, newMesh));
                 } catch (Throwable e) {
                     e.printStackTrace();
@@ -155,7 +155,7 @@ public class JBulletPhysics implements Physics {
         });
     }
 
-    private PhysicsMeshData addMeshToWorldImpl(Vec3i nodeMin, MeshBuffer meshBuffer) {
+    private PhysicsMeshData addMeshToWorldImpl(MeshBuffer meshBuffer) {
         ByteBuffer indicatesByteBuffer = ByteBuffer.allocate(Integer.BYTES * meshBuffer.getNumIndicates());
         indicatesByteBuffer.asIntBuffer().put(meshBuffer.getIndicates());
         meshBuffer.getIndicates().flip();
@@ -189,13 +189,6 @@ public class JBulletPhysics implements Physics {
         meshData.body = new RigidBody(0, null, meshData.shape);
         meshData.body.setFriction(0.9f);
 
-//        Transform transform = new Transform();
-//        transform.setIdentity();
-//        transform.origin.x = nodeMin.x * PHYSICS_SCALE;
-//        transform.origin.y = nodeMin.y * PHYSICS_SCALE;
-//        transform.origin.z = nodeMin.z * PHYSICS_SCALE;
-//
-//        meshData.body.setWorldTransform(transform);
         meshData.body.setCollisionFlags(meshData.body.getCollisionFlags() | CollisionFlags.STATIC_OBJECT);
         return meshData;
     }

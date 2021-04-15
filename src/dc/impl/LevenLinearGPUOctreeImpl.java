@@ -29,9 +29,8 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                        List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field)
-    {
+    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer) {
+        GPUDensityField field = new GPUDensityField();
         field.setMin(chunkMin);
         field.setSize(chunkSize);
         BufferGpuService bufferGpuService = new BufferGpuService(ctx);

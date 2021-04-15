@@ -32,11 +32,9 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
-                                        List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
-
+    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer) {
         // experimental transitional branch. It worked successfull but seams have some holes. More faster
-        return createLeafVoxelNodesExperimental(chunkSize, chunkMin, seamNodes, buffer, field);
+        return createLeafVoxelNodesExperimental(chunkSize, chunkMin, seamNodes, buffer);
     }
 
     private void processDc(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer,
@@ -93,7 +91,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     }
 
     private boolean createLeafVoxelNodesExperimental(int chunkSize, Vec3i chunkMin,
-                                                     List<OctreeNode> seamNodes, MeshBuffer buffer, GPUDensityField field) {
+                                                     List<OctreeNode> seamNodes, MeshBuffer buffer) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int threadBound = (meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()) / availableProcessors;
 

@@ -18,21 +18,15 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.entities.ModelEntity;
 import dc.impl.LevenLinearGPUOctreeImpl;
 import dc.impl.MeshGenerationContext;
 import dc.impl.SimpleLinearOctreeImpl;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
-import dc.impl.opencl.OCLUtils;
-import dc.shaders.CSGActorShader;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
-import dc.utils.Ray;
-import dc.utils.RenderDebugCmdBuffer;
-import dc.utils.SimplexNoise;
-import dc.utils.VoxelHelperUtils;
+import dc.utils.*;
 
 import java.util.List;
 import java.util.logging.Level;
@@ -92,26 +86,15 @@ public class ChunkOctreeWrapper extends GameObject {
 
     public void update() {
         if (refreshMesh) {
-//            if(Input.getInstance().isButtonHolding(1)){
-//                selectItem(mouseDir);
-//                Vec3f dir = Camera.getInstance().getForward().getNormalDominantAxis();
-//                Vec3f brushSize = new Vec3f(1);
-//                Vec3f offset = dir.mul(brushSize);
-//                Vec3f origin = offset.add(mouseDir);
-//                chunkOctree.queueCSGOperation(origin, brushSize, RenderShape.RenderShape_None, 1, true);
-//            }
-//            chunkOctree.processCSGOperations(false);
-
             Camera cam = Camera.getInstance();
             Vec2f curPos = Input.getInstance().getCursorPosition();
             Ray ray = cam.getMousePickRay(curPos.X, curPos.Y);
             Vec3f rayTo = new Vec3f(ray.direction.scaleAdd(Constants.ZFAR, ray.origin));
+            chunkOctree.processCSGOperations();
             chunkOctree.update(cam, true, ray.origin, rayTo);
-        }
-
-        if (refreshMesh) {
             renderMesh();
         }
+
         if (Input.getInstance().isKeyHold(GLFW_KEY_F1)) {
             sleep(200);
             drawWireframe = !drawWireframe;
@@ -222,6 +205,12 @@ public class ChunkOctreeWrapper extends GameObject {
             debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
 
             addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
+
+            Vec3f dir = Camera.getInstance().getForward().getNormalDominantAxis();
+            Vec3f brushSizeV = new Vec3f(brushSize);
+            Vec3f offset = dir.mul(brushSizeV);
+            Vec3f origin = offset.add(chunkOctree.getRayCollisionPos());
+            chunkOctree.queueCSGOperation(origin, brushSizeV, RenderShape.RenderShape_None, 1, true);
         }
     }
 
