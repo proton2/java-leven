@@ -26,7 +26,7 @@ public class ChunkOctree {
     private final ExecutorService service;
     private ChunkNode root;
     private Camera camera;
-    VoxelOctree voxelOctree;
+    private final VoxelOctree voxelOctree;
     private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
     private List<RenderMesh> invalidateMeshes;
@@ -35,6 +35,8 @@ public class ChunkOctree {
     private final boolean enablePhysics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private Map<Vec4i, OctreeCacheHolder> octreeCache = new HashMap<>();
+    private List<Aabb> storedOpAABBs;
+    private List<CSGOperationInfo> storedOps;
 
     private static class OctreeCacheHolder{
         MeshBuffer meshBuffer;
@@ -476,11 +478,18 @@ public class ChunkOctree {
         }//System.out.println(touchedNodes.size());
 
         for(ChunkNode clipmapNode : touchedNodes) {
-            // free the current octree to force a reconstruction
+            if (clipmapNode.active) {
+                voxelOctree.applyCSGOperations(operations, clipmapNode);
+            }
             Vec4i key = new Vec4i(clipmapNode.min, clipmapNode.size);
-            octreeCache.remove(key);
+            octreeCache.remove(key); // free the current octree to force a reconstruction
             clipmapNode.invalidated = true;
             clipmapNode.empty = false;
+        }
+
+        for (CSGOperationInfo opInfo: operations) {
+            storedOps.add(opInfo);
+            storedOpAABBs.add(calcCSGOperationBounds(opInfo));
         }
     }
 

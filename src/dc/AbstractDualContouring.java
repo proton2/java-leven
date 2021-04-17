@@ -5,6 +5,7 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
+import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.impl.MeshGenerationContext;
@@ -549,5 +550,8 @@ public abstract class AbstractDualContouring implements DualContouring{
     private int getOctreeSizeByChunkSize(int chunkSize){
         int chunkScaleSize = chunkSize / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
         return chunkScaleSize * meshGen.leafSizeScale;
+    }
+
+    public void applyCSGOperations(List<CSGOperationInfo> operations, ChunkNode clipmapNode) {
     }
 }
