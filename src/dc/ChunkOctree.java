@@ -447,18 +447,6 @@ public class ChunkOctree {
         }
     }
 
-    Aabb calcCSGOperationBounds(CSGOperationInfo opInfo) {
-	    Vec3i boundsHalfSize = (opInfo.getDimensions().mul3f(meshGen.leafSizeScale)).add(meshGen.CSG_BOUNDS_FUDGE);
-        Vec3i scaledOrigin = (opInfo.getOrigin().sub(meshGen.CSG_OFFSET)).mul3i((float)meshGen.leafSizeScale);
-        return new Aabb(scaledOrigin.sub(boundsHalfSize), scaledOrigin.add(boundsHalfSize));
-    }
-
-    Aabb calcSelectOperationBounds(CSGOperationInfo opInfo) {
-        Vec3i boundsHalfSize = (opInfo.getDimensions().mul3f(meshGen.leafSizeScale)).add(meshGen.CSG_BOUNDS_FUDGE);
-        Vec3i scaledOrigin = (opInfo.getOrigin().sub(meshGen.CSG_OFFSET)).mul3i((float)meshGen.leafSizeScale);
-        return new Aabb(scaledOrigin.sub(boundsHalfSize), scaledOrigin.add(boundsHalfSize));
-    }
-
     public void queueCSGOperation(Vec3f origin, Vec3f brushSize, RenderShape brushShape, int brushMaterial, boolean isAddOperation) {
         CSGOperationInfo opInfo = new CSGOperationInfo();
         opInfo.setOrigin(new Vec4f(origin.div((float)meshGen.leafSizeScale).add(meshGen.CSG_OFFSET), 0.f));
@@ -470,9 +458,13 @@ public class ChunkOctree {
         g_operationQueue.addLast(opInfo);
     }
 
+    public void processCSGOperations() {
+        service.submit(this::processCSGOperationsImpl);
+    }
+
     void processCSGOperationsImpl(){
-            ArrayList<CSGOperationInfo> operations = new ArrayList<>(g_operationQueue);
-            g_operationQueue.clear();
+        ArrayList<CSGOperationInfo> operations = new ArrayList<>(g_operationQueue);
+        g_operationQueue.clear();
 
         if (operations.isEmpty()) {
             return;
@@ -480,11 +472,8 @@ public class ChunkOctree {
 
         Set<ChunkNode> touchedNodes = new HashSet<>();
         for (CSGOperationInfo opInfo: operations){
-            //touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
-            //new Aabb(opInfo.getMouseDir().sub(boundsHalfSize), opInfo.getMouseDir().add(boundsHalfSize));
-            touchedNodes.addAll(findSelectedNodes(calcCSGOperationBounds(opInfo)));
-        }
-        //System.out.println(touchedNodes.size());
+            touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
+        }//System.out.println(touchedNodes.size());
 
         for(ChunkNode clipmapNode : touchedNodes) {
             // free the current octree to force a reconstruction
@@ -495,24 +484,16 @@ public class ChunkOctree {
         }
     }
 
-    void findSelectedNodes(ChunkNode node, Aabb aabb, List<ChunkNode> nodes) {
-        if (node==null) {
-            return;
-        }
+    private Aabb calcCSGOperationBounds(CSGOperationInfo opInfo) {
+        Vec3i boundsHalfSize = (opInfo.getDimensions().mul3f(meshGen.leafSizeScale)).add(meshGen.CSG_BOUNDS_FUDGE);
+        Vec3i scaledOrigin = (opInfo.getOrigin().sub(meshGen.CSG_OFFSET)).mul3i((float)meshGen.leafSizeScale);
+        return new Aabb(scaledOrigin.sub(boundsHalfSize), scaledOrigin.add(boundsHalfSize));
+    }
 
-        Aabb nodeBB = new Aabb(node.min, node.size);
-        if (!aabb.overlaps(nodeBB)) {
-            return;
-        }
-
-        for (int i = 0; i < 8; i++) {
-            findNodesInsideAABB(node.children[i], aabb, nodes);
-        }
-
-        // traversal order is arbitrary
-        if (node.active && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
-            nodes.add(node);
-        }
+    private List<ChunkNode> findNodesInsideAABB(Aabb aabb) {
+        ArrayList<ChunkNode> nodes = new ArrayList<>();
+        findNodesInsideAABB(root, aabb, nodes);
+        return nodes;
     }
 
     void findNodesInsideAABB(ChunkNode node, Aabb aabb, List<ChunkNode> nodes) {
@@ -533,21 +514,5 @@ public class ChunkOctree {
         if (node.active && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
             nodes.add(node);
         }
-    }
-
-    List<ChunkNode> findSelectedNodes(Aabb aabb) {
-        ArrayList<ChunkNode> nodes = new ArrayList<>();
-        findNodesInsideAABB(root, aabb, nodes);
-        return nodes;
-    }
-
-    List<ChunkNode> findNodesInsideAABB(Aabb aabb) {
-        ArrayList<ChunkNode> nodes = new ArrayList<>();
-        findNodesInsideAABB(root, aabb, nodes);
-        return nodes;
-    }
-
-    public void processCSGOperations() {
-        service.submit(this::processCSGOperationsImpl);
     }
 }
