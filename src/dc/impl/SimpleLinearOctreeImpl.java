@@ -260,7 +260,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int[] cornerMaterials = new int[8];
         int corners = 0;
         for (int i = 0; i < 8; i++) {
-            Vec3f cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize)).toVec3f();
+            Vec3i cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize));
             float density = getNoise(cornerPos);
             int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
             cornerMaterials[i] = material;
@@ -305,7 +305,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         leafHolder.solvedPosition = qef.solve();
         int materialIndex = findDominantMaterial(cornerMaterials);
         leafHolder.materialIndex = (materialIndex << 8) | corners;
-        leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+        leafHolder.encodedVoxelPosition = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
         //leafHolder.voxelEdgeInfo = edgeList;
         leafHolder.averageNormal = averageNormal.div((float)edgeCount).normalize();
         return leafHolder;
@@ -320,7 +320,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             leafHolder.solvedPosition = nodePos;
             int materialIndex = findDominantMaterial(cornerMaterials);
             leafHolder.materialIndex = (materialIndex << 8) | corners;
-            leafHolder.encodedVoxelPosition = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            leafHolder.encodedVoxelPosition = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
             //leafHolder.voxelEdgeInfo = corners;//edgeList;
             leafHolder.averageNormal = CalculateSurfaceNormal(nodePos);
             return leafHolder;
@@ -335,7 +335,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int[] cornerMaterials = new int[8];
         int corners = 0;
         for (int i = 0; i < 8; i++) {
-            Vec3f cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize)).toVec3f();
+            Vec3i cornerPos = leafMin.add(CHILD_MIN_OFFSETS[i].mul(leafSize));
             float density = getNoise(cornerPos);
             int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
             cornerMaterials[i] = material;
@@ -380,7 +380,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         d_vertexPositions[current] = qef.solve();
         int materialIndex = findDominantMaterial(cornerMaterials);
         d_nodeMaterials[current] = (materialIndex << 8) | corners;
-        int encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+        int encodedVoxelPos = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
         d_nodeCodes[current] = encodedVoxelPos;
         d_vertexNormals[current] = averageNormal.div((float)edgeCount).normalize();
         return true;
@@ -395,7 +395,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             d_vertexPositions[current] = nodePos;
             int materialIndex = findDominantMaterial(cornerMaterials);
             d_nodeMaterials[current] = (materialIndex << 8) | corners;
-            int encodedVoxelPos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            int encodedVoxelPos = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
             d_nodeCodes[current] = encodedVoxelPos;
             d_vertexNormals[current] = CalculateSurfaceNormal(nodePos);
             return true;
@@ -406,7 +406,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         int res = 0;
         for (int index = from; index < to; index++) {
             int code = nodeCodes[index];
-            Vec3i position = LinearOctreeTest.positionForCode(code);
+            Vec3i position = positionForCode(code);
             boolean xSeam = position.x == 0 || position.x == (meshGen.getVoxelsPerChunk() - 1);
             boolean ySeam = position.y == 0 || position.y == (meshGen.getVoxelsPerChunk() - 1);
             boolean zSeam = position.z == 0 || position.z == (meshGen.getVoxelsPerChunk() - 1);
@@ -432,7 +432,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             int code = octreeNodeCodes[index];
             int triIndex = index * 3;
 
-            Vec3i offset = LinearOctreeTest.positionForCode(code);
+            Vec3i offset = positionForCode(code);
             int[] pos = {offset.x, offset.y, offset.z};
             Integer[] nodeIndices = {null, null, null, null};
 
@@ -453,7 +453,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 nodeIndices[0] = index;
                 for (int n = 1; n < 4; n++) {
                     Vec3i p = offset.add(EDGE_NODE_OFFSETS[axis][n]);
-                    int c = LinearOctreeTest.codeForPosition(p, meshGen.MAX_OCTREE_DEPTH);
+                    int c = codeForPosition(p, meshGen.MAX_OCTREE_DEPTH);
                     nodeIndices[n] = nodes.get(c);
                 }
 
@@ -531,7 +531,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                                      List<OctreeNode> seamNodes) {
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]) {
-                Vec3i min = LinearOctreeTest.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
+                Vec3i min = positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
                 PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
                 drawInfo.position = octreePositions[index].getVec3f();

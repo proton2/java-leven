@@ -554,4 +554,43 @@ public abstract class AbstractDualContouring implements DualContouring{
 
     public void applyCSGOperations(List<CSGOperationInfo> operations, ChunkNode clipmapNode) {
     }
+
+    public Vec3i positionForCode(int code) {
+        int nodeDepth = getMsb(code)/3;
+        Vec3i pos = new Vec3i();
+        for (int i = meshGen.MAX_OCTREE_DEPTH - nodeDepth; i < meshGen.MAX_OCTREE_DEPTH; i++) {
+            int c = code & 7;
+            code >>= 3;
+
+            int x = (c >> 2) & 1;
+            int y = (c >> 1) & 1;
+            int z = (c >> 0) & 1;
+
+            pos.x |= (x << i);
+            pos.y |= (y << i);
+            pos.z |= (z << i);
+        }
+        return pos;
+    }
+
+    public int codeForPosition(Vec3i p, int nodeDepth) {
+        int code = 1;
+        for (int depth = meshGen.MAX_OCTREE_DEPTH - 1; depth >= (meshGen.MAX_OCTREE_DEPTH - nodeDepth); depth--) {
+            int x = (p.x >> depth) & 1;
+            int y = (p.y >> depth) & 1;
+            int z = (p.z >> depth) & 1;
+            int c = (x << 2) | (y << 1) | z;
+            code = (code << 3) | c;
+        }
+        return code;
+    }
+
+    private static int getMsb(int value) {
+        for (int i = 0, maxBits = 31, test = ~(~0 >>> 1); 0 != test; ++i, test >>>= 1) {
+            if (test == (value & test)) {
+                return (maxBits - i);
+            }
+        }
+        return -1;
+    }
 }

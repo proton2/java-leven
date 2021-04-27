@@ -11,12 +11,10 @@ public class MeshGenerationContext {
     public final int fieldSize;
     public final int indexShift;
     public final int indexMask;
-    private final int LEAF_SIZE_LOG2 = 2;
-    public final int leafSizeScale = 1 << LEAF_SIZE_LOG2;
+    public final int leafSizeScale = 2;
     public final int clipmapLeafSize;
     public final int worldSizeXZ;
     public final int worldSizeY;
-    public final int numLods = 6;
     public static final int MATERIAL_AIR = 0;
     public static final int MATERIAL_SOLID = 1;
     public final int MAX_OCTREE_DEPTH;
@@ -52,12 +50,12 @@ public class MeshGenerationContext {
         this.indexMask = (1 << indexShift) - 1;
         this.clipmapLeafSize = leafSizeScale * voxelsPerChunk;
         this.COLLISION_NODE_SIZE = clipmapLeafSize * (4 / 2);
-        LOD_MAX_NODE_SIZE = clipmapLeafSize * (1 << (numLods - 1));
-        int worldBrickCountXZ = 4;
+        this.MAX_OCTREE_DEPTH = VoxelHelperUtils.log2(voxelsPerChunk)+1;
+        LOD_MAX_NODE_SIZE = clipmapLeafSize * (1 << (MAX_OCTREE_DEPTH - 1));
+        int worldBrickCountXZ = 8;
         int BRICK_SIZE = 8;
         this.worldSizeXZ = worldBrickCountXZ * BRICK_SIZE * clipmapLeafSize;
-        this.worldSizeY = 4 * BRICK_SIZE * clipmapLeafSize;
-        this.MAX_OCTREE_DEPTH = VoxelHelperUtils.log2(voxelsPerChunk);
+        this.worldSizeY = worldBrickCountXZ * BRICK_SIZE * clipmapLeafSize;
         this.worldSize = new Vec3i(worldSizeXZ, worldSizeY, worldSizeXZ);
         this.worldBounds = new Aabb(worldOrigin.sub(worldSize.div(2)), worldOrigin.add(worldSize.div(2)));
     }

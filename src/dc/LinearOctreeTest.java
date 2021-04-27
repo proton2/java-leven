@@ -79,7 +79,7 @@ public class LinearOctreeTest {
         return -1;
     }
 
-    public static Vec3i positionForCode(int code) {
+    private static Vec3i positionForCode(int code) {
         int nodeDepth = getMsb(code)/3;
         Vec3i pos = new Vec3i();
         for (int i = meshGen.MAX_OCTREE_DEPTH - nodeDepth; i < meshGen.MAX_OCTREE_DEPTH; i++) {
@@ -97,7 +97,7 @@ public class LinearOctreeTest {
         return pos;
     }
 
-    public static int codeForPosition(Vec3i p, int nodeDepth) {
+    private static int codeForPosition(Vec3i p, int nodeDepth) {
         int code = 1;
         for (int depth = meshGen.MAX_OCTREE_DEPTH - 1; depth >= (meshGen.MAX_OCTREE_DEPTH - nodeDepth); depth--) {
             int x = (p.x >> depth) & 1;

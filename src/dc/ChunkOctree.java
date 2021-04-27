@@ -130,14 +130,14 @@ public class ChunkOctree {
                 meshGen.clipmapLeafSize * 3.5f,
                 meshGen.clipmapLeafSize * 5.5f,
                 meshGen.clipmapLeafSize * 7.5f,
-                meshGen.clipmapLeafSize * 13.5f
+                meshGen.clipmapLeafSize * 9.5f,
+                meshGen.clipmapLeafSize * 11.5f
         };
         if (node==null) {
             return;
         }
         boolean nodeActive = false;
-        int lodMaxNodeSize = meshGen.clipmapLeafSize * (1 << (meshGen.numLods - 1));
-        if (!parentActive && node.size <= lodMaxNodeSize) {
+        if (!parentActive && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
             int size = node.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
             int distanceIndex = VoxelHelperUtils.log2(size);
             float d = LOD_ACTIVE_DISTANCES[distanceIndex];

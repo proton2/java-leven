@@ -8,16 +8,17 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.solver.GlslSvd;
+import dc.impl.opencl.BufferGpuService;
+import dc.impl.opencl.ComputeContext;
+import dc.impl.opencl.KernelsHolder;
+import dc.impl.opencl.OpenCLCalculateMaterialsService;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.*;
 
 import static dc.utils.SimplexNoise.getNoise;
 
@@ -27,8 +28,12 @@ import static dc.utils.SimplexNoise.getNoise;
  */
 
 public class TransitionLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-    public TransitionLinearOctreeImpl(MeshGenerationContext meshGenerationContext) {
+    private final KernelsHolder kernels;
+    private final ComputeContext ctx;
+    public TransitionLinearOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext, ComputeContext ctx) {
         super(meshGenerationContext);
+        this.kernels = kernels;
+        this.ctx = ctx;
     }
 
     @Override
@@ -78,7 +83,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
             for (int y = 0; y < meshGen.getFieldSize(); y++) {
                 for (int x = 0; x < meshGen.getFieldSize(); x++) {
                     Vec3i local_pos = new Vec3i(x, y, z);
-                    Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
+                    Vec3i world_pos = local_pos.mul(sampleScale).add(offset);
                     float density = getNoise(world_pos);
                     int index = field_index(local_pos);
                     int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
@@ -98,8 +103,13 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         int[] materials = new int[meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize()];
         GenerateDefaultField(chunkMin, 0, meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize(),
                 chunkSize / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID, materials);
-//        CalculateMaterialService calculateMaterialService = new CalculateMaterialService();
-//        calculateMaterialService.calculate(chunkMin, chunkSize / voxelsPerChunk, materials);
+//        GPUDensityField field = new GPUDensityField();
+//        field.setMin(chunkMin);
+//        field.setSize(chunkSize);
+//        BufferGpuService bufferGpuService = new BufferGpuService(ctx);
+//        OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(),
+//                meshGen, field, bufferGpuService);
+//        calculateMaterialsService.run(kernels, materials);
 
 //        int count = 0;
 //        for (int material : materials) {
@@ -113,29 +123,32 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         int[] d_leafMaterials = new int[meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()];
         Map<Integer, Vec4f> borderNodePositions = new HashMap<>();
 
-        ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
-        int activeLeafsSize = 0;
-        List<Callable<Integer>> tasks = new ArrayList<>();
-        for (int i = 0; i < availableProcessors; i++) {
-            int finalI = i;
-            Callable<Integer> task = () -> {
-                int from = finalI * threadBound;
-                int to = from + threadBound;
-                return FindActiveVoxels(chunkSize, chunkMin, from, to, materials,
-                        d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials, borderNodePositions);
-            };
-            tasks.add(task);
-        }
-        try {
-            List<Future<Integer>> futures = service.invokeAll(tasks);
-            for (Future<Integer> size : futures) {
-                activeLeafsSize += size.get();
-            }
-        } catch (InterruptedException | ExecutionException e) {
-            e.printStackTrace();
-            return false;
-        }
-        service.shutdown();
+        //ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
+        //  int activeLeafsSize = 0;
+//        List<Callable<Integer>> tasks = new ArrayList<>();
+//        for (int i = 0; i < availableProcessors; i++) {
+//            int finalI = i;
+//            Callable<Integer> task = () -> {
+//                int from = finalI * threadBound;
+//                int to = from + threadBound;
+//                return FindActiveVoxels(chunkSize, chunkMin, from, to, materials,
+//                        d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials, borderNodePositions);
+//            };
+//            tasks.add(task);
+//        }
+//        try {
+//            List<Future<Integer>> futures = service.invokeAll(tasks);
+//            for (Future<Integer> size : futures) {
+//                activeLeafsSize += size.get();
+//            }
+//        } catch (InterruptedException | ExecutionException e) {
+//            e.printStackTrace();
+//            return false;
+//        }
+//        service.shutdown();
+        int activeLeafsSize = FindActiveVoxels(chunkSize, chunkMin,
+                0, meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk(), materials,
+                d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials, borderNodePositions);
 
         if (activeLeafsSize == 0) {
             return false;
@@ -230,7 +243,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 edgeList |= (signChange << i);
             }
 
-            int codePos = LinearOctreeTest.codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            int codePos = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
             Vec4f borderNodePos = null;
             if (cornerValues == 0 || cornerValues == 255) {
                 int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
@@ -278,7 +291,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                                     Vec3f[] vertexNormals, QEFData[] qefs) {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
-            Vec3i position = LinearOctreeTest.positionForCode(encodedPosition);
+            Vec3i position = positionForCode(encodedPosition);
             int corners = voxelEdgeInfo[index];
             QEFData qef = new QEFData(new LevenQefSolver());
             if (corners==0 || corners==255){
@@ -325,7 +338,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                           QEFData[] qefs, Vec3f[] solvedPositions) {
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];
-            Vec3i pos = LinearOctreeTest.positionForCode(encodedPosition);
+            Vec3i pos = positionForCode(encodedPosition);
             int leafSize = (chunkSize / voxelsPerChunk);
             Vec3i leaf = pos.mul(leafSize).add(chunkMin);
 
@@ -349,7 +362,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         int res = 0;
         for (int index = from; index < to; index++) {
             int code = nodeCodes[index];
-            Vec3i position = LinearOctreeTest.positionForCode(code);
+            Vec3i position = positionForCode(code);
             boolean xSeam = position.x == 0 || position.x == (meshGen.getVoxelsPerChunk() - 1);
             boolean ySeam = position.y == 0 || position.y == (meshGen.getVoxelsPerChunk() - 1);
             boolean zSeam = position.z == 0 || position.z == (meshGen.getVoxelsPerChunk() - 1);
@@ -375,7 +388,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
             int code = octreeNodeCodes[index];
             int triIndex = index * 3;
 
-            Vec3i offset = LinearOctreeTest.positionForCode(code);
+            Vec3i offset = positionForCode(code);
             int[] pos = {offset.x, offset.y, offset.z};
             Integer[] nodeIndices = {null, null, null, null};
 
@@ -396,7 +409,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 nodeIndices[0] = index;
                 for (int n = 1; n < 4; n++) {
                     Vec3i p = offset.add(EDGE_NODE_OFFSETS[axis][n]);
-                    int c = LinearOctreeTest.codeForPosition(p, meshGen.MAX_OCTREE_DEPTH);
+                    int c = codeForPosition(p, meshGen.MAX_OCTREE_DEPTH);
                     nodeIndices[n] = nodes.get(c);
                 }
 
@@ -474,7 +487,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                                      List<OctreeNode> seamNodes) {
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]) {
-                Vec3i min = LinearOctreeTest.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
+                Vec3i min = positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
                 PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
                 drawInfo.position = octreePositions[index];

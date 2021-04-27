@@ -18,12 +18,11 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.LevenLinearGPUOctreeImpl;
-import dc.impl.MeshGenerationContext;
-import dc.impl.SimpleLinearOctreeImpl;
+import dc.impl.*;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
+import dc.impl.opencl.OCLUtils;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.*;
@@ -56,7 +55,7 @@ public class ChunkOctreeWrapper extends GameObject {
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = null;//OCLUtils.getOpenCLContext();
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
-        physics = new JBulletPhysics(meshGenCtx.worldBounds, 1024);
+        physics = new JBulletPhysics(meshGenCtx.worldBounds, 512);
         Camera camera = Camera.getInstance();
         camera.setPosition(new Vec3f(-131.29f,-158.04f,-1921.52f));
         if(enablePhysics) {
@@ -75,7 +74,7 @@ public class ChunkOctreeWrapper extends GameObject {
         } else{
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
             voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
-            //VoxelOctree voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
+            //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
             //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
             //voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);

@@ -142,7 +142,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
     private PointerBasedOctreeNode ConstructLeaf(PointerBasedOctreeNode leaf, Vec3i pos, int leafSizeScale) {
         int corners = 0;
         for (int i = 0; i < 8; i++) {
-            Vec3f cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size)).toVec3f();
+            Vec3i cornerPos = leaf.min.add(CHILD_MIN_OFFSETS[i].mul(leaf.size));
             float density = getNoise(cornerPos);
 		    int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
             corners |= (material << i);
