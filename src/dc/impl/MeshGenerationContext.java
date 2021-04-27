@@ -11,7 +11,7 @@ public class MeshGenerationContext {
     public final int fieldSize;
     public final int indexShift;
     public final int indexMask;
-    public final int leafSizeScale = 2;
+    public final int leafSizeScale = 1;
     public final int clipmapLeafSize;
     public final int worldSizeXZ;
     public final int worldSizeY;
@@ -50,10 +50,10 @@ public class MeshGenerationContext {
         this.indexMask = (1 << indexShift) - 1;
         this.clipmapLeafSize = leafSizeScale * voxelsPerChunk;
         this.COLLISION_NODE_SIZE = clipmapLeafSize * (4 / 2);
-        this.MAX_OCTREE_DEPTH = VoxelHelperUtils.log2(voxelsPerChunk)+1;
+        this.MAX_OCTREE_DEPTH = VoxelHelperUtils.log2(voxelsPerChunk)+2;
         LOD_MAX_NODE_SIZE = clipmapLeafSize * (1 << (MAX_OCTREE_DEPTH - 1));
         int worldBrickCountXZ = 8;
-        int BRICK_SIZE = 8;
+        int BRICK_SIZE = 16;
         this.worldSizeXZ = worldBrickCountXZ * BRICK_SIZE * clipmapLeafSize;
         this.worldSizeY = worldBrickCountXZ * BRICK_SIZE * clipmapLeafSize;
         this.worldSize = new Vec3i(worldSizeXZ, worldSizeY, worldSizeXZ);

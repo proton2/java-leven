@@ -131,7 +131,8 @@ public class ChunkOctree {
                 meshGen.clipmapLeafSize * 5.5f,
                 meshGen.clipmapLeafSize * 7.5f,
                 meshGen.clipmapLeafSize * 9.5f,
-                meshGen.clipmapLeafSize * 11.5f
+                meshGen.clipmapLeafSize * 11.5f,
+                meshGen.clipmapLeafSize * 13.5f
         };
         if (node==null) {
             return;
