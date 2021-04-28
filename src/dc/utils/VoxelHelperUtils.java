@@ -81,7 +81,7 @@ public class VoxelHelperUtils {
         buildOptions.append("-DFIND_EDGE_INFO_STEPS=" + 16 + " ");
         buildOptions.append("-DFIND_EDGE_INFO_INCREMENT=" + (1.f/16.f) + " ");
         buildOptions.append("-DVOXELS_PER_CHUNK=").append(meshGenCtx.getVoxelsPerChunk()).append(" ");
-        buildOptions.append("-DMAX_OCTREE_DEPTH=").append(VoxelHelperUtils.log2(meshGenCtx.getVoxelsPerChunk())).append(" ");
+        buildOptions.append("-DMAX_OCTREE_DEPTH=").append(meshGenCtx.MAX_OCTREE_DEPTH).append(" ");
         buildOptions.append("-DVOXEL_INDEX_SHIFT=").append(meshGenCtx.getIndexShift()).append(" ");
         buildOptions.append("-DVOXEL_INDEX_MASK=").append(meshGenCtx.getIndexMask()).append(" ");
         buildOptions.append("-DHERMITE_INDEX_SIZE=").append(meshGenCtx.getHermiteIndexSize()).append(" ");
