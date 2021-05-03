@@ -90,7 +90,7 @@ public class ChunkOctreeWrapper extends GameObject {
             Ray ray = cam.getMousePickRay(curPos.X, curPos.Y);
             Vec3f rayTo = new Vec3f(ray.direction.scaleAdd(Constants.ZFAR, ray.origin));
             chunkOctree.processCSGOperations();
-            chunkOctree.update(cam, true, ray.origin, rayTo);
+            chunkOctree.update(cam, ray.origin, rayTo);
             renderMesh();
         }
 

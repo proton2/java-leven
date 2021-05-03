@@ -9,7 +9,6 @@ import core.physics.Physics;
 import core.physics.WorldCollisionNode;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
-import dc.impl.GPUDensityField;
 import dc.impl.MeshGenerationContext;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
@@ -21,8 +20,11 @@ import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ChunkOctree {
+    final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
     private final ExecutorService service;
     private ChunkNode root;
     private Camera camera;
@@ -193,14 +195,15 @@ public class ChunkOctree {
         }
     }
 
-    public void update(Camera cam, boolean multiTread, Vec3f rayStart, Vec3f rayEnd){
+    public void update(Camera cam, Vec3f rayStart, Vec3f rayEnd){
         this.camera = cam;
-        if (multiTread) {
-            service.submit(() -> update(camera));
-        } else {
-            update(camera);
-        }
-
+        service.submit(() -> {
+            try {
+                update(camera);
+            } catch (Throwable e){
+                logger.log(Level.SEVERE, e.toString());
+            }
+        });
         if(enablePhysics) {
             physics.Physics_CastRay(rayStart, rayEnd);
         }
