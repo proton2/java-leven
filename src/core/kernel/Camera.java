@@ -13,6 +13,7 @@ import static org.lwjgl.glfw.GLFW.*;
 public class Camera {
 	
 	private static Camera instance = null;
+	private static final int BOUNDED_VELOCITY = 15;
 
 	private final Vec3f yAxis = new Vec3f(0,1,0);
 	private final Vec3f speed = new Vec3f(0);
@@ -196,6 +197,10 @@ public class Camera {
 			rotateY(-rotAmt/8f);
 		if(Input.getInstance().isKeyHold(GLFW_KEY_RIGHT))
 			rotateY(rotAmt/8f);
+
+		if (Input.getInstance().isKeyHold(GLFW_KEY_SPACE)) {
+			velocity.set(0, 0, 0);
+		}
 		
 		// free mouse rotation
 		if(Input.getInstance().isButtonHolding(2))
@@ -288,6 +293,27 @@ public class Camera {
 			velocity = velocity.add(forward.mul(speed.Z));
 			velocity = velocity.add(up.mul(speed.Y));
 			velocity = velocity.add(getRight().mul(speed.X));
+
+			if(velocity.X > BOUNDED_VELOCITY){
+				velocity.X = BOUNDED_VELOCITY;
+			}
+			if(velocity.X < -BOUNDED_VELOCITY){
+				velocity.X = -BOUNDED_VELOCITY;
+			}
+
+			if(velocity.Y > BOUNDED_VELOCITY){
+				velocity.Y = BOUNDED_VELOCITY;
+			}
+			if(velocity.Y < -BOUNDED_VELOCITY){
+				velocity.Y = -BOUNDED_VELOCITY;
+			}
+
+			if(velocity.Z > BOUNDED_VELOCITY){
+				velocity.Z = BOUNDED_VELOCITY;
+			}
+			if(velocity.Z < -BOUNDED_VELOCITY){
+				velocity.Z = -BOUNDED_VELOCITY;
+			}
 			physics.Physics_SetPlayerVelocity(velocity);
 		}
 		initfrustum();

@@ -114,9 +114,6 @@ public class ChunkOctreeWrapper extends GameObject {
             Vec3f cam = Camera.getInstance().getPosition();
             sleep(200);
         }
-        if (Input.getInstance().isKeyHold(GLFW_KEY_SPACE)) {
-            physics.Physics_PlayerJump();
-        }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F10)) {
             sleep(200);
             physics.Physics_TogglePlayerNoClip();
