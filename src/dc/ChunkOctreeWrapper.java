@@ -18,7 +18,9 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.*;
+import dc.impl.LevenLinearGPUOctreeImpl;
+import dc.impl.MeshGenerationContext;
+import dc.impl.SimpleLinearOctreeImpl;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
@@ -53,7 +55,7 @@ public class ChunkOctreeWrapper extends GameObject {
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
-        ctx = null;//OCLUtils.getOpenCLContext();
+        ctx = OCLUtils.getOpenCLContext();
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 256);
         Camera camera = Camera.getInstance();
@@ -160,10 +162,12 @@ public class ChunkOctreeWrapper extends GameObject {
         getComponents().clear();
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
         List<RenderMesh> invalidateMeshes = chunkOctree.getInvalidateMeshes();
-        for(RenderMesh mesh : invalidateMeshes){
-            deleteRenderer(mesh);
+        if(invalidateMeshes!=null) {
+            for (RenderMesh mesh : invalidateMeshes) {
+                deleteRenderer(mesh);
+            }
+            chunkOctree.getInvalidateMeshes().clear();
         }
-        chunkOctree.getInvalidateMeshes().clear();
         List<RenderMesh> renderNodes = chunkOctree.getRenderMeshes(true);
         int i=0;
         for (RenderMesh node : renderNodes) {

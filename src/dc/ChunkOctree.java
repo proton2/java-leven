@@ -78,8 +78,8 @@ public class ChunkOctree {
             List<RenderMesh> meshes = new ArrayList<>();
             if(renderMeshes!=null) {
                 for (RenderMesh renderMesh : renderMeshes) {
-                    //if (Frustum.cubeIntoFrustum(camera.getFrustumPlanes(), renderMesh.min, renderMesh.size))
-                    {
+                    Aabb aabb = new Aabb(renderMesh.min, renderMesh.size);
+                    if (Frustum.getFrustum().AABBInsideFrustum(aabb)) {
                         meshes.add(renderMesh);
                     }
                 }
@@ -228,7 +228,8 @@ public class ChunkOctree {
         ArrayList<ChunkNode> activeNodes = new ArrayList<>();
         for (ChunkNode selectedNode : selectedNodes) {
             if (!selectedNode.active && !selectedNode.empty) {
-                if (Frustum.cubeIntoFrustum(camera.getFrustumPlanes(), selectedNode.min, selectedNode.size)) {
+                Aabb aabb = new Aabb(selectedNode.min, selectedNode.size);
+                if (Frustum.getFrustum().AABBInsideFrustum(aabb)) {
                     filteredNodes.add(selectedNode);
                 } else {
                     reserveNodes.add(selectedNode);

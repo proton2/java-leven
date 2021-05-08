@@ -5,7 +5,7 @@ import core.math.Vec3f;
 import core.math.Vec4f;
 import core.physics.Physics;
 import core.utils.Constants;
-import core.utils.Util;
+import dc.utils.Frustum;
 import dc.utils.Ray;
 
 import static org.lwjgl.glfw.GLFW.*;
@@ -28,8 +28,6 @@ public class Camera {
 	private Matrix4f viewMatrix;
 	private Matrix4f projectionMatrix;
 	private Matrix4f viewProjectionMatrix;
-	private Matrix4f previousViewMatrix;
-	private Matrix4f previousViewProjectionMatrix;
 	private boolean cameraMoved;
 	private boolean cameraRotated;
 	
@@ -47,8 +45,6 @@ public class Camera {
 	private boolean rotXInitiated = false;
 	private float mouseSensitivity = 0.8f;
 
-	private Vec4f[] frustumPlanes = new Vec4f[6];
-	private Vec3f[] frustumCorners = new Vec3f[8];
 	private Vec3f velocity = new Vec3f();
 	private Physics physics;
 	private final Ray ray = new Ray(new Vec3f(), new Vec3f());
@@ -65,12 +61,10 @@ public class Camera {
 	protected Camera() {
 		this(new Vec3f(906,-1509,-2694),  new Vec3f(1,0,0).normalize(), new Vec3f(0,1,0));
 		setProjection(70, Window.getInstance().getWidth(), Window.getInstance().getHeight());
-		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
-				new Matrix4f().Translation(this.getPosition().mul(-1))));
-		previousViewMatrix = new Matrix4f().Zero();
+		viewMatrix = new Matrix4f().View(forward, up).mul(new Matrix4f().Translation(position.mul(-1)));
 		viewProjectionMatrix = new Matrix4f().Zero();
-		previousViewProjectionMatrix = new Matrix4f().Zero();
-		initfrustum();
+		viewProjectionMatrix = projectionMatrix.mul(viewMatrix);
+		Frustum.getFrustum().calculateFrustum(viewProjectionMatrix);
 	}
 	
 	private Camera(Vec3f position, Vec3f forward, Vec3f up)
@@ -80,77 +74,6 @@ public class Camera {
 		setUp(up);
 		up.normalize();
 		forward.normalize();
-	}
-
-	public Vec4f[] getFrustumPlanes() {
-		return frustumPlanes;
-	}
-
-	private void initfrustum()
-	{
-		// ax * bx * cx +  d = 0; store a,b,c,d
-
-		//left plane
-		Vec4f leftPlane = new Vec4f(
-				this.viewProjectionMatrix.get(3, 0) + this.viewProjectionMatrix.get(0, 0)
-						* (float) ((Math.tan(Math.toRadians(this.fovY/2))
-						* ((double) getWidth()
-						/ (double) getHeight()))),
-				this.viewProjectionMatrix.get(3, 1) + this.viewProjectionMatrix.get(0, 1),
-				this.viewProjectionMatrix.get(3, 2) + this.viewProjectionMatrix.get(0, 2),
-				this.viewProjectionMatrix.get(3, 3) + this.viewProjectionMatrix.get(0, 3));
-
-		this.frustumPlanes[0] = Util.normalizePlane(leftPlane);
-
-		//right plane
-		Vec4f rightPlane = new Vec4f(
-				this.viewProjectionMatrix.get(3, 0) - this.viewProjectionMatrix.get(0, 0)
-						* (float) ((Math.tan(Math.toRadians(this.fovY/2))
-						* ((double) getWidth()
-						/ (double) getHeight()))),
-				this.viewProjectionMatrix.get(3, 1) - this.viewProjectionMatrix.get(0, 1),
-				this.viewProjectionMatrix.get(3, 2) - this.viewProjectionMatrix.get(0, 2),
-				this.viewProjectionMatrix.get(3, 3) - this.viewProjectionMatrix.get(0, 3));
-
-		this.frustumPlanes[1] = Util.normalizePlane(rightPlane);
-
-		//bot plane
-		Vec4f botPlane = new Vec4f(
-				this.viewProjectionMatrix.get(3, 0) + this.viewProjectionMatrix.get(1, 0),
-				this.viewProjectionMatrix.get(3, 1) + this.viewProjectionMatrix.get(1, 1)
-						* (float) Math.tan(Math.toRadians(this.fovY/2)),
-				this.viewProjectionMatrix.get(3, 2) + this.viewProjectionMatrix.get(1, 2),
-				this.viewProjectionMatrix.get(3, 3) + this.viewProjectionMatrix.get(1, 3));
-
-		this.frustumPlanes[2] = Util.normalizePlane(botPlane);
-
-		//top plane
-		Vec4f topPlane = new Vec4f(
-				this.viewProjectionMatrix.get(3, 0) - this.viewProjectionMatrix.get(1, 0),
-				this.viewProjectionMatrix.get(3, 1) - this.viewProjectionMatrix.get(1, 1)
-						* (float) Math.tan(Math.toRadians(this.fovY/2)),
-				this.viewProjectionMatrix.get(3, 2) - this.viewProjectionMatrix.get(1, 2),
-				this.viewProjectionMatrix.get(3, 3) - this.viewProjectionMatrix.get(1, 3));
-
-		this.frustumPlanes[3] = Util.normalizePlane(topPlane);
-
-		//near plane
-		Vec4f nearPlane = new Vec4f(
-				this.viewProjectionMatrix.get(3, 0) + this.viewProjectionMatrix.get(2, 0),
-				this.viewProjectionMatrix.get(3, 1) + this.viewProjectionMatrix.get(2, 1),
-				this.viewProjectionMatrix.get(3, 2) + this.viewProjectionMatrix.get(2, 2),
-				this.viewProjectionMatrix.get(3, 3) + this.viewProjectionMatrix.get(2, 3));
-
-		this.frustumPlanes[4] = Util.normalizePlane(nearPlane);
-
-		//far plane
-		Vec4f farPlane = new Vec4f(
-				this.viewProjectionMatrix.get(3, 0) - this.viewProjectionMatrix.get(2, 0),
-				this.viewProjectionMatrix.get(3, 1) - this.viewProjectionMatrix.get(2, 1),
-				this.viewProjectionMatrix.get(3, 2) - this.viewProjectionMatrix.get(2, 2),
-				this.viewProjectionMatrix.get(3, 3) - this.viewProjectionMatrix.get(2, 3));
-
-		this.frustumPlanes[5] = Util.normalizePlane(farPlane);
 	}
 	
 	public void update()
@@ -281,15 +204,18 @@ public class Camera {
 		if (!forward.equals(previousForward)){
 			cameraRotated = true;
 		}
-		
-		setPreviousViewMatrix(viewMatrix);
-		setPreviousViewProjectionMatrix(viewProjectionMatrix);
-		setViewMatrix(new Matrix4f().View(this.getForward(), this.getUp()).mul(
-				new Matrix4f().Translation(this.getPosition().mul(-1))));
-		setViewProjectionMatrix(projectionMatrix.mul(viewMatrix));
 
+		viewMatrix = new Matrix4f().View(forward, up).mul(new Matrix4f().Translation(position.mul(-1)));
+		viewProjectionMatrix = projectionMatrix.mul(viewMatrix);
+		processPhysics(physics, speed);
+//		Matrix4f worldView1 = glmLookAt(position.add(forward), position, up);
+//		Matrix4f m = projectionMatrix.mul(worldView1);
+		Frustum.getFrustum().calculateFrustum(viewProjectionMatrix);
+	}
+
+	private void processPhysics(Physics physics, Vec3f speed) {
 		if(physics!=null) {
-			setPosition(physics.Physics_GetPlayerPosition());
+			position = physics.Physics_GetPlayerPosition();
 			velocity = velocity.add(forward.mul(speed.Z));
 			velocity = velocity.add(up.mul(speed.Y));
 			velocity = velocity.add(getRight().mul(speed.X));
@@ -316,7 +242,6 @@ public class Camera {
 			}
 			physics.Physics_SetPlayerVelocity(velocity);
 		}
-		initfrustum();
 	}
 
 	public void setPhysics(Physics physics){
@@ -364,10 +289,6 @@ public class Camera {
 	public Matrix4f getProjectionMatrix() {
 		return projectionMatrix;
 	}
-
-	public void setProjectionMatrix(Matrix4f projectionMatrix) {
-		this.projectionMatrix = projectionMatrix;
-	}
 	
 	public  void setProjection(float fovY, float width, float height)
 	{
@@ -380,10 +301,6 @@ public class Camera {
 
 	public Matrix4f getViewMatrix() {
 		return viewMatrix;
-	}
-
-	public void setViewMatrix(Matrix4f viewMatrix) {
-		this.viewMatrix = viewMatrix;
 	}
 
 	public Vec3f getPosition() {
@@ -422,33 +339,8 @@ public class Camera {
 		return this.height;
 	}
 	
-	public void setViewProjectionMatrix(Matrix4f viewProjectionMatrix) {
-		this.viewProjectionMatrix = viewProjectionMatrix;
-	}
-	
 	public Matrix4f getViewProjectionMatrix() {
 		return viewProjectionMatrix;
-	}
-
-	public Matrix4f getPreviousViewProjectionMatrix() {
-		return previousViewProjectionMatrix;
-	}
-
-	public void setPreviousViewProjectionMatrix(
-			Matrix4f previousViewProjectionMatrix) {
-		this.previousViewProjectionMatrix = previousViewProjectionMatrix;
-	}
-
-	public Matrix4f getPreviousViewMatrix() {
-		return previousViewMatrix;
-	}
-
-	public void setPreviousViewMatrix(Matrix4f previousViewMatrix) {
-		this.previousViewMatrix = previousViewMatrix;
-	}
-
-	public Vec3f[] getFrustumCorners() {
-		return frustumCorners;
 	}
 
 	public boolean isCameraMoved() {
@@ -511,5 +403,44 @@ public class Camera {
 
 	public Ray getMousePickRay(float screenX, float screenY) {
 		return getPickRay(screenX, screenY, 0, 0, Window.getInstance().getWidth(), Window.getInstance().getHeight());
+	}
+
+
+
+	public static float clamp(float s, float min, float max) {
+		return Math.min(Math.max(s, min), max);
+	}
+
+	float		rotateX_ = 0.f;
+	float		rotateY_ = 180.f;
+	Vec3f		forward_  = new Vec3f(0.f, 0.f, 1.f );
+	Vec3f		right_  = new Vec3f(1.f, 0.f, 0.f );
+	Vec3f		up_  = new Vec3f( 0.f, 1.f, 0.f);
+
+	void update(Vec3f speed, float rotateX, float rotateY) {
+		rotateX_ += rotateX;
+		rotateX_ = clamp(rotateX_, -85.f, 85.f);
+
+		rotateY_ += rotateY;
+
+		Matrix4f pitchMatrix = Matrix4f.rotate(new Matrix4f().Identity(), rotateX_, new Vec3f(1, 0, 0));
+		Matrix4f yawMatrix = Matrix4f.rotate(new Matrix4f().Identity(), rotateY_, new Vec3f(0, 1, 0));
+
+		Vec4f forward = new Vec4f(0.f, 0.f, 1.f, 0.f);
+		forward = pitchMatrix.mul(forward);
+		forward = yawMatrix.mul(forward);
+		forward_.set(forward);
+
+		Vec4f right = new Vec4f(1.f, 0.f, 0.f, 0.f);
+		right = pitchMatrix.mul(right);
+		right = yawMatrix.mul(right);
+		right_.set(right);
+
+		Vec4f up = new Vec4f(0.f, 1.f, 0.f, 0.f);
+		up = pitchMatrix.mul(up);
+		up = yawMatrix.mul(up);
+		up_.set(up);
+
+		processPhysics(physics, speed);
 	}
 }

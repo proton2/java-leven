@@ -1,8 +1,5 @@
 package core.math;
 
-import org.joml.Vector3f;
-import org.joml.Vector3fc;
-
 public class Vec3f {
 	
 	public float X;
@@ -87,10 +84,6 @@ public class Vec3f {
 		float z = X * r.getY() - Y * r.getX();
 		
 		return new Vec3f(x,y,z);
-	}
-
-	public Vec3f neg() {
-		return new Vec3f(-X, Y, Z);
 	}
 	
 	public Vec3f normalize()
@@ -315,5 +308,11 @@ public class Vec3f {
 		float mz = (X * m.get(2,0) + Y * m.get(2,1) + Z * m.get(2,2) + m.get(2,3)) * l_w;
 
 		return new Vec3f(mx,my,mz);
+	}
+
+	public void set(Vec4f v) {
+		this.X = v.x;
+		this.Y = v.y;
+		this.Z = v.z;
 	}
 }

@@ -36,11 +36,6 @@ public class Transform {
 		return Camera.getInstance().getViewProjectionMatrix().mul(getWorldMatrix());
 	}
 
-	public Vec4f[] getFrustumPlanes()
-	{
-		return Camera.getInstance().getFrustumPlanes();
-	}
-
 	public Matrix4f getViewProjectionMatrix()
 	{
 		return Camera.getInstance().getViewProjectionMatrix();
