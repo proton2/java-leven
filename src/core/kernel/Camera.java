@@ -210,7 +210,10 @@ public class Camera {
 		processPhysics(physics, speed);
 //		Matrix4f worldView1 = glmLookAt(position.add(forward), position, up);
 //		Matrix4f m = projectionMatrix.mul(worldView1);
-		Frustum.getFrustum().calculateFrustum(viewProjectionMatrix);
+
+		Frustum fr = Frustum.getFrustum();
+		fr.calculateFrustum(viewProjectionMatrix);
+		Vec3f [] corners = fr.getFrustumCorners();
 	}
 
 	private void processPhysics(Physics physics, Vec3f speed) {
