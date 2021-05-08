@@ -47,7 +47,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private final MeshGenerationContext meshGenCtx;
     private final ComputeContext ctx;
     private Physics physics;
-    private boolean enablePhysics = true;
+    private boolean enablePhysics = false;
     private int brushSize = 10;
     //private ModelEntity actorCSGCube;
 
@@ -212,6 +212,15 @@ public class ChunkOctreeWrapper extends GameObject {
             Vec3f origin = offset.add(chunkOctree.getRayCollisionPos());
             chunkOctree.queueCSGOperation(origin, brushSizeV, RenderShape.RenderShape_None, 1, true);
         }
+
+        RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
+        camRayCmds.addWireCubeArrayCoords(Constants.Yellow, 0.2f, Frustum.getFrustum().getFrustumCorners());
+        DebugDrawBuffer buf = camRayCmds.UpdateDebugDrawBuffer();
+        DebugMeshVBO camRayBuff = new DebugMeshVBO();
+        camRayBuff.addData(buf);
+        Renderer debugRenderer = new Renderer(camRayBuff);
+        debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
+        addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
     }
 
     private void renderDebugVoxelsBounds(ChunkNode node){

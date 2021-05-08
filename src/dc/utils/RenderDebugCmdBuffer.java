@@ -24,11 +24,16 @@ public class RenderDebugCmdBuffer {
         RenderDebugCubeInfo    cube;
         RenderDebugSphereInfo  sphere;
         RenderDebugLineInfo    line;
+        RenderDebugCubeArrayCoordsInfo cubeArrayCoordsInfo;
     }
 
     static class RenderDebugCubeInfo {
         Vec3f    min;
         Vec3f    max;
+    };
+
+    static class RenderDebugCubeArrayCoordsInfo {
+        Vec3f[] coords;
     };
 
     static class RenderDebugSphereInfo {
@@ -54,6 +59,17 @@ public class RenderDebugCmdBuffer {
         cmd.cube = new RenderDebugCubeInfo();
         cmd.cube.min = min;
         cmd.cube.max = new Vec3f(min.X + size, min.Y + size, min.Z + size);
+        cmds.add(cmd);
+        return cmd;
+    }
+
+    public RenderDebugCmd addWireCubeArrayCoords(Vec3f rgb, float alpha, Vec3f[] coords) {
+        RenderDebugCmd cmd = new RenderDebugCmd();
+        cmd.shape = RenderShape_CubeArrayCoords;
+        cmd.alpha = alpha;
+        cmd.rgb = rgb;
+        cmd.cubeArrayCoordsInfo = new RenderDebugCubeArrayCoordsInfo();
+        cmd.cubeArrayCoordsInfo.coords = coords;
         cmds.add(cmd);
         return cmd;
     }
@@ -148,6 +164,12 @@ public class RenderDebugCmdBuffer {
                     indices = res[1];
                     break;
 
+                case RenderShape_CubeArrayCoords:
+                    res = GetWireCubeDataSizes();
+                    vertices = res[0];
+                    indices = res[1];
+                    break;
+
                 case RenderShape_Sphere:
                     res = GetSphereDataSizes();
                     vertices = res[0];
@@ -180,6 +202,10 @@ public class RenderDebugCmdBuffer {
                 }
                 case RenderShape_WireCube: {
                     GetWireCubeData(cmd.cube.min, cmd.cube.max, vertexBuffer, indexBuffer);
+                    break;
+                }
+                case RenderShape_CubeArrayCoords: {
+                    GetWireCubeDataArrayCoords(cmd.cubeArrayCoordsInfo.coords, vertexBuffer, indexBuffer);
                     break;
                 }
                 case RenderShape_Sphere: {
@@ -224,6 +250,29 @@ public class RenderDebugCmdBuffer {
                     0,1,  1,5,  5,4,  4,0,    // edges of the top face
                     7,3,  3,2,  2,6,  6,7,    // edges of the bottom face
                     1,2,  0,3,  4,7,  5,6
+        }; // edges connecting top face to bottom face
+
+        for (int i = 0; i < 24; i++) {
+            indexDataBuffer[i + currIndexBufferSize] = currVertexBufferSize + edgeElementArray[i];
+        }
+        currVertexBufferSize += 8;
+        currIndexBufferSize += 24;
+    }
+
+    public void GetWireCubeDataArrayCoords(Vec3f[] corners, Vec4f[] vertexDataBuffer, int[] indexDataBuffer) {
+        vertexDataBuffer[currVertexBufferSize + 0] = new Vec4f(corners[0]);
+        vertexDataBuffer[currVertexBufferSize + 1] = new Vec4f(corners[1]);
+        vertexDataBuffer[currVertexBufferSize + 2] = new Vec4f(corners[2]);
+        vertexDataBuffer[currVertexBufferSize + 3] = new Vec4f(corners[3]);
+        vertexDataBuffer[currVertexBufferSize + 4] = new Vec4f(corners[4]);
+        vertexDataBuffer[currVertexBufferSize + 5] = new Vec4f(corners[5]);
+        vertexDataBuffer[currVertexBufferSize + 6] = new Vec4f(corners[6]);
+        vertexDataBuffer[currVertexBufferSize + 7] = new Vec4f(corners[7]);
+
+        int[] edgeElementArray = {
+                0,1,  1,5,  5,4,  4,0,    // edges of the top face
+                7,3,  3,2,  2,6,  6,7,    // edges of the bottom face
+                1,2,  0,3,  4,7,  5,6
         }; // edges connecting top face to bottom face
 
         for (int i = 0; i < 24; i++) {
