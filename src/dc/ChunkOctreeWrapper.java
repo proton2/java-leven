@@ -47,7 +47,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private final MeshGenerationContext meshGenCtx;
     private final ComputeContext ctx;
     private Physics physics;
-    private boolean enablePhysics = false;
+    private boolean enablePhysics = true;
     private int brushSize = 10;
     //private ModelEntity actorCSGCube;
 
@@ -112,10 +112,10 @@ public class ChunkOctreeWrapper extends GameObject {
             sleep(200);
             drawSeamBounds = !drawSeamBounds;
         }
-        if (Input.getInstance().isKeyHold(GLFW_KEY_F6)) {
-            Vec3f cam = Camera.getInstance().getPosition();
-            sleep(200);
-        }
+//        if (Input.getInstance().isKeyHold(GLFW_KEY_F6)) {
+//            Vec3f cam = Camera.getInstance().getPosition();
+//            sleep(200);
+//        }
         if (Input.getInstance().isKeyHold(GLFW_KEY_F10)) {
             sleep(200);
             physics.Physics_TogglePlayerNoClip();
