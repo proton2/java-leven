@@ -55,7 +55,7 @@ public class ChunkOctreeWrapper extends GameObject {
     public ChunkOctreeWrapper() {
         meshGenCtx = new MeshGenerationContext(64);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
-        ctx = OCLUtils.getOpenCLContext();
+        ctx = null;//OCLUtils.getOpenCLContext();
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 256);
         Camera camera = Camera.getInstance();
@@ -81,7 +81,7 @@ public class ChunkOctreeWrapper extends GameObject {
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
             //voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
         }
-        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, enablePhysics, camera);
+        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, enablePhysics,false);
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
     }
 

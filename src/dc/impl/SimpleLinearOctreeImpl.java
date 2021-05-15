@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static dc.utils.SimplexNoise.getNoise;
 import static java.lang.Math.max;
@@ -28,8 +29,21 @@ import static java.lang.Math.max;
 
 public class SimpleLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
 
+    private final ExecutorService service;
+    int availableProcessors;
+
     public SimpleLinearOctreeImpl(MeshGenerationContext meshGenerationContext) {
         super(meshGenerationContext);
+        availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
+        service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
+            private final AtomicInteger count = new AtomicInteger();
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName("SimpleLinearOctree " + count.getAndIncrement());
+                return thread;
+            }
+        });
     }
 
     @Override
@@ -83,8 +97,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         ArrayList<LinearLeafHolder> listHolders = new ArrayList<>();
         List<Callable<List<LinearLeafHolder>>> tasks = new ArrayList<>();
 
-        int availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
-        ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
         int size = voxelsPerChunk*voxelsPerChunk*voxelsPerChunk;
         int threadBound = (size) / availableProcessors;
 
@@ -111,7 +123,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         }
 
         List<Future<List<LinearLeafHolder>>> futures = service.invokeAll(tasks);
-        service.shutdown();
         for (Future<List<LinearLeafHolder>> future : futures){
             listHolders.addAll(future.get());
         }
@@ -269,7 +280,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            return getLinearLeafHolder(pos, leafSize, leafMin, cornerMaterials, corners);
+            //return getLinearLeafHolder(pos, leafSize, leafMin, cornerMaterials, corners);
+            return null;
         }
         int edgeList = 0;
 

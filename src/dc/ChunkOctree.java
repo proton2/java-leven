@@ -39,6 +39,7 @@ public class ChunkOctree {
     private Map<Vec4i, OctreeCacheHolder> octreeCache = new HashMap<>();
     private List<Aabb> storedOpAABBs;
     private List<CSGOperationInfo> storedOps;
+    private boolean enableChunkChache;
 
     private static class OctreeCacheHolder{
         MeshBuffer meshBuffer;
@@ -58,7 +59,9 @@ public class ChunkOctree {
         return invalidateMeshes;
     }
 
-    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, boolean enablePhysics, Camera cam) {
+    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
+                       boolean enablePhysics, boolean enableChunkChache) {
+        this.enableChunkChache = enableChunkChache;
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
@@ -419,14 +422,16 @@ public class ChunkOctree {
 
     private boolean ConstructChunkNodeData(ChunkNode chunk) {
         Vec4i key = new Vec4i(chunk.min, chunk.size);
-        OctreeCacheHolder holder = octreeCache.get(key);
-        if (holder!=null){
-            chunk.active = true;
-            chunk.chunkBorderNodes = holder.seamNodes;
-            if (holder.meshBuffer.getNumIndicates() > 0) {
-                chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, holder.meshBuffer);
+        if(enableChunkChache) {
+            OctreeCacheHolder holder = octreeCache.get(key);
+            if (holder != null) {
+                chunk.active = true;
+                chunk.chunkBorderNodes = holder.seamNodes;
+                if (holder.meshBuffer.getNumIndicates() > 0) {
+                    chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, holder.meshBuffer);
+                }
+                return true;
             }
-            return true;
         }
 
         List<OctreeNode> seamNodes = new ArrayList<>();
@@ -440,7 +445,9 @@ public class ChunkOctree {
         if (meshBuffer.getNumIndicates() > 0) {
             chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, meshBuffer);
         }
-        octreeCache.put(key, new OctreeCacheHolder(meshBuffer, seamNodes));
+        if (enableChunkChache) {
+            octreeCache.put(key, new OctreeCacheHolder(meshBuffer, seamNodes));
+        }
         return chunk.active;
     }
 
