@@ -405,7 +405,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         return maxMaterial;
     }
 
-    private Vec3i[] EDGE_OFFSETS = {
+    protected Vec3i[] BORDER_EDGE_OFFSETS = {
             new Vec3i(1, 2, 0), new Vec3i(1, 0, 2),
             new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
             new Vec3i(2, 0, 1), new Vec3i(0, 2, 1),
@@ -439,15 +439,15 @@ public abstract class AbstractDualContouring implements DualContouring{
         // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
         if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leafSize != nodeMinSize) {
             for (int i = 0; i < 12; i++) {
-                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == EDGE_OFFSETS[i].x) ||
-                        (chunkBorders.y != 0 && chunkBorders.y + 1 == EDGE_OFFSETS[i].y) ||
-                        (chunkBorders.z != 0 && chunkBorders.z + 1 == EDGE_OFFSETS[i].z))) {
+                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == BORDER_EDGE_OFFSETS[i].x) ||
+                        (chunkBorders.y != 0 && chunkBorders.y + 1 == BORDER_EDGE_OFFSETS[i].y) ||
+                        (chunkBorders.z != 0 && chunkBorders.z + 1 == BORDER_EDGE_OFFSETS[i].z))) {
                     continue;
                 }
                 // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
-                int x = leafMin.x + (EDGE_OFFSETS[i].x) * leafSize / 2;
-                int y = leafMin.y + (EDGE_OFFSETS[i].y) * leafSize / 2;
-                int z = leafMin.z + (EDGE_OFFSETS[i].z) * leafSize / 2;
+                int x = leafMin.x + (BORDER_EDGE_OFFSETS[i].x) * leafSize / 2;
+                int y = leafMin.y + (BORDER_EDGE_OFFSETS[i].y) * leafSize / 2;
+                int z = leafMin.z + (BORDER_EDGE_OFFSETS[i].z) * leafSize / 2;
 
                 Vec4f nodePos = new Vec4f(x,y,z);
                 float density = getNoise(nodePos);
@@ -468,15 +468,15 @@ public abstract class AbstractDualContouring implements DualContouring{
         // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
         if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leafSize != nodeMinSize) {
             for (int i = 0; i < 12; i++) {
-                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == EDGE_OFFSETS[i].x) ||
-                        (chunkBorders.y != 0 && chunkBorders.y + 1 == EDGE_OFFSETS[i].y) ||
-                        (chunkBorders.z != 0 && chunkBorders.z + 1 == EDGE_OFFSETS[i].z))) {
+                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == BORDER_EDGE_OFFSETS[i].x) ||
+                        (chunkBorders.y != 0 && chunkBorders.y + 1 == BORDER_EDGE_OFFSETS[i].y) ||
+                        (chunkBorders.z != 0 && chunkBorders.z + 1 == BORDER_EDGE_OFFSETS[i].z))) {
                     continue;
                 }
                 // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
-                nodePos.x = leafMin.x + (EDGE_OFFSETS[i].x) * leafSize / 2;
-                nodePos.y = leafMin.y + (EDGE_OFFSETS[i].y) * leafSize / 2;
-                nodePos.z = leafMin.z + (EDGE_OFFSETS[i].z) * leafSize / 2;
+                nodePos.x = leafMin.x + (BORDER_EDGE_OFFSETS[i].x) * leafSize / 2;
+                nodePos.y = leafMin.y + (BORDER_EDGE_OFFSETS[i].y) * leafSize / 2;
+                nodePos.z = leafMin.z + (BORDER_EDGE_OFFSETS[i].z) * leafSize / 2;
 
                 float density = getNoise(nodePos);
                 if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {

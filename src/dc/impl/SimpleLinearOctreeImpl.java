@@ -99,10 +99,15 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             octreeNodes.put(listHolders.get(i).encodedVoxelPosition, i);
             if (listHolders.get(i).isSeam) {
                 OctreeNode seamNode = extractSeamNode(listHolders.get(i), chunkMin, chunkSize / voxelsPerChunk);
-                seamNodesMap.put(seamNode.min, seamNode);
+                if(seamNode.size > meshGen.leafSizeScale) {
+                    seamNodesMap.put(seamNode.min, seamNode);
+                }
                 seamNodes.add(seamNode);
             }
         }
+
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        seamNodes.addAll(addedNodes);
 
         int[] d_nodeCodes = listHolders.stream().mapToInt(e->e.encodedVoxelPosition).toArray();
         int[] d_nodeMaterials = listHolders.stream().mapToInt(e->e.materialIndex).toArray();
@@ -112,6 +117,82 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         processDc(chunkSize, chunkMin, voxelsPerChunk, seamNodes, buffer, octreeNodes,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
         return true;
+    }
+
+    private List<OctreeNode> findAndCreateBorderNodes(Map<Vec3i, OctreeNode> seamNodesMap) {
+        List<OctreeNode> addedNodes = new ArrayList<>();
+        for(Map.Entry<Vec3i, OctreeNode>set : seamNodesMap.entrySet()){
+            OctreeNode node = set.getValue();
+
+            if(node.nodeNum.x < meshGen.getVoxelsPerChunk()-1) {
+                Vec3i right = new Vec3i(node.min.x + node.size, node.min.y, node.min.z);
+                if (seamNodesMap.get(right) == null) {
+                    OctreeNode rightNode = createBorderNode(right, node.size);
+                    if (rightNode != null) {
+                        addedNodes.add(rightNode);
+                    }
+                }
+            }
+            if(node.nodeNum.x > 0) {
+                Vec3i left = new Vec3i(node.min.x - node.size, node.min.y, node.min.z);
+                if (seamNodesMap.get(left) == null) {
+                    OctreeNode leftNode = createBorderNode(left, node.size);
+                    if (leftNode != null) {
+                        addedNodes.add(leftNode);
+                    }
+                }
+            }
+            if(node.nodeNum.y < meshGen.getVoxelsPerChunk()-1) {
+                Vec3i top = new Vec3i(node.min.x, node.min.y + node.size, node.min.z);
+                if (seamNodesMap.get(top) == null) {
+                    OctreeNode topNode = createBorderNode(top, node.size);
+                    if (topNode != null) {
+                        addedNodes.add(topNode);
+                    }
+                }
+            }
+            if(node.nodeNum.y > 0) {
+                Vec3i bottom = new Vec3i(node.min.x, node.min.y - node.size, node.min.z);
+                if (seamNodesMap.get(bottom) == null) {
+                    OctreeNode bottomNode = createBorderNode(bottom, node.size);
+                    if (bottomNode != null) {
+                        addedNodes.add(bottomNode);
+                    }
+                }
+            }
+        }
+        return addedNodes;
+    }
+
+    private OctreeNode createBorderNode(Vec3i min, int size) {
+        int corners = 0;
+        for (int i = 0; i < 8; i++) {
+            Vec3i cornerPos = min.add(CHILD_MIN_OFFSETS[i].mul(size));
+            float density = getNoise(cornerPos);
+            int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
+            corners |= (material << i);
+        }
+
+        for (int i = 0; i < 12; i++) {
+            // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
+            int x = min.x + (BORDER_EDGE_OFFSETS[i].x) * size / 2;
+            int y = min.y + (BORDER_EDGE_OFFSETS[i].y) * size / 2;
+            int z = min.z + (BORDER_EDGE_OFFSETS[i].z) * size / 2;
+
+            Vec4f nodePos = new Vec4f(x,y,z);
+            float density = getNoise(nodePos);
+            if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
+                PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, size, OctreeNodeType.Node_Leaf);
+                OctreeDrawInfo drawInfo = new OctreeDrawInfo();
+                drawInfo.position = nodePos.getVec3f();
+                drawInfo.color = Constants.Yellow;
+                drawInfo.averageNormal = CalculateSurfaceNormal(nodePos).getVec3f();
+                node.corners = corners;
+                node.drawInfo = drawInfo;
+                return node;
+            }
+        }
+        return null;
     }
 
     private void processDc(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, List<OctreeNode> seamNodes,
@@ -163,8 +244,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         if (corners == 0 || corners == 255) {
             // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
             //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            return createSeamBoundNode(pos, leafSize, leafMin, cornerMaterials, corners);
-            //return null;
+            //return createSeamBoundNode(pos, leafSize, leafMin, cornerMaterials, corners);
+            return null;
         }
         int edgeList = 0;
 
@@ -223,6 +304,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             leafHolder.encodedVoxelPosition = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
             //leafHolder.voxelEdgeInfo = corners;//edgeList;
             leafHolder.averageNormal = CalculateSurfaceNormal(nodePos);
+            leafHolder.isSeam = true;
             return leafHolder;
         }
     }
@@ -342,6 +424,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         drawInfo.averageNormal = leafHolder.averageNormal.getVec3f();
         node.corners = leafHolder.materialIndex;
         node.drawInfo = drawInfo;
+        node.nodeNum = positionForCode(leafHolder.encodedVoxelPosition);
         return node;
     }
 

@@ -11,6 +11,7 @@ public abstract class OctreeNode {
     public OctreeNode[] children;
     private ChunkNode chunk;
     public int child_index;
+    public Vec3i nodeNum;
 
     public ChunkNode getChunk() {
         return chunk;
