@@ -48,6 +48,13 @@ public class Vec3i {
         return new Vec3i(this.x + r.x, this.y + r.y, this.z + r.z);
     }
 
+    public void add(int X, int Y, int Z)
+    {
+        this.x += X;
+        this.y += Y;
+        this.z += Z;
+    }
+
     public Vec3i add(Vec3f r)
     {
         return new Vec3i(this.x + (int)r.X, this.y + (int)r.Y, this.z + (int)r.Z);
