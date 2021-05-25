@@ -123,59 +123,31 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     private Vec3i getRight(OctreeNode node, boolean nodeOnX, boolean nodeOnY, boolean nodeOnZ){
-        Vec3i right = new Vec3i();
-        if (nodeOnX && node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1) {
-            right.add(0, node.size, 0);
-        }
-        if (nodeOnY && node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1) {
-            right.add(0, 0, node.size);
-        }
-        if (nodeOnZ && node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1) {
-            right.add(node.size, 0, 0);
-        }
-        return node.min.add(right);
+        int x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && nodeOnZ && !nodeOnX ? node.size : 0;
+        int y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && nodeOnX && !nodeOnZ ? node.size : 0;
+        int z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && nodeOnY && !nodeOnZ ? node.size : 0;
+        return node.min.add(new Vec3i(x, y, z));
     }
 
     private Vec3i getLeft(OctreeNode node, boolean nodeOnX, boolean nodeOnY, boolean nodeOnZ){
-        Vec3i left = new Vec3i();
-        if (nodeOnX && node.nodeNum.y > 0) {
-            left.add(0, -node.size, 0);
-        }
-        if (nodeOnY && node.nodeNum.z > 0) {
-            left.add(0, 0, -node.size);
-        }
-        if (nodeOnZ && node.nodeNum.x > 0) {
-            left.add(-node.size, 0, 0);
-        }
-        return node.min.add(left);
+        int x = node.nodeNum.x > 0 && nodeOnZ && !nodeOnX ? -node.size : 0;
+        int y = node.nodeNum.y > 0 && nodeOnX && !nodeOnZ ? -node.size : 0;
+        int z = node.nodeNum.z > 0 && nodeOnY && !nodeOnZ ? -node.size : 0;
+        return node.min.add(new Vec3i(x, y, z));
     }
 
     private Vec3i getTop(OctreeNode node, boolean nodeOnX, boolean nodeOnY, boolean nodeOnZ){
-        Vec3i top = new Vec3i();
-        if (nodeOnX && node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1) {
-            top.add(0, 0, node.size);
-        }
-        if (nodeOnY && node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1) {
-            top.add(node.size, 0, 0);
-        }
-        if (nodeOnZ && node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1) {
-            top.add(0, node.size, 0);
-        }
-        return node.min.add(top);
+        int x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && nodeOnY && !nodeOnX ? node.size : 0;
+        int y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && nodeOnZ && !nodeOnY ? node.size : 0;
+        int z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && nodeOnX && !nodeOnZ ? node.size : 0;
+        return node.min.add(new Vec3i(x, y, z));
     }
 
     private Vec3i getBottom(OctreeNode node, boolean nodeOnX, boolean nodeOnY, boolean nodeOnZ){
-        Vec3i bottom = new Vec3i();
-        if (nodeOnX && node.nodeNum.z > 0) {
-            bottom.add(0, 0, - node.size);
-        }
-        if (nodeOnY && node.nodeNum.x > 0) {
-            bottom.add(- node.size, 0, 0);
-        }
-        if (nodeOnZ && node.nodeNum.y > 0) {
-            bottom.add(0, - node.size, 0);
-        }
-        return node.min.add(bottom);
+        int x = node.nodeNum.x > 0 && nodeOnY && !nodeOnX ? -node.size : 0;
+        int y = node.nodeNum.y > 0 && nodeOnZ && !nodeOnY ? -node.size : 0;
+        int z = node.nodeNum.z > 0 && nodeOnX && !nodeOnZ ? -node.size : 0;
+        return node.min.add(new Vec3i(x, y, z));
     }
 
     private List<OctreeNode> findAndCreateBorderNodes(Map<Vec3i, OctreeNode> seamNodesMap) {
