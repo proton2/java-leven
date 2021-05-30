@@ -18,9 +18,7 @@ import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.LevenLinearGPUOctreeImpl;
-import dc.impl.MeshGenerationContext;
-import dc.impl.SimpleLinearOctreeImpl;
+import dc.impl.*;
 import dc.impl.opencl.ComputeContext;
 import dc.impl.opencl.KernelNames;
 import dc.impl.opencl.KernelsHolder;
@@ -47,7 +45,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private final MeshGenerationContext meshGenCtx;
     private final ComputeContext ctx;
     private Physics physics;
-    private boolean enablePhysics = true;
+    private boolean enablePhysics = false;
     private int brushSize = 10;
     //private ModelEntity actorCSGCube;
 
@@ -77,7 +75,7 @@ public class ChunkOctreeWrapper extends GameObject {
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
             voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
             //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
-            //VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+            //voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
             //voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
         }

@@ -122,6 +122,14 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
+        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        for (OctreeNode seamNode : seamNodes) {
+            if (seamNode.size > meshGen.leafSizeScale) {
+                seamNodesMap.put(seamNode.min, seamNode);
+            }
+        }
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        seamNodes.addAll(addedNodes);
         return true;
     }
 
@@ -258,7 +266,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             cornerValues |= (((cornerMaterials[6]) == meshGen.MATERIAL_AIR ? 0 : 1) << 6);
             cornerValues |= (((cornerMaterials[7]) == meshGen.MATERIAL_AIR ? 0 : 1) << 7);
 
-            if (cornerValues != 0 && cornerValues != 255) {
+            boolean haveVoxel = cornerValues != 0 && cornerValues != 255;
+            if (haveVoxel) {
                 ++size;
             }
             // record which of the 12 voxel edges are on/off
@@ -271,32 +280,10 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 int signChange = edgeStart != edgeEnd ? 1 : 0;
                 edgeList |= (signChange << i);
             }
-            Vec3i nodePos = new Vec3i();
-            boolean haveVoxel = false;
-            if (cornerValues == 0 || cornerValues == 255) {
-                haveVoxel = tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, pos, cornerValues, nodePos);
-            }
-            if (haveVoxel) {
-                ++size;
-            }
-            voxelOccupancy[index] = haveVoxel || (cornerValues != 0 && cornerValues != 255) ? 1 : 0;
+            voxelOccupancy[index] = haveVoxel ? 1 : 0;
             voxelPositions[index] = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
             voxelEdgeInfo[index] = edgeList;
 
-            /*
-            Vec4f borderNodePos = null;
-            if (cornerValues == 0 || cornerValues == 255) {
-                int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
-                Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
-                borderNodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, cornerValues, meshGen.leafSizeScale);
-            }
-            boolean haveVoxel = borderNodePos!=null || cornerValues != 0 && cornerValues != 255;
-            if (haveVoxel) {
-                ++size;
-            }
-            voxelOccupancy[index] = haveVoxel ? 1 : 0;
-            voxelPositions[index] = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
-             */
             // store cornerValues here too as its needed by the CPU side and edgeInfo isn't exported
             int materialIndex = findDominantMaterial(cornerMaterials);
             voxelMaterials[index] = (materialIndex << 8) | cornerValues;
@@ -326,33 +313,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
             Vec3i position = positionForCode(encodedPosition);
-            int corners = voxelMaterials[index] & 255;
             QEFData qef = new QEFData(new LevenQefSolver());
-            if (corners==0 || corners==255){
-                Vec3i nodePos = new Vec3i();
-                tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, position, corners, nodePos);
-                qef.setSolvedPos(nodePos.toVec4f());
-                leafQEFs[index]=qef;
-                vertexNormals[index] = CalculateSurfaceNormal(nodePos.toVec4f());
-                continue;
-            }
-
-            /*
-            int encodedPosition = voxelPositions[index];
-            Vec3i position = positionForCode(encodedPosition);
-            int corners = voxelMaterials[index] & 255;
-            QEFData qef = new QEFData(new LevenQefSolver());
-            if (corners==0 || corners==255){
-                int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
-                Vec3i leafMin = position.mul(leafSize).add(chunkMin);
-                Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, position, corners, meshGen.leafSizeScale);
-                qef.setSolvedPos(nodePos);
-                leafQEFs[index]=qef;
-                vertexNormals[index] = CalculateSurfaceNormal(nodePos);
-                continue;
-            }
-             */
-
             int edgeList = voxelEdgeInfo[index];
 
             Vec4f[] edgePositions = new Vec4f[12];
@@ -405,13 +366,16 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             //Vec3i pos = LinearOctreeTest.positionForCode(d_nodeCodes[index]);
             int leafSize = (chunkSize / voxelsPerChunk);
             //Vec3i leaf = pos.mul(leafSize).add(chunkMin);
+
             Vec4f solvedPos;
-            if (qefs[index].getSolvedPos()!=null){
-                solvedPos = qefs[index].getSolvedPos();    // precalculated position for seam holes
+            if(leafSize == meshGen.leafSizeScale) {
+                solvedPos = qefs[index].solve();       // run solver only for LOD 0
             } else {
-                solvedPos = qefs[index].solve();
-                solvedPos = solvedPos.mul(leafSize).add(chunkMin);
+                solvedPos = qefs[index].getMasspoint();// for other LOD's get masspoint - to increase performance
             }
+
+            solvedPos = solvedPos.mul(leafSize).add(chunkMin);
+
             // clamping
             //Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
             //solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
@@ -557,6 +521,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 drawInfo.color = color;
                 drawInfo.averageNormal = octreeNormals[index].getVec3f();
                 node.drawInfo = drawInfo;
+                node.nodeNum = positionForCode(octreeCodes[index]);
                 seamNodes.add(node);
             }
         }

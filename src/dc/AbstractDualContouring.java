@@ -461,34 +461,6 @@ public abstract class AbstractDualContouring implements DualContouring{
         return null;    // voxel is full inside or outside the volume
     }
 
-    protected boolean tryToCreateBoundSeamPseudoNode(Vec3i chunkMin, int chunkSize, Vec3i pos, int corners, Vec3i nodePos) {
-        Vec3i chunkBorders = getChunkBorder(pos);
-        int nodeMinSize = meshGen.leafSizeScale;
-        int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
-        Vec3i leafMin = pos.mul(leafSize).add(chunkMin);
-
-        // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
-        if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leafSize != nodeMinSize) {
-            for (int i = 0; i < 12; i++) {
-                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == BORDER_EDGE_OFFSETS[i].x) ||
-                        (chunkBorders.y != 0 && chunkBorders.y + 1 == BORDER_EDGE_OFFSETS[i].y) ||
-                        (chunkBorders.z != 0 && chunkBorders.z + 1 == BORDER_EDGE_OFFSETS[i].z))) {
-                    continue;
-                }
-                // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
-                nodePos.x = leafMin.x + (BORDER_EDGE_OFFSETS[i].x) * leafSize / 2;
-                nodePos.y = leafMin.y + (BORDER_EDGE_OFFSETS[i].y) * leafSize / 2;
-                nodePos.z = leafMin.z + (BORDER_EDGE_OFFSETS[i].z) * leafSize / 2;
-
-                float density = getNoise(nodePos);
-                if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
-                    return true;
-                }
-            }
-        }
-        return false;    // voxel is full inside or outside the volume
-    }
-
     protected int field_index(Vec3i pos) {
         return pos.x + (pos.y * meshGen.getFieldSize()) + (pos.z * meshGen.getFieldSize() * meshGen.getFieldSize());
     }

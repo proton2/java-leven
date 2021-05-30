@@ -169,9 +169,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             corners |= (material << i);
         }
         if (corners == 0 || corners == 255) {
-            // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
-            //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            //return createSeamBoundNode(pos, leafSize, leafMin, cornerMaterials, corners);
             return null;
         }
         int edgeList = 0;
@@ -222,23 +219,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         boolean zSeam = pos.z == 0 || pos.z == (meshGen.getVoxelsPerChunk() - 1);
         leafHolder.isSeam = xSeam | ySeam | zSeam;
         return leafHolder;
-    }
-
-    private LinearLeafHolder createSeamBoundNode(Vec3i pos, int leafSize, Vec3i leafMin, int[] cornerMaterials, int corners) {
-        Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leafMin, leafSize, pos, corners, meshGen.leafSizeScale);
-        if(nodePos==null){
-            return null;
-        } else {
-            LinearLeafHolder leafHolder = new LinearLeafHolder();
-            leafHolder.solvedPosition = nodePos;
-            int materialIndex = findDominantMaterial(cornerMaterials);
-            leafHolder.materialIndex = (materialIndex << 8) | corners;
-            leafHolder.encodedVoxelPosition = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
-            //leafHolder.voxelEdgeInfo = corners;//edgeList;
-            leafHolder.averageNormal = CalculateSurfaceNormal(nodePos);
-            leafHolder.isSeam = true;
-            return leafHolder;
-        }
     }
 
     private Vec3i[][] EDGE_NODE_OFFSETS = {
