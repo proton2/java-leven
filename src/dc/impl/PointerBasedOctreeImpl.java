@@ -12,9 +12,7 @@ import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.ArrayList;
-import java.util.EnumMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -78,13 +76,21 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                 }
             }
         }
+        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        for (OctreeNode seamNode : seamNodes) {
+            if (seamNode.size > meshGen.leafSizeScale) {
+                seamNodesMap.put(seamNode.min, seamNode);
+            }
+        }
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        seamNodes.addAll(addedNodes);
         return !chunkNodes.isEmpty() && !seamNodes.isEmpty();
     }
 
-    private EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> createPathLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
+    private EnumMap<VoxelTypes, List<OctreeNode>> createPathLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                                                       int from, int to) {
-        List<PointerBasedOctreeNode> voxels = new ArrayList<>();
-        List<PointerBasedOctreeNode> seamNodes = new ArrayList<>();
+        List<OctreeNode> voxels = new ArrayList<>();
+        List<OctreeNode> seamNodes = new ArrayList<>();
 
         for (int i=from; i < to; i++){
             int indexShift = VoxelHelperUtils.log2(meshGen.getVoxelsPerChunk()); // max octree depth
@@ -105,7 +111,16 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                 }
             }
         }
-        EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> res = new EnumMap<>(VoxelTypes.class);
+        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        for (OctreeNode seamNode : seamNodes) {
+            if (seamNode.size > meshGen.leafSizeScale) {
+                seamNodesMap.put(seamNode.min, seamNode);
+            }
+        }
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        seamNodes.addAll(addedNodes);
+
+        EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);
         res.put(VoxelTypes.NODES, voxels);
         res.put(VoxelTypes.SEAMS, seamNodes);
         return res;
@@ -118,21 +133,21 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         int threadBound = (meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()) / availableProcessors;
 
         ExecutorService service = Executors.newFixedThreadPool(availableProcessors);
-        List<Callable<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>>> tasks = new ArrayList<>();
+        List<Callable<EnumMap<VoxelTypes, List<OctreeNode>>>> tasks = new ArrayList<>();
         for (int i=0; i<availableProcessors; i++){
             int finalI = i;
-            Callable<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>> task = () -> {
+            Callable<EnumMap<VoxelTypes, List<OctreeNode>>> task = () -> {
                 int from = finalI * threadBound;
                 int to = from + threadBound;
                 return createPathLeafVoxelNodes(chunkSize, chunkMin, from, to);
             };
             tasks.add(task);
         }
-        List<Future<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>>> futures = service.invokeAll(tasks);
+        List<Future<EnumMap<VoxelTypes, List<OctreeNode>>>> futures = service.invokeAll(tasks);
         service.shutdown();
 
-        for (Future<EnumMap<VoxelTypes, List<PointerBasedOctreeNode>>> future : futures){
-                EnumMap<VoxelTypes, List<PointerBasedOctreeNode>> map = future.get();
+        for (Future<EnumMap<VoxelTypes, List<OctreeNode>>> future : futures){
+                EnumMap<VoxelTypes, List<OctreeNode>> map = future.get();
                 chunkNodes.addAll(map.get(VoxelTypes.NODES));
                 seamNodes.addAll(map.get(VoxelTypes.SEAMS));
         }
@@ -148,20 +163,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
             corners |= (material << i);
         }
         if (corners == 0 || corners == 255) {
-            // to avoid holes in seams between chunks with different resolution we creating some other nodes only in seams
-            //https://www.reddit.com/r/VoxelGameDev/comments/6kn8ph/dual_contouring_seam_stitching_problem/
-            Vec4f nodePos = tryToCreateBoundSeamPseudoNode(leaf.min, leaf.size, pos, corners, leafSizeScale);
-            if(nodePos==null){
-                return null;
-            } else {
-                leaf.drawInfo = new OctreeDrawInfo();
-                leaf.drawInfo.position = nodePos.getVec3f();
-                leaf.drawInfo.averageNormal = CalculateSurfaceNormal(nodePos).getVec3f();
-                leaf.corners = corners;
-                leaf.drawInfo.color = Constants.Blue;
-                leaf.Type = Node_Leaf;
-                return leaf;
-            }
+           return null;
         }
 
         // otherwise the voxel contains the surface, so find the edge intersections
@@ -191,13 +193,18 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
         qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
 
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-        drawInfo.position = qef.solve().getVec3f();
+        if(leaf.size == meshGen.leafSizeScale) {
+            drawInfo.position = qef.solve().getVec3f();
+        } else {
+            drawInfo.position = qef.getMasspoint().getVec3f();// for other LOD's get masspoint - to increase performance
+        }
         drawInfo.color = Constants.Red;
         drawInfo.averageNormal = averageNormal.div((float)edgeCount);
         drawInfo.averageNormal.normalize();
         leaf.corners = corners;
         leaf.Type = Node_Leaf;
         leaf.drawInfo = drawInfo;
+        leaf.nodeNum = pos;
         return leaf;
     }
 }
