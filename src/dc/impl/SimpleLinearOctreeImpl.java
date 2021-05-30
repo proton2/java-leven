@@ -205,6 +205,11 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
 
         LinearLeafHolder leafHolder = new LinearLeafHolder();
+        if(leafSize == meshGen.leafSizeScale) {
+            leafHolder.solvedPosition = qef.solve();
+        } else {
+            leafHolder.solvedPosition = qef.getMasspoint();// for other LOD's get masspoint - to increase performance
+        }
         leafHolder.solvedPosition = qef.solve();
         int materialIndex = findDominantMaterial(cornerMaterials);
         leafHolder.materialIndex = (materialIndex << 8) | corners;
