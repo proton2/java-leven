@@ -122,150 +122,6 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         return true;
     }
 
-    private Vec3i getRight(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
-            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
-            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
-        } else if (countAxies == 2) {
-            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
-            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
-    }
-
-    private Vec3i getLeft(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
-            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
-            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
-        } else if (countAxies == 2) {
-            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
-            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
-    }
-
-    private Vec3i getTop(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
-            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
-            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
-        } else if (countAxies == 2) {
-            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
-    }
-
-    private Vec3i getBottom(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
-            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
-            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
-        } else if (countAxies == 2) {
-            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
-    }
-
-    private List<OctreeNode> findAndCreateBorderNodes(Map<Vec3i, OctreeNode> seamNodesMap) {
-        List<OctreeNode> addedNodes = new ArrayList<>();
-        for(Map.Entry<Vec3i, OctreeNode>set : seamNodesMap.entrySet()){
-            OctreeNode node = set.getValue();
-            boolean canMoveX = !(node.nodeNum.x==0 || node.nodeNum.x==meshGen.getVoxelsPerChunk()-1);
-            boolean canMoveY = !(node.nodeNum.y==0 || node.nodeNum.y==meshGen.getVoxelsPerChunk()-1);
-            boolean canMoveZ = !(node.nodeNum.z==0 || node.nodeNum.z==meshGen.getVoxelsPerChunk()-1);
-            Vec3i right, left, top, bottom;
-
-            int countAxies=0;
-            if(canMoveX){
-                ++countAxies;
-            }
-            if(canMoveY){
-                ++countAxies;
-            }
-            if(canMoveZ){
-                ++countAxies;
-            }
-
-            if (canMoveX || canMoveZ) {
-                right = getRight(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(right) == null) {
-                    OctreeNode rightNode = createBorderNode(right, node.size);
-                    if (rightNode != null) {
-                        addedNodes.add(rightNode);
-                    }
-                }
-            }
-
-            if (canMoveX || canMoveZ) {
-                left = getLeft(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(left) == null) {
-                    OctreeNode leftNode = createBorderNode(left, node.size);
-                    if (leftNode != null) {
-                        addedNodes.add(leftNode);
-                    }
-                }
-            }
-
-            if (canMoveY) {
-                top = getTop(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(top) == null) {
-                    OctreeNode topNode = createBorderNode(top, node.size);
-                    if (topNode != null) {
-                        addedNodes.add(topNode);
-                    }
-                }
-            }
-
-            if (canMoveY) {
-                bottom = getBottom(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(bottom) == null) {
-                    OctreeNode bottomNode = createBorderNode(bottom, node.size);
-                    if (bottomNode != null) {
-                        addedNodes.add(bottomNode);
-                    }
-                }
-            }
-        }
-        return addedNodes;
-    }
-
-    private OctreeNode createBorderNode(Vec3i min, int size) {
-        int corners = 0;
-        for (int i = 0; i < 8; i++) {
-            Vec3i cornerPos = min.add(CHILD_MIN_OFFSETS[i].mul(size));
-            float density = getNoise(cornerPos);
-            int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
-            corners |= (material << i);
-        }
-
-        for (int i = 0; i < 12; i++) {
-            // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
-            int x = min.x + (BORDER_EDGE_OFFSETS[i].x) * size / 2;
-            int y = min.y + (BORDER_EDGE_OFFSETS[i].y) * size / 2;
-            int z = min.z + (BORDER_EDGE_OFFSETS[i].z) * size / 2;
-
-            Vec4f nodePos = new Vec4f(x,y,z);
-            float density = getNoise(nodePos);
-            if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
-                PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, size, OctreeNodeType.Node_Leaf);
-                OctreeDrawInfo drawInfo = new OctreeDrawInfo();
-                drawInfo.position = nodePos.getVec3f();
-                drawInfo.color = Constants.Yellow;
-                drawInfo.averageNormal = CalculateSurfaceNormal(nodePos).getVec3f();
-                node.corners = corners;
-                node.drawInfo = drawInfo;
-                return node;
-            }
-        }
-        return null;
-    }
-
     private void processDc(int chunkSize, Vec3i chunkMin, int voxelsPerChunk, List<OctreeNode> seamNodes,
                            MeshBuffer buffer, Map<Integer, Integer> octreeNodes, int[] d_nodeCodes, int[] d_nodeMaterials,
                            Vec4f[] d_vertexPositions, Vec4f[] d_vertexNormals) {
@@ -687,30 +543,30 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 //        return true;
 //    }
 
-//    public static void main(String[] args) {
-//        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
-//        PointerBasedOctreeNode n0 = new PointerBasedOctreeNode(new Vec3i(20,30,40), 1, OctreeNodeType.Node_Leaf);
-//        n0.nodeNum = new Vec3i(0, 13, 63);
-//        seamNodesMap.put(n0.min, n0);
-//        PointerBasedOctreeNode n1 = new PointerBasedOctreeNode(new Vec3i(50,60,70), 1, OctreeNodeType.Node_Leaf);
-//        n1.nodeNum = new Vec3i(15, 63, 0);
-//        seamNodesMap.put(n1.min, n1);
-//        PointerBasedOctreeNode n2 = new PointerBasedOctreeNode(new Vec3i(80,90,100), 1, OctreeNodeType.Node_Leaf);
-//        n2.nodeNum = new Vec3i(63, 0, 15);
-//        seamNodesMap.put(n2.min, n2);
-//
-//        PointerBasedOctreeNode n3 = new PointerBasedOctreeNode(new Vec3i(25,35,45), 1, OctreeNodeType.Node_Leaf);
-//        n3.nodeNum = new Vec3i(33, 13, 63);
-//        seamNodesMap.put(n3.min, n3);
-//        PointerBasedOctreeNode n4 = new PointerBasedOctreeNode(new Vec3i(55,65,75), 1, OctreeNodeType.Node_Leaf);
-//        n4.nodeNum = new Vec3i(15, 63, 33);
-//        seamNodesMap.put(n4.min, n4);
-//        PointerBasedOctreeNode n5 = new PointerBasedOctreeNode(new Vec3i(85,95,105), 1, OctreeNodeType.Node_Leaf);
-//        n5.nodeNum = new Vec3i(63, 33, 15);
-//        seamNodesMap.put(n5.min, n5);
-//
-//        MeshGenerationContext meshGenCtx = new MeshGenerationContext(64);
-//        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
-//        List<OctreeNode> addedNodes = voxelOctree.findAndCreateBorderNodes(seamNodesMap);
-//    }
+    public static void main(String[] args) {
+        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        PointerBasedOctreeNode n0 = new PointerBasedOctreeNode(new Vec3i(20,30,40), 1, OctreeNodeType.Node_Leaf);
+        n0.nodeNum = new Vec3i(0, 13, 63);
+        seamNodesMap.put(n0.min, n0);
+        PointerBasedOctreeNode n1 = new PointerBasedOctreeNode(new Vec3i(50,60,70), 1, OctreeNodeType.Node_Leaf);
+        n1.nodeNum = new Vec3i(15, 63, 0);
+        seamNodesMap.put(n1.min, n1);
+        PointerBasedOctreeNode n2 = new PointerBasedOctreeNode(new Vec3i(80,90,100), 1, OctreeNodeType.Node_Leaf);
+        n2.nodeNum = new Vec3i(63, 0, 15);
+        seamNodesMap.put(n2.min, n2);
+
+        PointerBasedOctreeNode n3 = new PointerBasedOctreeNode(new Vec3i(25,35,45), 1, OctreeNodeType.Node_Leaf);
+        n3.nodeNum = new Vec3i(33, 13, 63);
+        seamNodesMap.put(n3.min, n3);
+        PointerBasedOctreeNode n4 = new PointerBasedOctreeNode(new Vec3i(55,65,75), 1, OctreeNodeType.Node_Leaf);
+        n4.nodeNum = new Vec3i(15, 63, 33);
+        seamNodesMap.put(n4.min, n4);
+        PointerBasedOctreeNode n5 = new PointerBasedOctreeNode(new Vec3i(85,95,105), 1, OctreeNodeType.Node_Leaf);
+        n5.nodeNum = new Vec3i(63, 33, 15);
+        seamNodesMap.put(n5.min, n5);
+
+        MeshGenerationContext meshGenCtx = new MeshGenerationContext(64);
+        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
+        List<OctreeNode> addedNodes = voxelOctree.findAndCreateBorderNodes(seamNodesMap);
+    }
 }

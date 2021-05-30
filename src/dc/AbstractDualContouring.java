@@ -5,6 +5,7 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
+import core.utils.Constants;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
@@ -15,6 +16,7 @@ import java.util.*;
 
 import static dc.OctreeNodeType.Node_Internal;
 import static dc.OctreeNodeType.Node_Leaf;
+import static dc.VoxelOctree.CHILD_MIN_OFFSETS;
 import static dc.VoxelOctree.edgevmap;
 import static dc.utils.SimplexNoise.getNoise;
 
@@ -36,7 +38,7 @@ public abstract class AbstractDualContouring implements DualContouring{
                 parentsHash.put(parentPos, parent);
             }
             for (int j = 0; j < 8; j++) {
-                Vec3i childMin = parentPos.add(VoxelOctree.CHILD_MIN_OFFSETS[j].mul(parentSize / 2));
+                Vec3i childMin = parentPos.add(CHILD_MIN_OFFSETS[j].mul(parentSize / 2));
                 if (childMin.equals(node.min)) {
                     parent.children[j] = node;
                     node.child_index = j;
@@ -592,5 +594,154 @@ public abstract class AbstractDualContouring implements DualContouring{
             }
         }
         return -1;
+    }
+
+    /*
+    Algorithm for closing holes in the seams.
+    We iterate over each created boundary chunk node. We check each neighbor of the border node -
+    do its children contain a surface? If they do, we create a boundary node to close the hole in the seam.
+     */
+    protected List<OctreeNode> findAndCreateBorderNodes(Map<Vec3i, OctreeNode> seamNodesMap) {
+        List<OctreeNode> addedNodes = new ArrayList<>();
+        for(Map.Entry<Vec3i, OctreeNode>set : seamNodesMap.entrySet()){
+            OctreeNode node = set.getValue();
+            boolean canMoveX = !(node.nodeNum.x==0 || node.nodeNum.x==meshGen.getVoxelsPerChunk()-1);
+            boolean canMoveY = !(node.nodeNum.y==0 || node.nodeNum.y==meshGen.getVoxelsPerChunk()-1);
+            boolean canMoveZ = !(node.nodeNum.z==0 || node.nodeNum.z==meshGen.getVoxelsPerChunk()-1);
+            Vec3i right, left, top, bottom;
+
+            int countAxies=0;
+            if(canMoveX){
+                ++countAxies;
+            }
+            if(canMoveY){
+                ++countAxies;
+            }
+            if(canMoveZ){
+                ++countAxies;
+            }
+
+            if (canMoveX || canMoveZ) {
+                right = getRight(node, canMoveX, canMoveY, canMoveZ, countAxies);
+                if (seamNodesMap.get(right) == null) {
+                    OctreeNode rightNode = createBorderNode(right, node.size);
+                    if (rightNode != null) {
+                        addedNodes.add(rightNode);
+                    }
+                }
+            }
+
+            if (canMoveX || canMoveZ) {
+                left = getLeft(node, canMoveX, canMoveY, canMoveZ, countAxies);
+                if (seamNodesMap.get(left) == null) {
+                    OctreeNode leftNode = createBorderNode(left, node.size);
+                    if (leftNode != null) {
+                        addedNodes.add(leftNode);
+                    }
+                }
+            }
+
+            if (canMoveY) {
+                top = getTop(node, canMoveX, canMoveY, canMoveZ, countAxies);
+                if (seamNodesMap.get(top) == null) {
+                    OctreeNode topNode = createBorderNode(top, node.size);
+                    if (topNode != null) {
+                        addedNodes.add(topNode);
+                    }
+                }
+            }
+
+            if (canMoveY) {
+                bottom = getBottom(node, canMoveX, canMoveY, canMoveZ, countAxies);
+                if (seamNodesMap.get(bottom) == null) {
+                    OctreeNode bottomNode = createBorderNode(bottom, node.size);
+                    if (bottomNode != null) {
+                        addedNodes.add(bottomNode);
+                    }
+                }
+            }
+        }
+        return addedNodes;
+    }
+
+    private Vec3i getRight(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
+        int x = 0, y = 0, z = 0;
+        if (countAxies == 1) {
+            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
+            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
+            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
+        } else if (countAxies == 2) {
+            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
+            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
+        }
+        return node.min.add(new Vec3i(x, y, z));
+    }
+
+    private Vec3i getLeft(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
+        int x = 0, y = 0, z = 0;
+        if (countAxies == 1) {
+            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
+            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
+            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
+        } else if (countAxies == 2) {
+            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
+            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
+        }
+        return node.min.add(new Vec3i(x, y, z));
+    }
+
+    private Vec3i getTop(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
+        int x = 0, y = 0, z = 0;
+        if (countAxies == 1) {
+            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
+            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
+            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
+        } else if (countAxies == 2) {
+            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
+        }
+        return node.min.add(new Vec3i(x, y, z));
+    }
+
+    private Vec3i getBottom(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
+        int x = 0, y = 0, z = 0;
+        if (countAxies == 1) {
+            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
+            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
+            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
+        } else if (countAxies == 2) {
+            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
+        }
+        return node.min.add(new Vec3i(x, y, z));
+    }
+
+    private OctreeNode createBorderNode(Vec3i min, int size) {
+        int corners = 0;
+        for (int i = 0; i < 8; i++) {
+            Vec3i cornerPos = min.add(CHILD_MIN_OFFSETS[i].mul(size));
+            float density = getNoise(cornerPos);
+            int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
+            corners |= (material << i);
+        }
+
+        for (int i = 0; i < 12; i++) {
+            // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
+            int x = min.x + (BORDER_EDGE_OFFSETS[i].x) * size / 2;
+            int y = min.y + (BORDER_EDGE_OFFSETS[i].y) * size / 2;
+            int z = min.z + (BORDER_EDGE_OFFSETS[i].z) * size / 2;
+
+            Vec4f nodePos = new Vec4f(x,y,z);
+            float density = getNoise(nodePos);
+            if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
+                PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, size, OctreeNodeType.Node_Leaf);
+                OctreeDrawInfo drawInfo = new OctreeDrawInfo();
+                drawInfo.position = nodePos.getVec3f();
+                drawInfo.color = Constants.Yellow;
+                drawInfo.averageNormal = CalculateSurfaceNormal(nodePos).getVec3f();
+                node.corners = corners;
+                node.drawInfo = drawInfo;
+                return node;
+            }
+        }
+        return null;
     }
 }

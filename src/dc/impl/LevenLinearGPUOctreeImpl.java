@@ -10,7 +10,9 @@ import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
 import dc.impl.opencl.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /*
     Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java calling OpenCL kernels
@@ -89,6 +91,15 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
         }
         generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
         bufferGpuService.releaseAll();
+
+        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        for (OctreeNode seamNode : seamNodes) {
+            if (seamNode.size > meshGen.leafSizeScale) {
+                seamNodesMap.put(seamNode.min, seamNode);
+            }
+        }
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        seamNodes.addAll(addedNodes);
         return true;
     }
 }

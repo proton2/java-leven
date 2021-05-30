@@ -578,6 +578,7 @@ public class OCLUtils {
             localspaceMin.w = byteBuff.getInt(index+12);
             Vec3i min = localspaceMin.mul(chunkSize).add(chunkMin);
             PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, chunkSize, OctreeNodeType.Node_Leaf);
+            node.nodeNum = localspaceMin;
             node.corners = localspaceMin.w;
 
             OctreeDrawInfo drawInfo = new OctreeDrawInfo();

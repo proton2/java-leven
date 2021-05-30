@@ -3,6 +3,7 @@ package dc.impl.opencl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.utils.BufferUtil;
+import core.utils.Constants;
 import dc.OctreeNode;
 import dc.PointerBasedOctreeNode;
 import dc.entities.MeshBuffer;
@@ -205,7 +206,8 @@ public class GenerateMeshFromOctreeService {
         OCLUtils.checkCLError(err);
 
         OCLUtils.getListSeamNodesTriangles(d_seamNodeInfo, numSeamNodes, chunkMin,
-                VoxelHelperUtils.ColourForMinLeafSize(chunkSize), //Constants.Yellow
+                //VoxelHelperUtils.ColourForMinLeafSize(chunkSize),
+                Constants.Yellow,
                 chunkSize, seamNodes);
 
         err = CL10.clReleaseKernel(k_ExtractSeamNodeInfoKernel);
