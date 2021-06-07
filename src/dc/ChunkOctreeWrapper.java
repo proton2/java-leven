@@ -45,7 +45,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private final MeshGenerationContext meshGenCtx;
     private final ComputeContext ctx;
     private Physics physics;
-    private boolean enablePhysics = false;
+    private boolean enablePhysics = true;
     private int brushSize = 10;
     //private ModelEntity actorCSGCube;
 
