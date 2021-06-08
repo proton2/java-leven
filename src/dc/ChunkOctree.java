@@ -37,8 +37,6 @@ public class ChunkOctree {
     private final boolean enablePhysics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private Map<Vec4i, OctreeCacheHolder> octreeCache = new HashMap<>();
-    private List<Aabb> storedOpAABBs;
-    private List<CSGOperationInfo> storedOps;
     private boolean enableChunkChache;
 
     private static class OctreeCacheHolder{
@@ -477,6 +475,8 @@ public class ChunkOctree {
     }
 
     void processCSGOperationsImpl(){
+        List<Aabb> storedOpAABBs = new ArrayList<>();
+        List<CSGOperationInfo> storedOps = new ArrayList<>();
         ArrayList<CSGOperationInfo> operations = new ArrayList<>(g_operationQueue);
         g_operationQueue.clear();
 
