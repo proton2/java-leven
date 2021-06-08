@@ -218,7 +218,7 @@ public class ChunkOctreeWrapper extends GameObject {
         camRayBuff.addData(buf);
         Renderer debugRenderer = new Renderer(camRayBuff);
         debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
-        addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
+        addComponent("frustum", debugRenderer);
     }
 
     private void renderDebugVoxelsBounds(ChunkNode node){
