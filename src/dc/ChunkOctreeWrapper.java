@@ -181,7 +181,7 @@ public class ChunkOctreeWrapper extends GameObject {
             debugMeshBuffer.addData(buf);
             Renderer debugRenderer = new Renderer(debugMeshBuffer);
             debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
-            addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
+            addComponent("node_bounds", debugRenderer);
         }
 
         if (enablePhysics && Input.getInstance().isButtonHolding(1)) {
