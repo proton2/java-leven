@@ -3,6 +3,8 @@ package dc;
 import core.math.Vec3i;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
+import dc.impl.GPUDensityField;
+import dc.utils.Aabb;
 
 import java.util.List;
 
@@ -29,5 +31,7 @@ public interface VoxelOctree {
 
     boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer meshBuffer);
     void processNodesToMesh(List<OctreeNode> seamNodes, Vec3i min, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer);
-    void applyCSGOperations(List<CSGOperationInfo> operations, ChunkNode clipmapNode);
+    GPUDensityField computeApplyCSGOperations(List<CSGOperationInfo> operations, Vec3i min, int clipmapNodeSize);
+    void computeStoreCSGOperation(CSGOperationInfo opInfo, Aabb aabb);
+    void computeClearCSGOperations();
 }

@@ -243,4 +243,12 @@ public class Vec4f {
 	public float[] to1dArray(){
 		return new float[] {x, y, z, w};
 	}
+
+	public Vec4f fabs(){
+		return new Vec4f(Math.abs(this.x), Math.abs(this.y), Math.abs(this.z), Math.abs(this.w));
+	}
+
+	public static Vec4f max(Vec4f v, Vec4f dest) {
+		return new Vec4f(Math.max(dest.x, v.x), Math.max(dest.y, v.y), Math.max(dest.z, v.z), Math.max(dest.w, v.w));
+	}
 }

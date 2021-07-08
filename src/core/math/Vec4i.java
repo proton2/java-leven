@@ -26,6 +26,18 @@ public class Vec4i extends Vec3i {
         return new Vec4i(this.x + r.x, this.y + r.y, this.z + r.z, this.w + r.w);
     }
 
+    public Vec4i sub(Vec4i r) {
+        return new Vec4i(this.x - r.x, this.y - r.y, this.z - r.z, this.w - r.w);
+    }
+
+    public Vec4i mul(int r) {
+        return new Vec4i(this.x * r, this.y * r, this.z * r, this.w * w);
+    }
+
+    public Vec4f toVec4f(){
+        return new Vec4f(this.x, this.y, this.z, this.w);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

@@ -3,6 +3,7 @@ package dc.impl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
+import core.math.Vec4i;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.*;
@@ -28,8 +29,9 @@ import static dc.utils.SimplexNoise.getNoise;
  */
 
 public class TransitionLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-    public TransitionLinearOctreeImpl(MeshGenerationContext meshGenerationContext) {
-        super(meshGenerationContext);
+    public TransitionLinearOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
+                                      Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
     }
 
     @Override

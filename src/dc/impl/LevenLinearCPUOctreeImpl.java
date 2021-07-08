@@ -6,17 +6,26 @@ import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.*;
+import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
+import dc.utils.Aabb;
 import dc.utils.VoxelHelperUtils;
+import org.lwjgl.system.CallbackI;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static dc.utils.SimplexNoise.getNoise;
+import static java.lang.Math.max;
 
 /*
     Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java CPU
@@ -25,135 +34,290 @@ import static dc.utils.SimplexNoise.getNoise;
  */
 
 public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-    public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext) {
-        super(meshGenerationContext);
+    final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
+    private final ExecutorService service;
+    int availableProcessors;
+
+    public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
+                                    Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
+
+        availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
+        service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
+            private final AtomicInteger count = new AtomicInteger();
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName("LevenLinearCPUOctreeImpl " + count.getAndIncrement());
+                return thread;
+            }
+        });
+    }
+
+    @Override
+    public GPUDensityField computeApplyCSGOperations(List<CSGOperationInfo> opInfo, Vec3i clipmapNodeMin, int clipmapNodeSize) {
+        GPUDensityField field = LoadDensityField(clipmapNodeMin, clipmapNodeSize);
+        if(field==null){
+            return null;
+        }
+        csgOperationsProcessor.ApplyCSGOperations(meshGen, opInfo, clipmapNodeMin, clipmapNodeSize, field);
+        field.lastCSGOperation += opInfo.size();
+
+        StoreDensityField(field);
+        return field;
     }
 
     @Override
     public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer) {
-        int[] materials = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
-        //////////////////////////////
-        int materialSize = GenerateDefaultField(chunkMin,
-                0, meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize(),
-                chunkSize / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID, materials);
-        if (materialSize==0){
+        GpuOctree octree = LoadOctree(chunkMin, chunkSize);
+        if(octree==null){
             return false;
         }
 
+        if (octree.numNodes > 0) {
+            int indexBufferSize = octree.numNodes * 6 * 3;
+            int[] d_indexBuffer = new int[indexBufferSize];
+            int trianglesValidSize = octree.numNodes * 3;
+            int[] d_trianglesValid = new int[trianglesValidSize];
+            //////////////////////////////
+            int trianglesValidCount = generateMesh(octree.octreeNodes, octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu,
+                    d_indexBuffer, d_trianglesValid);
+
+            int numTriangles = trianglesValidCount * 2;
+            int[] d_compactIndexBuffer = new int[numTriangles * 3];
+            //////////////////////////////
+            compactMeshTriangles(d_trianglesValid, d_indexBuffer, d_compactIndexBuffer);
+
+            MeshVertex[] d_vertexBuffer = new MeshVertex[octree.numNodes];
+            //////////////////////////////
+            GenerateMeshVertexBuffer(octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, octree.d_nodeMaterialsCpu,
+                    VoxelHelperUtils.ColourForMinLeafSize(chunkSize / meshGen.clipmapLeafSize), d_vertexBuffer);
+            buffer.setVertices(BufferUtil.createDcFlippedBufferAOS(d_vertexBuffer));
+            buffer.setNumVertices(octree.numNodes);
+            buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
+            buffer.setNumIndicates(d_compactIndexBuffer.length);
+
+            int[] isSeamNode = new int[octree.numNodes];
+            // ToDo return seamNodes which size have seamSize from method
+            int seamSize = findSeamNodes(octree.d_nodeCodesCpu, isSeamNode, 0, octree.numNodes);
+
+            extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
+                    chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, octree.numNodes,
+                    octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu, octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, seamNodes);
+
+            Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+            for (OctreeNode seamNode : seamNodes) {
+                if (seamNode.size > meshGen.leafSizeScale) {
+                    seamNodesMap.put(seamNode.min, seamNode);
+                }
+            }
+            List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+            seamNodes.addAll(addedNodes);
+        }
+        return true;
+    }
+
+    private GpuOctree LoadOctree(Vec3i chunkMin, int chunkSize){
+        Vec4i key = new Vec4i(chunkMin, chunkSize);
+        GpuOctree octree = octreeCache.get(key);
+        if (octree!=null){
+            return octree;
+        }
+        GPUDensityField field = LoadDensityField(chunkMin, chunkSize);
+        if(field==null){
+            return null;
+        }
+        if(field.numEdges>0){
+            octree = ConstructOctreeFromField(chunkMin, chunkSize, field);
+            octreeCache.put(key, octree);
+        }
+        return octree;
+    }
+
+    private void StoreDensityField(GPUDensityField field) {
+	    Vec4i key = new Vec4i(field.min, field.size);
+        densityFieldCache.put(key, field);
+    }
+
+    private GPUDensityField LoadDensityField(Vec3i chunkMin, int chunkSize){
+        Vec4i key = new Vec4i(chunkMin, chunkSize);
+        GPUDensityField field = densityFieldCache.get(key);
+        if(field==null) {
+            field = new GPUDensityField();
+            field.min = chunkMin;
+            field.size = chunkSize;
+            if(GenerateDefaultDensityField(field)==0){
+                return null;
+            }
+            FindDefaultEdges(field);
+        }
+
+        Aabb fieldBB = new Aabb(field.min, field.size);
+        List<CSGOperationInfo> csgOperations = new ArrayList<>();
+        for (int i = field.lastCSGOperation; i < storedOps.size(); i++) {
+            if (fieldBB.overlaps(storedOpAABBs.get(i))) {
+                csgOperations.add(storedOps.get(i));
+            }
+        }
+
+        field.lastCSGOperation = storedOps.size();
+
+        if (!csgOperations.isEmpty()) {
+            if(computeApplyCSGOperations(csgOperations, field.min, field.size)==null){
+                return null;
+            }
+            StoreDensityField(field);
+        }
+
+        return field;
+    }
+
+    private int GenerateDefaultDensityField(GPUDensityField field){
+        field.materialsCpu = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
+        int materialSize = 0;
+        try {
+            materialSize = GenerateDefaultFieldMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
+                    field.materialsCpu);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+        if(materialSize==0){
+            field.materialsCpu = null;
+        }
+        return materialSize;
+    }
+
+    private int FindDefaultEdges(GPUDensityField field){
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
         //////////////////////////////
-        int compactEdgesSize = FindFieldEdges(materials,
+        field.numEdges = FindFieldEdges(field.materialsCpu,
                 edgeOccupancy, edgeIndicesNonCompact);
-        if(compactEdgesSize==0){
-            return false;
+        if(field.numEdges==0 || field.numEdges<0){
+            return field.numEdges;
         }
 
-        int[] edgeIndicesCompact = new int [compactEdgesSize];
+        int[] compactActiveEdges = new int [field.numEdges];
         //////////////////////////////
-        Map<Integer, Integer> edgeIndicatesMap = compactEdges(edgeOccupancy, edgeIndicesNonCompact, compactEdgesSize,
-                edgeIndicesCompact);
+        field.edgeIndicatesMap = compactEdges(edgeOccupancy, edgeIndicesNonCompact, field.numEdges,
+                compactActiveEdges);
+        field.edgeIndicesCpu = compactActiveEdges;
 
-        Vec4f[] normals = new Vec4f[compactEdgesSize];
+        Vec4f[] normals = new Vec4f[field.numEdges];
         //////////////////////////////
-        FindEdgeIntersectionInfo(chunkMin, chunkSize / meshGen.getVoxelsPerChunk(), 0, compactEdgesSize,
-                edgeIndicesCompact,
+        FindEdgeIntersectionInfo(field.min, field.size / meshGen.getVoxelsPerChunk(), 0, field.numEdges,
+                compactActiveEdges,
                 normals);
+        field.normalsCpu = normals;
+        return field.numEdges;
+    }
+
+    private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
+        GpuOctree octree = new GpuOctree();
 
         int[] d_leafOccupancy = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         int[] d_leafEdgeInfo = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         int[] d_leafCodes = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         int[] d_leafMaterials = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
         //////////////////////////////
-        int activeLeafsSize = FindActiveVoxels(chunkSize, chunkMin,
-                0, meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk(), materials,
+        octree.numNodes = FindActiveVoxels(chunkSize, chunkMin,
+                0, meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk(), field.materialsCpu,
                 d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
-        if (activeLeafsSize==0){
-            return false;
+        if (octree.numNodes<=0){
+            return null;
         }
 
-        int[] d_nodeCodes = new int[activeLeafsSize];
-        int[] d_compactLeafEdgeInfo = new int[activeLeafsSize];
-        int[] d_nodeMaterials = new int[activeLeafsSize];
+        octree.d_nodeCodesCpu = new int[octree.numNodes];
+        int[] d_compactLeafEdgeInfo = new int[octree.numNodes];
+        octree.d_nodeMaterialsCpu = new int[octree.numNodes];
         //////////////////////////////
-        Map<Integer, Integer> octreeNodes = compactVoxels(d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials,
-                d_nodeCodes, d_compactLeafEdgeInfo, d_nodeMaterials, activeLeafsSize);
+        octree.octreeNodes = compactVoxels(d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials,
+                octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, octree.d_nodeMaterialsCpu, octree.numNodes);
 
-        int numVertices = d_nodeCodes.length;
-        QEFData[] qefs = new QEFData[numVertices];
-        Vec4f[] d_vertexNormals = new Vec4f[numVertices];
+        QEFData[] qefs = new QEFData[octree.numNodes];
+        octree.d_vertexNormalsCpu = new Vec4f[octree.numNodes];
         //////////////////////////////
-        createLeafNodes(0, numVertices, d_nodeCodes, d_compactLeafEdgeInfo, normals, edgeIndicatesMap,
-                qefs, d_vertexNormals, d_nodeMaterials, chunkSize, chunkMin);
+        createLeafNodes(0, octree.numNodes, octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, field.normalsCpu, field.edgeIndicatesMap,
+                qefs, octree.d_vertexNormalsCpu, octree.d_nodeMaterialsCpu, chunkSize, chunkMin);
 
-        Vec4f[] d_vertexPositions = new Vec4f[numVertices];
+        octree.d_vertexPositionsCpu = new Vec4f[octree.numNodes];
         //////////////////////////////
-        solveQEFs(d_nodeCodes, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices, qefs,
-                d_vertexPositions);
-
-        int indexBufferSize = numVertices * 6 * 3;
-        int[] d_indexBuffer = new int[indexBufferSize];
-        int trianglesValidSize = numVertices * 3;
-        int[] d_trianglesValid = new int[trianglesValidSize];
-        //////////////////////////////
-        int trianglesValidCount = generateMesh(octreeNodes, d_nodeCodes, d_nodeMaterials,
-                d_indexBuffer, d_trianglesValid);
-
-        int numTriangles = trianglesValidCount * 2;
-        int[] d_compactIndexBuffer = new int[numTriangles * 3];
-        //////////////////////////////
-        compactMeshTriangles(d_trianglesValid, d_indexBuffer, d_compactIndexBuffer);
-
-        MeshVertex[] d_vertexBuffer = new MeshVertex[numVertices];
-        //////////////////////////////
-        GenerateMeshVertexBuffer(d_vertexPositions, d_vertexNormals, d_nodeMaterials,
-                VoxelHelperUtils.ColourForMinLeafSize(chunkSize/meshGen.clipmapLeafSize), d_vertexBuffer);
-        buffer.setVertices(BufferUtil.createDcFlippedBufferAOS(d_vertexBuffer));
-        buffer.setNumVertices(numVertices);
-        buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
-        buffer.setNumIndicates(d_compactIndexBuffer.length);
-
-        int[] isSeamNode = new int[numVertices];
-        // ToDo return seamNodes which size have seamSize from method
-        int seamSize = findSeamNodes(d_nodeCodes, isSeamNode, 0, d_nodeCodes.length);
-
-        extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
-                chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
-                d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
-
-        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
-        for (OctreeNode seamNode : seamNodes) {
-            if (seamNode.size > meshGen.leafSizeScale) {
-                seamNodesMap.put(seamNode.min, seamNode);
-            }
-        }
-        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
-        seamNodes.addAll(addedNodes);
-        return true;
+        solveQEFs(octree.d_nodeCodesCpu, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, octree.numNodes, qefs,
+                octree.d_vertexPositionsCpu);
+        return octree;
     }
 
-    int GenerateDefaultField(Vec3i offset, int from, int to, int sampleScale, int defaultMaterialIndex,
+    private int GenerateDefaultField(Vec3i offset, int sampleScale, int defaultMaterialIndex,
                               int[] field_materials)
     {
         int size = 0;
         for (int z = 0; z < meshGen.getFieldSize(); z++) {
             for (int y = 0; y < meshGen.getFieldSize(); y++) {
                 for (int x = 0; x < meshGen.getFieldSize(); x++) {
-                    Vec3i local_pos = new Vec3i(x, y, z);
-                    Vec3i world_pos = local_pos.mul(sampleScale).add(offset);
-                    float density = getNoise(world_pos);
-                    int index = field_index(local_pos);
-                    int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
-                    field_materials[index] = material;
-                    if(material==defaultMaterialIndex) size++;
+                    size = processMaterial(offset, sampleScale, defaultMaterialIndex, field_materials, size, new Vec3i(x, y, z));
                 }
             }
         }
         return size;
     }
 
-    int FindFieldEdges(int[] materials,
+    private int GenerateDefaultField1d(Vec3i offset, int sampleScale, int defaultMaterialIndex,
+                                     int[] field_materials)
+    {
+        int size = 0;
+        int bound = meshGen.getFieldSize();
+        for (int i = 0; i < bound * bound * bound; i++) {
+            int x = i % bound;
+            int y = (i / bound) % bound;
+            int z = (i / bound / bound);
+            size = processMaterial(offset, sampleScale, defaultMaterialIndex, field_materials, size, new Vec3i(x, y, z));
+        }
+        return size;
+    }
+
+    private int GenerateDefaultFieldMultiThread(Vec3i offset, int sampleScale, int defaultMaterialIndex,
+                                                int[] field_materials) throws Exception {
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        int bound = meshGen.getFieldSize();
+        int threadBound = (bound * bound * bound) / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int finalI = i;
+            Callable<Integer> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                int size = 0;
+                for (int it = from; it < to; it++) {
+                    int x = it % bound;
+                    int y = (it / bound) % bound;
+                    int z = (it / bound / bound);
+                    size = processMaterial(offset, sampleScale, defaultMaterialIndex, field_materials, size, new Vec3i(x, y, z));
+                }
+                return size;
+            };
+            tasks.add(task);
+        }
+
+        int size = 0;
+        List<Future<Integer>> futures = service.invokeAll(tasks);
+        for (Future<Integer> future : futures) {
+            size += future.get();
+        }
+        return size;
+    }
+
+    private int processMaterial(Vec3i offset, int sampleScale, int defaultMaterialIndex, int[] field_materials, int size, Vec3i local_pos) {
+        Vec3i world_pos = local_pos.mul(sampleScale).add(offset);
+        float density = getNoise(world_pos);
+        int index = field_index(local_pos);
+        int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
+        field_materials[index] = material;
+        if (material == defaultMaterialIndex) size++;
+        return size;
+    }
+
+    private int FindFieldEdges(int[] materials,
                        int[] edgeOccupancy, int[] edgeIndices) {
         int size = 0;
         for (int z = 0; z < meshGen.getHermiteIndexSize(); z++) {
@@ -188,7 +352,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    Map<Integer, Integer> compactEdges(int[] edgeValid, int[] edges, int compactEdgesSize, int[] compactActiveEdges) {
+    private Map<Integer, Integer> compactEdges(int[] edgeValid, int[] edges, int compactEdgesSize, int[] compactActiveEdges) {
         int current = 0;
         Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(compactEdgesSize);
         for (int index = 0; index < edges.length; index++) {
@@ -207,7 +371,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             new Vec3i(0,0,1)
     };
 
-    void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges, Vec4f[] edgeInfo)
+    private void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges, Vec4f[] edgeInfo)
     {
         for (int index = from; index < to; index++) {
             int edge = encodedEdges[index];
@@ -228,7 +392,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
     }
 
-    int FindActiveVoxels(int chunkSize, Vec3i chunkMin, int from, int to,
+    private int FindActiveVoxels(int chunkSize, Vec3i chunkMin, int from, int to,
                          int[] materials,
                          int[] voxelOccupancy,
                          int[] voxelEdgeInfo,
@@ -307,7 +471,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return octreeNodes;
     }
 
-    void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
+    private void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
                          QEFData[] leafQEFs, Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin)
     {
         for (int index = from; index < to; index++) {

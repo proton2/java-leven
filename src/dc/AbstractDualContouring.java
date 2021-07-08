@@ -9,7 +9,11 @@ import core.utils.Constants;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
+import dc.impl.GPUDensityField;
+import dc.impl.GpuOctree;
+import dc.impl.ICSGOperations;
 import dc.impl.MeshGenerationContext;
+import dc.utils.Aabb;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
@@ -22,9 +26,18 @@ import static dc.utils.SimplexNoise.getNoise;
 
 public abstract class AbstractDualContouring implements DualContouring{
     protected MeshGenerationContext meshGen;
+    protected ICSGOperations csgOperationsProcessor;
+    protected Map<Vec4i, GPUDensityField> densityFieldCache;
+    protected Map<Vec4i, GpuOctree> octreeCache;
+    protected List<Aabb> storedOpAABBs = new ArrayList<>();
+    protected List<CSGOperationInfo> storedOps = new ArrayList<>();
 
-    public AbstractDualContouring(MeshGenerationContext meshGenerationContext) {
+    public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
+                                  Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
         this.meshGen = meshGenerationContext;
+        this.csgOperationsProcessor = csgOperations;
+        this.densityFieldCache = densityFieldCache;
+        this.octreeCache = octreeCache;
     }
 
     private List<OctreeNode> constructParents(List<OctreeNode> nodes, Vec3i rootMin, int parentSize) {
@@ -526,7 +539,8 @@ public abstract class AbstractDualContouring implements DualContouring{
         return chunkScaleSize * meshGen.leafSizeScale;
     }
 
-    public void applyCSGOperations(List<CSGOperationInfo> operations, ChunkNode clipmapNode) {
+    public GPUDensityField computeApplyCSGOperations(List<CSGOperationInfo> operations, Vec3i min, int size){
+        return null;
     }
 
     public Vec3i positionForCode(int code) {
@@ -715,5 +729,15 @@ public abstract class AbstractDualContouring implements DualContouring{
             }
         }
         return null;
+    }
+
+    public void computeStoreCSGOperation(CSGOperationInfo opInfo, Aabb aabb) {
+        storedOps.add(opInfo);
+        storedOpAABBs.add(aabb);
+    }
+
+    public void computeClearCSGOperations() {
+        storedOps.clear();
+        storedOpAABBs.clear();
     }
 }

@@ -1,11 +1,20 @@
 package dc.impl;
 
+import core.math.Vec4f;
 import dc.impl.opencl.BufferGpu;
 
+import java.util.Map;
+
 public class GpuOctree {
-    private int numNodes = 0;
+    public int numNodes = 0;
     private BufferGpu nodeCodesBuf, nodeMaterialsBuf;
     private BufferGpu vertexPositionsBuf, vertexNormalsBuf;
+
+    public int[] d_nodeCodesCpu;
+    public int[] d_nodeMaterialsCpu;
+    public Vec4f[] d_vertexPositionsCpu;
+    public Vec4f[] d_vertexNormalsCpu;
+    public Map<Integer, Integer> octreeNodes;
 
     public int getNumNodes() {
         return numNodes;

@@ -2,6 +2,7 @@ package dc.impl;
 
 import core.math.Vec3i;
 import core.math.Vec4f;
+import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.AbstractDualContouring;
 import dc.OctreeNode;
@@ -24,8 +25,10 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
     private final KernelsHolder kernels;
     private final ComputeContext ctx;
 
-    public LevenLinearGPUOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext, ComputeContext ctx) {
-        super(meshGenerationContext);
+    public LevenLinearGPUOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext,
+                                    ComputeContext ctx, ICSGOperations csgOperations,
+                                    Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
         this.kernels = kernels;
         this.ctx = ctx;
     }

@@ -1,15 +1,24 @@
 package dc.impl;
 
 import core.math.Vec3i;
+import core.math.Vec4f;
 import dc.impl.opencl.BufferGpu;
+
+import java.util.Map;
 
 public class GPUDensityField {
     private BufferGpu materials;
     private BufferGpu edgeIndices;
     private BufferGpu normals;
-    private Vec3i min;
-    private int size;
-    private int numEdges;
+    public Vec3i min;
+    public int size;
+    public int lastCSGOperation = 0;
+    public int numEdges;
+
+    public int[] materialsCpu;
+    public int[] edgeIndicesCpu;
+    public Vec4f[] normalsCpu;
+    public Map<Integer, Integer> edgeIndicatesMap;
 
     public BufferGpu getNormals() {
         return normals;

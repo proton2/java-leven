@@ -3,6 +3,7 @@ package dc.impl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
+import core.math.Vec4i;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.*;
@@ -32,8 +33,9 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     private final ExecutorService service;
     int availableProcessors;
 
-    public SimpleLinearOctreeImpl(MeshGenerationContext meshGenerationContext) {
-        super(meshGenerationContext);
+    public SimpleLinearOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
+                                  Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
             private final AtomicInteger count = new AtomicInteger();
@@ -551,7 +553,9 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         seamNodesMap.put(n5.min, n5);
 
         MeshGenerationContext meshGenCtx = new MeshGenerationContext(64);
-        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
+        Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
+        Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
+        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
         List<OctreeNode> addedNodes = voxelOctree.findAndCreateBorderNodes(seamNodesMap);
     }
 }

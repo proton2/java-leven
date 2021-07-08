@@ -4,7 +4,6 @@ import core.kernel.Camera;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
-import core.math.Vec4i;
 import core.physics.Physics;
 import core.physics.WorldCollisionNode;
 import dc.entities.CSGOperationInfo;
@@ -36,8 +35,8 @@ public class ChunkOctree {
     private final Physics physics;
     private final boolean enablePhysics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
-    private Map<Vec4i, OctreeCacheHolder> octreeCache = new HashMap<>();
-    private boolean enableChunkChache;
+    //private Map<Vec4i, OctreeCacheHolder> octreeCache = new HashMap<>();
+    //private boolean enableChunkChache;
 
     private static class OctreeCacheHolder{
         MeshBuffer meshBuffer;
@@ -59,7 +58,7 @@ public class ChunkOctree {
 
     public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
                        boolean enablePhysics, boolean enableChunkChache) {
-        this.enableChunkChache = enableChunkChache;
+        //this.enableChunkChache = enableChunkChache;
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
@@ -215,6 +214,7 @@ public class ChunkOctree {
         if(enablePhysics) {
             physics.Physics_Shutdown();
         }
+        voxelOctree.computeClearCSGOperations();
     }
 
     public void update(Camera camera) {
@@ -419,18 +419,18 @@ public class ChunkOctree {
     }
 
     private boolean ConstructChunkNodeData(ChunkNode chunk) {
-        Vec4i key = new Vec4i(chunk.min, chunk.size);
-        if(enableChunkChache) {
-            OctreeCacheHolder holder = octreeCache.get(key);
-            if (holder != null) {
-                chunk.active = true;
-                chunk.chunkBorderNodes = holder.seamNodes;
-                if (holder.meshBuffer.getNumIndicates() > 0) {
-                    chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, holder.meshBuffer);
-                }
-                return true;
-            }
-        }
+//        Vec4i key = new Vec4i(chunk.min, chunk.size);
+//        if(enableChunkChache) {
+//            OctreeCacheHolder holder = octreeCache.get(key);
+//            if (holder != null) {
+//                chunk.active = true;
+//                chunk.chunkBorderNodes = holder.seamNodes;
+//                if (holder.meshBuffer.getNumIndicates() > 0) {
+//                    chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, holder.meshBuffer);
+//                }
+//                return true;
+//            }
+//        }
 
         List<OctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
@@ -443,9 +443,9 @@ public class ChunkOctree {
         if (meshBuffer.getNumIndicates() > 0) {
             chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, meshBuffer);
         }
-        if (enableChunkChache) {
-            octreeCache.put(key, new OctreeCacheHolder(meshBuffer, seamNodes));
-        }
+//        if (enableChunkChache) {
+//            octreeCache.put(key, new OctreeCacheHolder(meshBuffer, seamNodes));
+//        }
         return chunk.active;
     }
 
@@ -475,8 +475,6 @@ public class ChunkOctree {
     }
 
     void processCSGOperationsImpl(){
-        List<Aabb> storedOpAABBs = new ArrayList<>();
-        List<CSGOperationInfo> storedOps = new ArrayList<>();
         ArrayList<CSGOperationInfo> operations = new ArrayList<>(g_operationQueue);
         g_operationQueue.clear();
 
@@ -491,17 +489,16 @@ public class ChunkOctree {
 
         for(ChunkNode clipmapNode : touchedNodes) {
             if (clipmapNode.active) {
-                voxelOctree.applyCSGOperations(operations, clipmapNode);
+                voxelOctree.computeApplyCSGOperations(operations, clipmapNode.min, clipmapNode.size);
             }
-            Vec4i key = new Vec4i(clipmapNode.min, clipmapNode.size);
-            octreeCache.remove(key); // free the current octree to force a reconstruction
+//            Vec4i key = new Vec4i(clipmapNode.min, clipmapNode.size);
+//            octreeCache.remove(key); // free the current octree to force a reconstruction
             clipmapNode.invalidated = true;
             clipmapNode.empty = false;
         }
 
         for (CSGOperationInfo opInfo: operations) {
-            storedOps.add(opInfo);
-            storedOpAABBs.add(calcCSGOperationBounds(opInfo));
+            voxelOctree.computeStoreCSGOperation(opInfo, calcCSGOperationBounds(opInfo));
         }
     }
 

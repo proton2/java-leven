@@ -9,6 +9,7 @@ import core.kernel.Camera;
 import core.kernel.Input;
 import core.math.Vec2f;
 import core.math.Vec3f;
+import core.math.Vec4i;
 import core.model.Mesh;
 import core.model.Vertex;
 import core.physics.JBulletPhysics;
@@ -27,7 +28,9 @@ import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -62,6 +65,8 @@ public class ChunkOctreeWrapper extends GameObject {
             camera.setPhysics(physics);
         }
         VoxelOctree voxelOctree;
+        Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
+        Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
             kernelHolder = new KernelsHolder(ctx);
@@ -70,14 +75,13 @@ public class ChunkOctreeWrapper extends GameObject {
             kernelHolder.buildKernel(KernelNames.SCAN, null);
             kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
             kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
-            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx);
+            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx, new CpuCsgImpl(), densityFieldCache, octreeCache);
         } else{
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx);
-            voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx);
+            //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
             //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx);
-            //voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
+            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
-            //voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx);
         }
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, enablePhysics,false);
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
@@ -208,7 +212,7 @@ public class ChunkOctreeWrapper extends GameObject {
             Vec3f brushSizeV = new Vec3f(brushSize);
             Vec3f offset = dir.mul(brushSizeV);
             Vec3f origin = offset.add(chunkOctree.getRayCollisionPos());
-            chunkOctree.queueCSGOperation(origin, brushSizeV, RenderShape.RenderShape_None, 1, true);
+            chunkOctree.queueCSGOperation(origin, brushSizeV, RenderShape.RenderShape_Cube, 1, true);
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
