@@ -15,7 +15,10 @@ import dc.utils.RenderShape;
 import dc.utils.VoxelHelperUtils;
 
 import java.text.NumberFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -35,18 +38,6 @@ public class ChunkOctree {
     private final Physics physics;
     private final boolean enablePhysics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
-    //private Map<Vec4i, OctreeCacheHolder> octreeCache = new HashMap<>();
-    //private boolean enableChunkChache;
-
-    private static class OctreeCacheHolder{
-        MeshBuffer meshBuffer;
-        List<OctreeNode> seamNodes;
-
-        public OctreeCacheHolder(MeshBuffer meshBuffer, List<OctreeNode> seamNodes) {
-            this.meshBuffer = meshBuffer;
-            this.seamNodes = seamNodes;
-        }
-    }
 
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
@@ -251,7 +242,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
             long time1 = System.nanoTime();
-            boolean result = //filterNodesForDebug(filteredNode) &&
+            boolean result = filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
             long time2 = System.nanoTime();
             if(result) {
@@ -419,19 +410,6 @@ public class ChunkOctree {
     }
 
     private boolean ConstructChunkNodeData(ChunkNode chunk) {
-//        Vec4i key = new Vec4i(chunk.min, chunk.size);
-//        if(enableChunkChache) {
-//            OctreeCacheHolder holder = octreeCache.get(key);
-//            if (holder != null) {
-//                chunk.active = true;
-//                chunk.chunkBorderNodes = holder.seamNodes;
-//                if (holder.meshBuffer.getNumIndicates() > 0) {
-//                    chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, holder.meshBuffer);
-//                }
-//                return true;
-//            }
-//        }
-
         List<OctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
         chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, seamNodes, meshBuffer);
@@ -443,9 +421,6 @@ public class ChunkOctree {
         if (meshBuffer.getNumIndicates() > 0) {
             chunk.renderMesh = new RenderMesh(chunk.min, chunk.size, meshBuffer);
         }
-//        if (enableChunkChache) {
-//            octreeCache.put(key, new OctreeCacheHolder(meshBuffer, seamNodes));
-//        }
         return chunk.active;
     }
 
@@ -475,7 +450,7 @@ public class ChunkOctree {
     }
 
     void processCSGOperationsImpl(){
-        ArrayList<CSGOperationInfo> operations = new ArrayList<>(g_operationQueue);
+        Set<CSGOperationInfo> operations = new HashSet<>(g_operationQueue);
         g_operationQueue.clear();
 
         if (operations.isEmpty()) {
@@ -491,8 +466,8 @@ public class ChunkOctree {
             if (clipmapNode.active) {
                 voxelOctree.computeApplyCSGOperations(operations, clipmapNode.min, clipmapNode.size);
             }
-//            Vec4i key = new Vec4i(clipmapNode.min, clipmapNode.size);
-//            octreeCache.remove(key); // free the current octree to force a reconstruction
+            // free the current octree to force a reconstruction
+            voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size);
             clipmapNode.invalidated = true;
             clipmapNode.empty = false;
         }

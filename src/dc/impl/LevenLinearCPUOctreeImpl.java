@@ -15,10 +15,7 @@ import dc.utils.Aabb;
 import dc.utils.VoxelHelperUtils;
 import org.lwjgl.system.CallbackI;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -55,7 +52,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public GPUDensityField computeApplyCSGOperations(List<CSGOperationInfo> opInfo, Vec3i clipmapNodeMin, int clipmapNodeSize) {
+    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, Vec3i clipmapNodeMin, int clipmapNodeSize) {
         GPUDensityField field = LoadDensityField(clipmapNodeMin, clipmapNodeSize);
         if(field==null){
             return null;
@@ -153,10 +150,10 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
 
         Aabb fieldBB = new Aabb(field.min, field.size);
-        List<CSGOperationInfo> csgOperations = new ArrayList<>();
+        Set<CSGOperationInfo> csgOperations = new HashSet<>();
         for (int i = field.lastCSGOperation; i < storedOps.size(); i++) {
-            if (fieldBB.overlaps(storedOpAABBs.get(i))) {
-                csgOperations.add(storedOps.get(i));
+            if (fieldBB.overlaps(storedOpAABBs.iterator().next())) {
+                csgOperations.add(storedOps.iterator().next());
             }
         }
 

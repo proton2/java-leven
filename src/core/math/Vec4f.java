@@ -251,4 +251,26 @@ public class Vec4f {
 	public static Vec4f max(Vec4f v, Vec4f dest) {
 		return new Vec4f(Math.max(dest.x, v.x), Math.max(dest.y, v.y), Math.max(dest.z, v.z), Math.max(dest.w, v.w));
 	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) return true;
+		if (o == null || getClass() != o.getClass()) return false;
+
+		Vec4f vec4f = (Vec4f) o;
+
+		if (Float.compare(vec4f.x, x) != 0) return false;
+		if (Float.compare(vec4f.y, y) != 0) return false;
+		if (Float.compare(vec4f.z, z) != 0) return false;
+		return Float.compare(vec4f.w, w) == 0;
+	}
+
+	@Override
+	public int hashCode() {
+		int result = (x != +0.0f ? Float.floatToIntBits(x) : 0);
+		result = 31 * result + (y != +0.0f ? Float.floatToIntBits(y) : 0);
+		result = 31 * result + (z != +0.0f ? Float.floatToIntBits(z) : 0);
+		result = 31 * result + (w != +0.0f ? Float.floatToIntBits(w) : 0);
+		return result;
+	}
 }

@@ -66,4 +66,30 @@ public class CSGOperationInfo {
     public void setDimensions(Vec4f dimensions) {
         this.dimensions = dimensions;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        CSGOperationInfo that = (CSGOperationInfo) o;
+
+        if (type != that.type) return false;
+        if (material != that.material) return false;
+        if (Float.compare(that.rotateY, rotateY) != 0) return false;
+        if (brushShape != that.brushShape) return false;
+        if (origin != null ? !origin.equals(that.origin) : that.origin != null) return false;
+        return dimensions != null ? dimensions.equals(that.dimensions) : that.dimensions == null;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = type;
+        result = 31 * result + (brushShape != null ? brushShape.hashCode() : 0);
+        result = 31 * result + material;
+        result = 31 * result + (rotateY != +0.0f ? Float.floatToIntBits(rotateY) : 0);
+        result = 31 * result + (origin != null ? origin.hashCode() : 0);
+        result = 31 * result + (dimensions != null ? dimensions.hashCode() : 0);
+        return result;
+    }
 }

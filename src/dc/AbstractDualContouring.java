@@ -29,8 +29,8 @@ public abstract class AbstractDualContouring implements DualContouring{
     protected ICSGOperations csgOperationsProcessor;
     protected Map<Vec4i, GPUDensityField> densityFieldCache;
     protected Map<Vec4i, GpuOctree> octreeCache;
-    protected List<Aabb> storedOpAABBs = new ArrayList<>();
-    protected List<CSGOperationInfo> storedOps = new ArrayList<>();
+    protected Set<Aabb> storedOpAABBs = new HashSet<>();
+    protected Set<CSGOperationInfo> storedOps = new HashSet<>();
 
     public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                   Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
@@ -539,7 +539,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         return chunkScaleSize * meshGen.leafSizeScale;
     }
 
-    public GPUDensityField computeApplyCSGOperations(List<CSGOperationInfo> operations, Vec3i min, int size){
+    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> operations, Vec3i min, int size){
         return null;
     }
 
@@ -739,5 +739,10 @@ public abstract class AbstractDualContouring implements DualContouring{
     public void computeClearCSGOperations() {
         storedOps.clear();
         storedOpAABBs.clear();
+    }
+
+    public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) {
+        Vec4i key = new Vec4i(min, clipmapNodeSize);
+        octreeCache.remove(key);
     }
 }
