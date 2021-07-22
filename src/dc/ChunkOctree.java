@@ -242,7 +242,7 @@ public class ChunkOctree {
         ArrayList<ChunkNode> constructedNodes = new ArrayList<>();
         for (ChunkNode filteredNode : filteredNodes) {
             long time1 = System.nanoTime();
-            boolean result = filterNodesForDebug(filteredNode) &&
+            boolean result = //filterNodesForDebug(filteredNode) &&
                     ConstructChunkNodeData(filteredNode);
             long time2 = System.nanoTime();
             if(result) {
