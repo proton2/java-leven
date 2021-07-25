@@ -79,7 +79,7 @@ public class CpuCsgImpl implements ICSGOperations{
             if (numPrunedEdges > 0) {
                 int[] d_prunedEdgeIndices = new int[numPrunedEdges];
                 Vec4f[] d_prunedNormals = new Vec4f[numPrunedEdges];
-                compactElements(d_fieldEdgeValidity, field.edgeIndicesCpu, field.normalsCpu,
+                field.edgeIndicatesMap = compactElements(d_fieldEdgeValidity, field.edgeIndicesCpu, field.normalsCpu,
                         d_prunedEdgeIndices, d_prunedNormals);
 
                 field.numEdges = numPrunedEdges;
@@ -263,16 +263,19 @@ public class CpuCsgImpl implements ICSGOperations{
         return count;
     }
 
-    private void compactElements(int[] edgeValid, int[] edgeIndices, Vec4f[] edgeNormals,
+    private Map<Integer, Integer> compactElements(int[] edgeValid, int[] edgeIndices, Vec4f[] edgeNormals,
                                  int[] compactIndices, Vec4f[] compactNormals) {
         int cid = 0;
+        Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(compactNormals.length);
         for (int index = 0; index<edgeValid.length; index++) {
             if (edgeValid[index]==1) {
+                edgeIndicatesMap.put(edgeIndices[index], cid);
                 compactIndices[cid] = edgeIndices[index];
                 compactNormals[cid] = edgeNormals[index];
                 cid++;
             }
         }
+        return edgeIndicatesMap;
     }
 
     private void FindEdgeIntersectionInfo(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges,
