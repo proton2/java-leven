@@ -29,8 +29,8 @@ public abstract class AbstractDualContouring implements DualContouring{
     protected ICSGOperations csgOperationsProcessor;
     protected Map<Vec4i, GPUDensityField> densityFieldCache;
     protected Map<Vec4i, GpuOctree> octreeCache;
-    protected Set<Aabb> storedOpAABBs = new HashSet<>();
-    protected Set<CSGOperationInfo> storedOps = new HashSet<>();
+    protected List<Aabb> storedOpAABBs = new ArrayList<>();
+    protected List<CSGOperationInfo> storedOps = new ArrayList<>();
 
     public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                   Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {

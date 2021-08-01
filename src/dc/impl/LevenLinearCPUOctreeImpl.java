@@ -152,8 +152,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         Aabb fieldBB = new Aabb(field.min, field.size);
         Set<CSGOperationInfo> csgOperations = new HashSet<>();
         for (int i = field.lastCSGOperation; i < storedOps.size(); i++) {
-            if (fieldBB.overlaps(storedOpAABBs.iterator().next())) {
-                csgOperations.add(storedOps.iterator().next());
+            if (fieldBB.overlaps(storedOpAABBs.get(i))) {
+                csgOperations.add(storedOps.get(i));
             }
         }
 
