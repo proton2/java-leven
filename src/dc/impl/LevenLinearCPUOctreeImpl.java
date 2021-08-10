@@ -160,9 +160,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         field.lastCSGOperation = storedOps.size();
 
         if (!csgOperations.isEmpty()) {
-            if(computeApplyCSGOperations(csgOperations, field.min, field.size)==null){
-                return null;
-            }
+            csgOperationsProcessor.ApplyCSGOperations(meshGen, csgOperations, field.min, field.size, field);
             StoreDensityField(field);
         }
 
