@@ -460,14 +460,12 @@ public class ChunkOctree {
         Set<ChunkNode> touchedNodes = new HashSet<>();
         for (CSGOperationInfo opInfo: operations){
             touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
-        }//System.out.println(touchedNodes.size());
-
+        }
         for(ChunkNode clipmapNode : touchedNodes) {
             if (clipmapNode.active) {
                 voxelOctree.computeApplyCSGOperations(operations, clipmapNode.min, clipmapNode.size);
             }
-            // free the current octree to force a reconstruction
-            voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size);
+            voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size); // free the current octree to force a reconstruction
             clipmapNode.invalidated = true;
             clipmapNode.empty = false;
         }
