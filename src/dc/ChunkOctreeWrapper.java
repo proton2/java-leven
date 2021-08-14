@@ -48,8 +48,8 @@ public class ChunkOctreeWrapper extends GameObject {
     private final MeshGenerationContext meshGenCtx;
     private final ComputeContext ctx;
     private Physics physics;
-    private boolean enablePhysics = true;
-    private int brushSize = 10;
+    private boolean enablePhysics = false;
+    private int brushSize = 2;
     //private ModelEntity actorCSGCube;
 
     // Uncomment necessary implementation in constructor
@@ -124,11 +124,11 @@ public class ChunkOctreeWrapper extends GameObject {
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_RIGHT_BRACKET)) {
             sleep(100);
-            brushSize +=5;
+            brushSize +=1;
         }
         if (Input.getInstance().isKeyHold(GLFW_KEY_LEFT_BRACKET)) {
             sleep(100);
-            brushSize -=5;
+            brushSize -=1;
         }
 
         glPolygonMode(GL_FRONT_AND_BACK, drawWireframe ? GL_LINE : GL_FILL);
@@ -188,9 +188,13 @@ public class ChunkOctreeWrapper extends GameObject {
             addComponent("node_bounds", debugRenderer);
         }
 
-        if (enablePhysics && Input.getInstance().isButtonHolding(1)) {
+        if (/*enablePhysics && */ Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
-            camRayCmds.addWireCube(Constants.Yellow, 0.2f, chunkOctree.getRayCollisionPos(), brushSize);
+            //Vec3f rayPos = new Vec3f(-136.54f,-173.69f,-1930.08f); //chunkOctree.getRayCollisionPos()
+            //Vec3f rayPos = new Vec3f(-139.034f,-174.927f,-1923.888f); //chunkOctree.getRayCollisionPos()
+            Vec3f rayPos = new Vec3f(-139.034f,-176.0f,-1923.888f); //chunkOctree.getRayCollisionPos()
+            //Vec3f rayPos = chunkOctree.getRayCollisionPos();
+            camRayCmds.addWireCube(Constants.Yellow, 0.2f, rayPos, brushSize);
             //camRayCmds.addSphere(Constants.Red, 0.2f, chunkOctree.getRayCollisionPos(), 10);
             //camRayCmds.addLine(Constants.Green, 0.2f, Camera.getInstance().getPosition(), chunkOctree.getRayCollisionPos());
 
@@ -205,14 +209,13 @@ public class ChunkOctreeWrapper extends GameObject {
             camRayBuff.addData(buf);
             Renderer debugRenderer = new Renderer(camRayBuff);
             debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
-
             addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
 
-            Vec3f dir = Camera.getInstance().getForward().getNormalDominantAxis();
-            Vec3f brushSizeV = new Vec3f(brushSize);
-            Vec3f offset = dir.mul(brushSizeV);
-            Vec3f origin = offset.add(chunkOctree.getRayCollisionPos());
-            chunkOctree.queueCSGOperation(origin, brushSizeV, RenderShape.RenderShape_Cube, 1, true);
+//            Vec3f dir = Camera.getInstance().getForward().getNormalDominantAxis();
+//            Vec3f brushSizeV = new Vec3f(brushSize);
+//            Vec3f offset = dir.mul(brushSizeV);
+//            Vec3f origin = offset.add(rayPos);
+            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), RenderShape.RenderShape_Cube, meshGenCtx.MATERIAL_SOLID, false);
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
