@@ -44,6 +44,10 @@ public class Vec4f {
 		this.setW(f.w);
 	}
 
+	public Vec4f(float v) {
+		x=v; y=v; z=v; w=v;
+	}
+
 	public Vec3f getVec3f(){
 		return new Vec3f(this.x, this.y, this.z);
 	}
