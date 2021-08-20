@@ -5,6 +5,7 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import dc.entities.CSGOperationInfo;
+import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
@@ -317,31 +318,11 @@ public class CpuCsgImpl implements ICSGOperations{
         return s;
     }
 
-    private Vec4f RotateY(Vec4f v, float angle) {
-        Vec4f result = v;
-	    float s = (float) Math.sin(Math.toRadians(angle));
-	    float c = (float) Math.cos(Math.toRadians(angle));
-        result.x =  v.x * c +  v.z * s;
-        result.z = -v.x * s +  v.z * c;
-        return result;
-    }
-
-    private float Density_Sphere(Vec4f pos, Vec4f origin, float radius) {
-        return (pos.sub(origin)).length() - radius;
-    }
-
-    private float Density_Cuboid(Vec4f world_pos, Vec4f origin, Vec4f dimensions, float rotateY) {
-        Vec4f local_pos = world_pos.sub(origin);
-        Vec4f pos = RotateY(local_pos, rotateY);
-        Vec4f d = pos.fabs().sub(dimensions);
-	    float m = Math.max(d.x, Math.max(d.y, d.z));
-        return Math.min(m, Vec4f.max(d, new Vec4f(0, 0, 0)).length());
-    }
-
     float BrushDensity(Vec4f worldspaceOffset, CSGOperationInfo op) {
         float [] brushDensity = {Float.MIN_VALUE, Float.MAX_VALUE};
-        brushDensity[0] = Density_Cuboid(worldspaceOffset, op.getOrigin(), op.getDimensions(), op.getRotateY());
-        brushDensity[1] = Density_Sphere(worldspaceOffset, op.getOrigin(), op.getDimensions().x);
+        //brushDensity[0] = Density_Cuboid(worldspaceOffset, op.getOrigin(), op.getDimensions(), op.getRotateY());
+        brushDensity[0] = SimplexNoise.Density_Cuboid(worldspaceOffset.getVec3f(), op.getOrigin().getVec3f(), op.getDimensions().getVec3f());
+        brushDensity[1] = SimplexNoise.Density_Sphere(worldspaceOffset, op.getOrigin(), op.getDimensions().x);
         return brushDensity[op.getBrushShape().ordinal()];
     }
 

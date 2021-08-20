@@ -92,6 +92,30 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 		return (float) noise(pos.getX() * r, pos.getY() * r, pos.getZ() * r);
 	}
 
+	private Vec4f RotateY(Vec4f v, float angle) {
+		Vec4f result = v;
+		float s = (float) Math.sin(Math.toRadians(angle));
+		float c = (float) Math.cos(Math.toRadians(angle));
+		result.x =  v.x * c +  v.z * s;
+		result.z = -v.x * s +  v.z * c;
+		return result;
+	}
+
+	private float Density_Cuboid(Vec4f world_pos, Vec4f origin, Vec4f dimensions, float rotateY) {
+		Vec4f local_pos = world_pos.sub(origin);
+		Vec4f pos = RotateY(local_pos, rotateY);
+		Vec4f d = pos.fabs().sub(dimensions);
+		float m = Math.max(d.x, Math.max(d.y, d.z));
+		return Math.min(m, Vec4f.max(d, new Vec4f(0, 0, 0)).length());
+	}
+
+	public static float Density_Cuboid(Vec3f worldPosition, Vec3f origin, Vec3f halfDimensions) {
+		Vec3f pos = worldPosition.sub(origin);
+		Vec3f d = pos.abs().sub(halfDimensions);
+		float m = Math.max(d.X, Math.max(d.Y, d.Z));
+		return Math.min(m, d.length() > 0 ? d.length() : 0);
+	}
+
 	public static float Cuboid(Vec3f pos) {
 		float radius = (float)64 / 8.0f;
 		Vec3f local = pos.sub(new Vec3f(64 / 2, 64 / 2, 64 / 2));
@@ -101,10 +125,8 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 		return Math.min(m, max.length());
 	}
 
-	public static float Sphere(Vec3f pos) {
-		float radius = (float)64 / 2.0f - 2.0f;
-		Vec3f origin = new Vec3f((64 - 2.0f) * 0.5f);
-		return (pos.sub(origin)).lengthSquared() - radius * radius;
+	public static float Density_Sphere(Vec4f pos, Vec4f origin, float radius) {
+		return (pos.sub(origin)).length() - radius;
 	}
 
 	private static Grad grad3[] = { new Grad(1, 1, 0), new Grad(-1, 1, 0),
