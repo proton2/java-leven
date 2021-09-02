@@ -13,7 +13,6 @@ import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.Aabb;
 import dc.utils.VoxelHelperUtils;
-import org.lwjgl.system.CallbackI;
 
 import java.util.*;
 import java.util.concurrent.*;
@@ -171,7 +170,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         field.materialsCpu = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
         int materialSize = 0;
         try {
-            materialSize = GenerateDefaultFieldMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
+            materialSize = GenerateDefaultField(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
                     field.materialsCpu);
         } catch (Exception e) {
             logger.log(Level.SEVERE, e.toString());
@@ -182,7 +181,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return materialSize;
     }
 
-    private int FindDefaultEdges(GPUDensityField field){
+    private void FindDefaultEdges(GPUDensityField field){
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
@@ -190,22 +189,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         field.numEdges = FindFieldEdges(field.materialsCpu,
                 edgeOccupancy, edgeIndicesNonCompact);
         if(field.numEdges==0 || field.numEdges<0){
-            return field.numEdges;
+            return;
         }
 
-        int[] compactActiveEdges = new int [field.numEdges];
-        //////////////////////////////
-        field.edgeIndicatesMap = compactEdges(edgeOccupancy, edgeIndicesNonCompact, field.numEdges,
-                compactActiveEdges);
-        field.edgeIndicesCpu = compactActiveEdges;
-
-        Vec4f[] normals = new Vec4f[field.numEdges];
-        //////////////////////////////
-        FindEdgeIntersectionInfo(field.min, field.size / meshGen.getVoxelsPerChunk(), 0, field.numEdges,
-                compactActiveEdges,
-                normals);
-        field.normalsCpu = normals;
-        return field.numEdges;
+        field.edgeIndicesCpu = compactEdges(edgeOccupancy, edgeIndicesNonCompact, field.numEdges);
+        field.normalsCpu = FindEdgeIntersectionInfo(field.min, field.size / meshGen.getVoxelsPerChunk(), 0, field.numEdges, field.edgeIndicesCpu);
     }
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
@@ -233,8 +221,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         QEFData[] qefs = new QEFData[octree.numNodes];
         octree.d_vertexNormalsCpu = new Vec4f[octree.numNodes];
         //////////////////////////////
-        createLeafNodes(0, octree.numNodes, octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, field.normalsCpu, field.edgeIndicatesMap,
-                qefs, octree.d_vertexNormalsCpu, octree.d_nodeMaterialsCpu, chunkSize, chunkMin);
+
+        Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(field.edgeIndicesCpu.length);
+        for(int i =0; i<field.edgeIndicesCpu.length; i++){
+            edgeIndicatesMap.put(field.edgeIndicesCpu[i], i);
+        }
+        createLeafNodes(0, octree.numNodes, octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, field.normalsCpu, edgeIndicatesMap,
+                qefs, octree.d_vertexNormalsCpu);
 
         octree.d_vertexPositionsCpu = new Vec4f[octree.numNodes];
         //////////////////////////////
@@ -305,9 +298,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private int processMaterial(Vec3i offset, int sampleScale, int defaultMaterialIndex, int[] field_materials, int size, Vec3i local_pos) {
         Vec3i world_pos = local_pos.mul(sampleScale).add(offset);
         float density = getNoise(world_pos);
-        int index = field_index(local_pos);
+        //float cube = SimplexNoise.Density_Cuboid(world_pos.toVec3f(), new Vec3f(-139.034f,-176.0f,-1923.888f), new Vec3f(4.0f, 4.0f, 4.0f));
+        //float cube = SimplexNoise.Density_Sphere(new Vec3f(world_pos), new Vec3f(-139.034f,-176.0f,-1923.888f), 4);
+        //float densityCorr = Math.max(-cube, density);
         int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
-        field_materials[index] = material;
+        field_materials[field_index(local_pos)] = material;
         if (material == defaultMaterialIndex) size++;
         return size;
     }
@@ -347,17 +342,16 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    private Map<Integer, Integer> compactEdges(int[] edgeValid, int[] edges, int compactEdgesSize, int[] compactActiveEdges) {
+    private int[] compactEdges(int[] edgeValid, int[] edges, int compactEdgesSize) {
+        int[] compactActiveEdges = new int [compactEdgesSize];
         int current = 0;
-        Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(compactEdgesSize);
         for (int index = 0; index < edges.length; index++) {
             if (edgeValid[index]==1) {
-                edgeIndicatesMap.put(edges[index], current);
                 compactActiveEdges[current] = edges[index];
                 ++current;
             }
         }
-        return edgeIndicatesMap;
+        return compactActiveEdges;
     }
 
     Vec3i[] EDGE_END_OFFSETS = {
@@ -366,8 +360,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             new Vec3i(0,0,1)
     };
 
-    private void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges, Vec4f[] edgeInfo)
-    {
+    private Vec4f[] FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges) {
+        Vec4f[] edgeInfo = new Vec4f[encodedEdges.length];
         for (int index = from; index < to; index++) {
             int edge = encodedEdges[index];
             int axisIndex = edge & 3;
@@ -385,6 +379,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
             edgeInfo[index] = new Vec4f(normal.getVec3f(), p.w);
         }
+        return edgeInfo;
     }
 
     private int FindActiveVoxels(int chunkSize, Vec3i chunkMin, int from, int to,
@@ -467,12 +462,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
-                         QEFData[] leafQEFs, Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin)
+                         QEFData[] leafQEFs, Vec4f[] vertexNormals)
     {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
             Vec3i position = positionForCode(encodedPosition);
-            QEFData qef = new QEFData(new LevenQefSolver());
             int edgeList = voxelEdgeInfo[index];
 
             Vec4f[] edgePositions = new Vec4f[12];
@@ -503,6 +497,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                     edgeCount++;
                 }
             }
+            QEFData qef = new QEFData(new LevenQefSolver());
             qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
             leafQEFs[index] = qef;
 

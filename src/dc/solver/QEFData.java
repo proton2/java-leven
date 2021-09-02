@@ -48,7 +48,6 @@ public class QEFData {
     }
 
     private void qef_add_point(Vec4f p, Vec4f n) {
-        n.normalize();
         mat3x3_tri_ATA[0] += n.x * n.x;
         mat3x3_tri_ATA[1] += n.x * n.y;
         mat3x3_tri_ATA[2] += n.x * n.z;
@@ -67,7 +66,6 @@ public class QEFData {
     }
 
     public void qef_add_point(Vec3f p, Vec3f n) {
-        n.normalize();
         mat3x3_tri_ATA[0] += n.X * n.X;
         mat3x3_tri_ATA[1] += n.X * n.Y;
         mat3x3_tri_ATA[2] += n.X * n.Z;

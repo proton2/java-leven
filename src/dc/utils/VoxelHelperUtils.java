@@ -7,11 +7,11 @@ import core.math.Vec4f;
 import dc.ChunkNode;
 import dc.OctreeNode;
 import dc.OctreeNodeType;
-import dc.PointerBasedOctreeNode;
 import dc.impl.MeshGenerationContext;
 
-import java.io.File;
+import java.io.*;
 import java.nio.file.Paths;
+import java.util.Scanner;
 
 public class VoxelHelperUtils {
     static public int countLeafNodes(OctreeNode node){
@@ -173,5 +173,64 @@ public class VoxelHelperUtils {
             return true;
         }
         return false;
+    }
+
+    public static void saveToFile(int[] arr, String fileName){
+        try {
+            Writer wr = new FileWriter(fileName);
+            for (int j : arr) {
+                wr.write(j + "\t" + "\n");
+            }
+            wr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void saveToFile(Vec4f[] arr, String fileName){
+        try {
+            Writer wr = new FileWriter(fileName);
+            for (Vec4f j : arr) {
+                wr.write(j.x + "\t" + "");
+                wr.write(j.y + "\t" + "");
+                wr.write(j.z + "\t" + "");
+                wr.write(j.w + "\t" + "\n");
+            }
+            wr.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void readFromFile(int[] arr, String fileName){
+        try {
+            Scanner scanner = new Scanner(new File(fileName));
+            int i = 0;
+            while(scanner.hasNextInt()){
+                arr[i++] = scanner.nextInt();
+            }
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static boolean isSorted(int[] a) {
+        // Our strategy will be to compare every element to its successor.
+        // The array is considered unsorted
+        // if a successor has a greater value than its predecessor.
+        // If we reach the end of the loop without finding that the array is unsorted,
+        // then it must be sorted instead.
+
+        // Note that we are always comparing an element to its successor.
+        // Because of this, we can end the loop after comparing
+        // the second-last element to the last one.
+        // This means the loop iterator will end as an index of the second-last
+        // element of the array instead of the last one.
+        for (int i = 0; i < a.length - 1; i++) {
+            if (a[i] > a[i + 1]) {
+                return false; // It is proven that the array is not sorted.
+            }
+        }
+        return true; // If this part has been reached, the array must be sorted.
     }
 }

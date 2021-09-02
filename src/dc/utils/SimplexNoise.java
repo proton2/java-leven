@@ -113,7 +113,7 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 		Vec3f pos = worldPosition.sub(origin);
 		Vec3f d = pos.abs().sub(halfDimensions);
 		float m = Math.max(d.X, Math.max(d.Y, d.Z));
-		return Math.min(m, d.length() > 0 ? d.length() : 0);
+		return Math.min(m, Vec3f.max(d, new Vec3f(0, 0, 0)).length());//Math.min(m, d.length() > 0 ? d.length() : 0);
 	}
 
 	public static float Cuboid(Vec3f pos) {
@@ -125,7 +125,7 @@ public class SimplexNoise { // Simplex noise in 2D, 3D and 4D
 		return Math.min(m, max.length());
 	}
 
-	public static float Density_Sphere(Vec4f pos, Vec4f origin, float radius) {
+	public static float Density_Sphere(Vec3f pos, Vec3f origin, float radius) {
 		return (pos.sub(origin)).length() - radius;
 	}
 

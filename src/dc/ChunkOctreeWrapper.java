@@ -49,7 +49,7 @@ public class ChunkOctreeWrapper extends GameObject {
     private final ComputeContext ctx;
     private Physics physics;
     private boolean enablePhysics = false;
-    private int brushSize = 2;
+    private int brushSize = 8;
     //private ModelEntity actorCSGCube;
 
     // Uncomment necessary implementation in constructor
@@ -61,6 +61,8 @@ public class ChunkOctreeWrapper extends GameObject {
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 256);
         Camera camera = Camera.getInstance();
         camera.setPosition(new Vec3f(-131.29f,-158.04f,-1921.52f));
+        camera.setForward(new Vec3f(-0.317f, -0.841f, -0.437f));
+        camera.setUp(new Vec3f(-0.494f, 0.54f, -0.68f));
         if(enablePhysics) {
             camera.setPhysics(physics);
         }
@@ -215,7 +217,7 @@ public class ChunkOctreeWrapper extends GameObject {
 //            Vec3f brushSizeV = new Vec3f(brushSize);
 //            Vec3f offset = dir.mul(brushSizeV);
 //            Vec3f origin = offset.add(rayPos);
-            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), RenderShape.RenderShape_Cube, meshGenCtx.MATERIAL_SOLID, false);
+            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), RenderShape.RenderShape_Sphere, meshGenCtx.MATERIAL_AIR, true);
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();

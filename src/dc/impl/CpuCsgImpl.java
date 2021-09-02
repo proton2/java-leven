@@ -53,7 +53,7 @@ public class CpuCsgImpl implements ICSGOperations{
         int sampleScale = clipmapNodeSize / (meshGen.leafSizeScale * meshGen.getVoxelsPerChunk());
         int fieldBufferSize = meshGen.fieldSize * meshGen.fieldSize * meshGen.fieldSize;
         int[] d_updatedIndices = new int[fieldBufferSize];
-        Vec4i[] d_updatedPoints = new Vec4i[fieldBufferSize];
+        Vec3i[] d_updatedPoints = new Vec3i[fieldBufferSize];
 
         int numUpdatedPoints = CSG_HermiteIndices(fieldOffset, opInfo, sampleScale, field.materialsCpu,
                 d_updatedIndices, d_updatedPoints);
@@ -62,7 +62,7 @@ public class CpuCsgImpl implements ICSGOperations{
             return;
         }
 
-        Vec4i[] d_compactUpdatedPoints = new Vec4i[numUpdatedPoints];
+        Vec3i[] d_compactUpdatedPoints = new Vec3i[numUpdatedPoints];
         compactElements(d_updatedIndices, d_updatedPoints, d_compactUpdatedPoints);
 
         int[] d_generatedEdgeIndices = new int [numUpdatedPoints * 6];
@@ -70,8 +70,8 @@ public class CpuCsgImpl implements ICSGOperations{
 
         Set<Integer> d_invalidatedEdges = CompactIndexArray(d_generatedEdgeIndices, numCompactEdgeIndices);
 
-        int[] d_createdEdges = new int[d_invalidatedEdges.size()];
-        int numCreatedEdges = FilterValidEdges(d_invalidatedEdges, field.materialsCpu, d_createdEdges);
+        int[] d_createdEdges = FilterValidEdges(d_invalidatedEdges, field.materialsCpu);
+        int numCreatedEdges = d_createdEdges.length;
 
         if (d_invalidatedEdges.size() > 0 && field.numEdges > 0) {
             int[] d_fieldEdgeValidity = new int[field.numEdges];
@@ -80,7 +80,7 @@ public class CpuCsgImpl implements ICSGOperations{
             if (numPrunedEdges > 0) {
                 int[] d_prunedEdgeIndices = new int[numPrunedEdges];
                 Vec4f[] d_prunedNormals = new Vec4f[numPrunedEdges];
-                field.edgeIndicatesMap = compactElements(d_fieldEdgeValidity, field.edgeIndicesCpu, field.normalsCpu,
+                compactElements(d_fieldEdgeValidity, field.edgeIndicesCpu, field.normalsCpu,
                         d_prunedEdgeIndices, d_prunedNormals);
 
                 field.numEdges = numPrunedEdges;
@@ -90,9 +90,7 @@ public class CpuCsgImpl implements ICSGOperations{
         }
 
         if (numCreatedEdges > 0) {
-            Vec4f[] d_createdNormals = new Vec4f[numCreatedEdges];
-            FindEdgeIntersectionInfo(fieldOffset, opInfo, sampleScale, d_createdEdges,
-                    d_createdNormals);
+            Vec4f[] d_createdNormals = FindEdgeIntersectionInfo(fieldOffset, opInfo, sampleScale, d_createdEdges);
             if (field.numEdges > 0) {
                 int oldSize = field.numEdges;
                 int newSize = oldSize + numCreatedEdges;
@@ -108,8 +106,7 @@ public class CpuCsgImpl implements ICSGOperations{
                 field.numEdges = newSize;
                 field.edgeIndicesCpu = combinedEdges;
                 field.normalsCpu = combinedNormals;
-            }
-            else {
+            } else {
                 field.numEdges = numCreatedEdges;
                 field.edgeIndicesCpu = d_createdEdges;
                 field.normalsCpu = d_createdNormals;
@@ -118,12 +115,12 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     private int CSG_HermiteIndices(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials,
-                                   int[] updated_indices, Vec4i[] updated_positions) {
+                                   int[] updated_indices, Vec3i[] updated_positions) {
         int size = 0;
         for (int z = 0; z < meshGen.getFieldSize(); z++) {
             for (int y = 0; y < meshGen.getFieldSize(); y++) {
                 for (int x = 0; x < meshGen.getFieldSize(); x++) {
-                    Vec4i local_pos = new Vec4i(x, y, z, 0);
+                    Vec3i local_pos = new Vec3i(x, y, z);
                     int sx = sampleScale * x;
                     int sy = sampleScale * y;
                     int sz = sampleScale * z;
@@ -132,7 +129,7 @@ public class CpuCsgImpl implements ICSGOperations{
                     int oldMaterial = field_materials[index];
                     int material = field_materials[index];
 
-                    Vec4f world_pos = new Vec4f(worldspaceOffset.x + sx, worldspaceOffset.y + sy, worldspaceOffset.z + sz, 0);
+                    Vec3f world_pos = new Vec3f(worldspaceOffset.x + sx, worldspaceOffset.y + sy, worldspaceOffset.z + sz);
                     material = BrushMaterial(world_pos, operations, material);
 
                     int updated = material != oldMaterial ? 1 : 0;
@@ -148,8 +145,8 @@ public class CpuCsgImpl implements ICSGOperations{
         return size;
     }
 
-    private void compactElements(int[] edgeValid,  Vec4i[] edgeNormals,
-                                 Vec4i[] compactNormals) {
+    private void compactElements(int[] edgeValid,  Vec3i[] edgeNormals,
+                                 Vec3i[] compactNormals) {
         int cid = 0;
         for (int index = 0; index<edgeValid.length; index++) {
             if (edgeValid[index]==1) {
@@ -158,13 +155,13 @@ public class CpuCsgImpl implements ICSGOperations{
         }
     }
 
-    private int FindUpdatedEdges(Vec4i[] updatedHermiteIndices,
+    private int FindUpdatedEdges(Vec3i[] updatedHermiteIndices,
             int[] updatedHermiteEdgeIndices)
     {
         int size=0;
         for(int id=0; id<updatedHermiteIndices.length; id++){
             int edgeIndex = id * 6;
-            Vec4i pos = updatedHermiteIndices[id];
+            Vec3i pos = updatedHermiteIndices[id];
             int posIndex = (pos.x | (pos.y << meshGen.getIndexShift()) | (pos.z << (meshGen.getIndexShift() * 2))) << 2;
 
             updatedHermiteEdgeIndices[edgeIndex + 0] = posIndex | 0;
@@ -173,7 +170,7 @@ public class CpuCsgImpl implements ICSGOperations{
             size+=3;
 
             if (pos.x > 0) {
-		        Vec4i xPos = pos.sub(new Vec4i(1, 0, 0, 0));
+		        Vec3i xPos = pos.sub(new Vec3i(1, 0, 0));
 		        int xPosIndex = (xPos.x | (xPos.y << meshGen.getIndexShift()) | (xPos.z << (meshGen.getIndexShift() * 2))) << 2;
                 updatedHermiteEdgeIndices[edgeIndex + 3] = xPosIndex | 0;
                 size++;
@@ -183,7 +180,7 @@ public class CpuCsgImpl implements ICSGOperations{
             }
 
             if (pos.y > 0) {
-                Vec4i yPos = pos.sub(new Vec4i(0, 1, 0, 0));
+                Vec3i yPos = pos.sub(new Vec3i(0, 1, 0));
 		        int yPosIndex = (yPos.x | (yPos.y << meshGen.getIndexShift()) | (yPos.z << (meshGen.getIndexShift() * 2))) << 2;
                 updatedHermiteEdgeIndices[edgeIndex + 4] = yPosIndex | 1;
                 size++;
@@ -193,7 +190,7 @@ public class CpuCsgImpl implements ICSGOperations{
             }
 
             if (pos.z > 0) {
-                Vec4i zPos = pos.sub(new Vec4i(0, 0, 1, 0));
+                Vec3i zPos = pos.sub(new Vec3i(0, 0, 1));
 		        int zPosIndex = (zPos.x | (zPos.y << meshGen.getIndexShift()) | (zPos.z << (meshGen.getIndexShift() * 2))) << 2;
                 updatedHermiteEdgeIndices[edgeIndex + 5] = zPosIndex | 2;
                 size++;
@@ -216,10 +213,10 @@ public class CpuCsgImpl implements ICSGOperations{
         return Arrays.stream(compactIndices).boxed().collect(Collectors.toSet());
     }
 
-    private int FilterValidEdges(Set<Integer> generatedHermiteEdgeIndices, int[] materials,
-                                  int[] compactIndices)
-    {
+    private int[] FilterValidEdges(Set<Integer> generatedHermiteEdgeIndices, int[] materials) {
+        int[] compactIndices = new int[generatedHermiteEdgeIndices.size()];
         int id = 0;
+        int FIELD_BUFFER_SIZE = meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize();
         for (int generatedEdgeIndex : generatedHermiteEdgeIndices) {
             int edgeNumber = generatedEdgeIndex & 3;
             int edgeIndex = generatedEdgeIndex >> 2;
@@ -234,8 +231,8 @@ public class CpuCsgImpl implements ICSGOperations{
 
             // There should be no need to check these indices, the previous call to
             // RemoveInvalidIndices should have validated the generatedEdgeIndices array
-            int material0 = materials[index0];
-            int material1 = materials[index1];
+            int material0 = index0 < FIELD_BUFFER_SIZE ? materials[index0] : meshGen.MATERIAL_AIR;
+	        int material1 = index1 < FIELD_BUFFER_SIZE ? materials[index1] : meshGen.MATERIAL_AIR;
 
             int signChange = (material0 == meshGen.MATERIAL_AIR && material1 != meshGen.MATERIAL_AIR) ||
                     (material1 == meshGen.MATERIAL_AIR && material0 != meshGen.MATERIAL_AIR) ? 1 : 0;
@@ -245,7 +242,9 @@ public class CpuCsgImpl implements ICSGOperations{
                 compactIndices[id++] = generatedEdgeIndex;
             }
         }
-        return id;
+        int[] d_createdEdges = new int[id];
+        System.arraycopy(compactIndices, 0, d_createdEdges, 0, id);
+        return d_createdEdges;
     }
 
     //обрезать (дерево или куст), срезая мертвые или разросшиеся ветви или стебли, особенно для увеличения урожайности и роста.
@@ -264,49 +263,45 @@ public class CpuCsgImpl implements ICSGOperations{
         return count;
     }
 
-    private Map<Integer, Integer> compactElements(int[] edgeValid, int[] edgeIndices, Vec4f[] edgeNormals,
+    private void compactElements(int[] edgeValid, int[] edgeIndices, Vec4f[] edgeNormals,
                                  int[] compactIndices, Vec4f[] compactNormals) {
         int cid = 0;
-        Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(compactNormals.length);
         for (int index = 0; index<edgeValid.length; index++) {
             if (edgeValid[index]==1) {
-                edgeIndicatesMap.put(edgeIndices[index], cid);
                 compactIndices[cid] = edgeIndices[index];
                 compactNormals[cid] = edgeNormals[index];
                 cid++;
             }
         }
-        return edgeIndicatesMap;
     }
 
-    private void FindEdgeIntersectionInfo(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges,
-                                          Vec4f[] normals) {
+    private Vec4f[] FindEdgeIntersectionInfo(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges) {
+        Vec4f[] normals = new Vec4f[compactEdges.length];
         for (int index = 0; index < compactEdges.length; index++) {
             int globalEdgeIndex = compactEdges[index];
-            if (globalEdgeIndex != 0) {
-                int edgeIndex = 4 * (globalEdgeIndex & 3);
-                int voxelIndex = globalEdgeIndex >> 2;
+            int edgeIndex = 4 * (globalEdgeIndex & 3);
+            int voxelIndex = globalEdgeIndex >> 2;
 
-                Vec4i local_pos = new Vec4i(
-                        (voxelIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask(),
-                        (voxelIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask(),
-                        (voxelIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask(),
-                        0);
+            Vec4i local_pos = new Vec4i(
+                    (voxelIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask(),
+                    (voxelIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask(),
+                    (voxelIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask(),
+                    0);
 
-                int e0 = EDGE_MAP[edgeIndex][0];
-                int e1 = EDGE_MAP[edgeIndex][1];
+            int e0 = EDGE_MAP[edgeIndex][0];
+            int e1 = EDGE_MAP[edgeIndex][1];
 
-                Vec4i world_pos = (local_pos.mul(sampleScale)).add(offset);
-                Vec4f p0 = world_pos.add(CHILD_MIN_OFFSETS[e0]).toVec4f();
-                Vec4f p1 = world_pos.add(CHILD_MIN_OFFSETS[e1].mul(sampleScale)).toVec4f();
+            Vec4i world_pos = (local_pos.mul(sampleScale)).add(offset);
+            Vec4f p0 = world_pos.add(CHILD_MIN_OFFSETS[e0]).toVec4f();
+            Vec4f p1 = world_pos.add(CHILD_MIN_OFFSETS[e1].mul(sampleScale)).toVec4f();
 
-                float t = BrushZeroCrossing(p0, p1, operations);
-                Vec4f p = VoxelHelperUtils.mix(p0, p1, t);
+            float t = BrushZeroCrossing(p0, p1, operations);
+            Vec3f p = VoxelHelperUtils.mix(p0, p1, t).getVec3f();
 
-                Vec3f n = BrushNormal(p, operations);
-                normals[index] = new Vec4f(n, t);
-            }
+            Vec3f n = BrushNormal(p, operations);
+            normals[index] = new Vec4f(n, t);
         }
+        return normals;
     }
 
     private Vec4i LeafScaleVec(Vec3i v) {
@@ -318,11 +313,11 @@ public class CpuCsgImpl implements ICSGOperations{
         return s;
     }
 
-    float BrushDensity(Vec4f worldspaceOffset, CSGOperationInfo op) {
+    float BrushDensity(Vec3f worldspaceOffset, CSGOperationInfo op) {
         float [] brushDensity = {Float.MIN_VALUE, Float.MAX_VALUE};
         //brushDensity[0] = Density_Cuboid(worldspaceOffset, op.getOrigin(), op.getDimensions(), op.getRotateY());
-        brushDensity[0] = SimplexNoise.Density_Cuboid(worldspaceOffset.getVec3f(), op.getOrigin().getVec3f(), op.getDimensions().getVec3f());
-        brushDensity[1] = SimplexNoise.Density_Sphere(worldspaceOffset, op.getOrigin(), op.getDimensions().x);
+        brushDensity[0] = SimplexNoise.Density_Cuboid(worldspaceOffset, op.getOrigin().getVec3f(), op.getDimensions().getVec3f());
+        brushDensity[1] = SimplexNoise.Density_Sphere(worldspaceOffset, op.getOrigin().getVec3f(), op.getDimensions().x);
         return brushDensity[op.getBrushShape().ordinal()];
     }
 
@@ -331,7 +326,7 @@ public class CpuCsgImpl implements ICSGOperations{
         float minDensity = Float.MAX_VALUE;
         float crossing = 0.f;
         for (float t = 0.f; t <= 1.f; t += (1.f/16.f)) {
-		    Vec4f p = VoxelHelperUtils.mix(p0, p1, t);
+		    Vec3f p = VoxelHelperUtils.mix(p0, p1, t).getVec3f();
             for (CSGOperationInfo op : operations) {
 			    float d = Math.abs(BrushDensity(p, op));
                 if (d < minDensity) {
@@ -343,7 +338,7 @@ public class CpuCsgImpl implements ICSGOperations{
         return crossing;
     }
 
-    private int BrushMaterial(Vec4f world_pos, Collection<CSGOperationInfo> operations, int material) {
+    private int BrushMaterial(Vec3f world_pos, Collection<CSGOperationInfo> operations, int material) {
         int m = material;
         for (CSGOperationInfo op : operations) {
 		    int[] operationMaterial = {op.getMaterial(), meshGen.MATERIAL_AIR};
@@ -355,7 +350,7 @@ public class CpuCsgImpl implements ICSGOperations{
         return m;
     }
 
-    private Vec3f BrushNormal(Vec4f world_pos, Collection<CSGOperationInfo> operations) {
+    private Vec3f BrushNormal(Vec3f world_pos, Collection<CSGOperationInfo> operations) {
         Vec3f normal = new Vec3f(0);
         for (CSGOperationInfo op : operations) {
 		    float d = BrushDensity(world_pos, op);
@@ -363,14 +358,14 @@ public class CpuCsgImpl implements ICSGOperations{
                 continue;
             }
 		    float h = 0.001f;
-		    float dx0 = BrushDensity(world_pos.add(new Vec4f(h, 0, 0, 0)), op);
-		    float dx1 = BrushDensity(world_pos.sub(new Vec4f(h, 0, 0, 0)), op);
+		    float dx0 = BrushDensity(world_pos.add(new Vec3f(h, 0, 0)), op);
+		    float dx1 = BrushDensity(world_pos.sub(new Vec3f(h, 0, 0)), op);
 
-		    float dy0 = BrushDensity(world_pos.add(new Vec4f(0, h, 0, 0)), op);
-		    float dy1 = BrushDensity(world_pos.sub(new Vec4f(0, h, 0, 0)), op);
+		    float dy0 = BrushDensity(world_pos.add(new Vec3f(0, h, 0)), op);
+		    float dy1 = BrushDensity(world_pos.sub(new Vec3f(0, h, 0)), op);
 
-		    float dz0 = BrushDensity(world_pos.add(new Vec4f(0, 0, h, 0)), op);
-		    float dz1 = BrushDensity(world_pos.sub(new Vec4f(0, 0, h, 0)), op);
+		    float dz0 = BrushDensity(world_pos.add(new Vec3f(0, 0, h)), op);
+		    float dz1 = BrushDensity(world_pos.sub(new Vec3f(0, 0, h)), op);
 
 		    float flip = op.getType() == 0 ? 1.f : -1.f;
             normal = new Vec3f(dx0 - dx1, dy0 - dy1, dz0 - dz1).normalize().mul(flip);

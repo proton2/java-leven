@@ -18,7 +18,6 @@ public class GPUDensityField {
     public int[] materialsCpu;
     public int[] edgeIndicesCpu;
     public Vec4f[] normalsCpu;
-    public Map<Integer, Integer> edgeIndicatesMap;
 
     public BufferGpu getNormals() {
         return normals;
