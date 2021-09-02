@@ -170,7 +170,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         field.materialsCpu = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
         int materialSize = 0;
         try {
-            materialSize = GenerateDefaultField(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
+            materialSize = GenerateDefaultFieldMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
                     field.materialsCpu);
         } catch (Exception e) {
             logger.log(Level.SEVERE, e.toString());
