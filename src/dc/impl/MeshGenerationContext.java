@@ -28,7 +28,7 @@ public class MeshGenerationContext {
     public final int MAX_MESH_VERTICES = 1 << 23;			// i.e. 8 million
     public final int MAX_MESH_TRIANGLES = MAX_MESH_VERTICES * 2;
 
-    public final Vec3f CSG_OFFSET = new Vec3f(0.5f);
+    public final Vec3f CSG_OFFSET = new Vec3f(0.0f);
     public final Vec3i CSG_BOUNDS_FUDGE = new Vec3i(2);
 
     // TODO there is an implicit leaf size scaling here that should be handled explicitly
