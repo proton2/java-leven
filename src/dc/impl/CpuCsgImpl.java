@@ -9,10 +9,19 @@ import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
+import static java.lang.Math.max;
+
 public class CpuCsgImpl implements ICSGOperations{
+    final public static Logger logger = Logger.getLogger(CpuCsgImpl.class.getName());
     private MeshGenerationContext meshGen;
+    private final ExecutorService service;
+    int availableProcessors;
 
     private final Vec4i[] EDGE_OFFSETS = {
             new Vec4i( 1, 0, 0, 0),
@@ -38,6 +47,19 @@ public class CpuCsgImpl implements ICSGOperations{
             new Vec4i( 1, 1, 1, 0 ),
     };
 
+    public CpuCsgImpl() {
+        availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
+        service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
+            private final AtomicInteger count = new AtomicInteger();
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setName("CpuCsgImpl " + count.getAndIncrement());
+                return thread;
+            }
+        });
+    }
+
     @Override
     public void ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, Vec3i clipmapNodeMin,
                                    int clipmapNodeSize, GPUDensityField field){
@@ -55,8 +77,13 @@ public class CpuCsgImpl implements ICSGOperations{
         int[] d_updatedIndices = new int[fieldBufferSize];
         Vec3i[] d_updatedPoints = new Vec3i[fieldBufferSize];
 
-        int numUpdatedPoints = CSG_HermiteIndices(fieldOffset, opInfo, sampleScale, field.materialsCpu,
-                d_updatedIndices, d_updatedPoints);
+        int numUpdatedPoints = 0;
+        try {
+            numUpdatedPoints = CSG_HermiteIndicesMultiThread(fieldOffset, opInfo, sampleScale, field.materialsCpu,
+                    d_updatedIndices, d_updatedPoints);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
 
         if (numUpdatedPoints <= 0) {    // < 0 will be an error code
             return;
@@ -120,28 +147,64 @@ public class CpuCsgImpl implements ICSGOperations{
         for (int z = 0; z < meshGen.getFieldSize(); z++) {
             for (int y = 0; y < meshGen.getFieldSize(); y++) {
                 for (int x = 0; x < meshGen.getFieldSize(); x++) {
-                    Vec3i local_pos = new Vec3i(x, y, z);
-                    int sx = sampleScale * x;
-                    int sy = sampleScale * y;
-                    int sz = sampleScale * z;
-
-                    int index = field_index(local_pos);
-                    int oldMaterial = field_materials[index];
-                    int material = field_materials[index];
-
-                    Vec3f world_pos = new Vec3f(worldspaceOffset.x + sx, worldspaceOffset.y + sy, worldspaceOffset.z + sz);
-                    material = BrushMaterial(world_pos, operations, material);
-
-                    int updated = material != oldMaterial ? 1 : 0;
-                    if(updated==1){
-                        field_materials[index] = material;
-                        size++;
-                    }
-                    updated_indices[index] = updated;
-                    updated_positions[index] = local_pos;
+                    size = processMaterials(worldspaceOffset, operations, sampleScale, field_materials, updated_indices, updated_positions, size, z, y, x);
                 }
             }
         }
+        return size;
+    }
+
+    private int CSG_HermiteIndicesMultiThread(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials,
+                                   int[] updated_indices, Vec3i[] updated_positions) throws Exception{
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        int bound = meshGen.getFieldSize();
+        int threadBound = (bound * bound * bound) / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int finalI = i;
+            Callable<Integer> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                int size = 0;
+                for (int it = from; it < to; it++) {
+                    int x = it % bound;
+                    int y = (it / bound) % bound;
+                    int z = (it / bound / bound);
+                    size = processMaterials(worldspaceOffset, operations, sampleScale, field_materials, updated_indices, updated_positions, size, z, y, x);
+                }
+                return size;
+            };
+            tasks.add(task);
+        }
+
+        int size = 0;
+        List<Future<Integer>> futures = service.invokeAll(tasks);
+        for (Future<Integer> future : futures) {
+            size += future.get();
+        }
+        return size;
+    }
+
+    private int processMaterials(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials, int[] updated_indices, Vec3i[] updated_positions, int size, int z, int y, int x) {
+        Vec3i local_pos = new Vec3i(x, y, z);
+        int sx = sampleScale * x;
+        int sy = sampleScale * y;
+        int sz = sampleScale * z;
+
+        int index = field_index(local_pos);
+        int oldMaterial = field_materials[index];
+        int material = field_materials[index];
+
+        Vec3f world_pos = new Vec3f(worldspaceOffset.x + sx, worldspaceOffset.y + sy, worldspaceOffset.z + sz);
+        material = BrushMaterial(world_pos, operations, material);
+
+        int updated = material != oldMaterial ? 1 : 0;
+        if(updated==1){
+            field_materials[index] = material;
+            size++;
+        }
+        updated_indices[index] = updated;
+        updated_positions[index] = local_pos;
         return size;
     }
 

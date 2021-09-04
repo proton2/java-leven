@@ -30,7 +30,7 @@ import static java.lang.Math.max;
  */
 
 public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements VoxelOctree {
-    final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
+    final public static Logger logger = Logger.getLogger(LevenLinearCPUOctreeImpl.class.getName());
     private final ExecutorService service;
     int availableProcessors;
 
