@@ -1,6 +1,9 @@
 package core.physics;
 
-import com.bulletphysics.collision.broadphase.*;
+import com.bulletphysics.collision.broadphase.AxisSweep3;
+import com.bulletphysics.collision.broadphase.BroadphaseInterface;
+import com.bulletphysics.collision.broadphase.BroadphasePair;
+import com.bulletphysics.collision.broadphase.HashedOverlappingPairCache;
 import com.bulletphysics.collision.dispatch.*;
 import com.bulletphysics.collision.narrowphase.ManifoldPoint;
 import com.bulletphysics.collision.narrowphase.PersistentManifold;
@@ -16,7 +19,6 @@ import com.bulletphysics.linearmath.MotionState;
 import com.bulletphysics.linearmath.Transform;
 import com.bulletphysics.util.ObjectArrayList;
 import core.math.Vec3f;
-import core.math.Vec3i;
 import dc.ChunkNode;
 import dc.entities.MeshBuffer;
 import dc.utils.Aabb;
@@ -28,11 +30,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static core.physics.PhysicsOperationType.PhysicsOp_RayCast;
 import static core.physics.PhysicsOperationType.PhysicsOp_WorldUpdate;
 
 public class JBulletPhysics implements Physics {
+    final public static Logger logger = Logger.getLogger(JBulletPhysics.class.getName());
     // i.e. 1 voxel is PHYSICS_SCALE meters
     //final float PHYSICS_SCALE = 0.05f;
     final float PHYSICS_SCALE = 1f;
@@ -54,6 +59,7 @@ public class JBulletPhysics implements Physics {
     private short PHYSICS_FILTER_ALL = (short) (PHYSICS_GROUP_WORLD | PHYSICS_GROUP_ACTOR | PHYSICS_GROUP_PLAYER);
     private short PHYSICS_FILTER_NOT_PLAYER = (short) (PHYSICS_FILTER_ALL & ~PHYSICS_GROUP_PLAYER);
     private int maxChunkSize;
+    private boolean playerCollision;
 
     private void EnqueuePhysicsOperation(PhysicsOperationType opType, Runnable op) {
         try {
@@ -62,7 +68,7 @@ public class JBulletPhysics implements Physics {
                 int t = 3;
             }
         } catch (Throwable e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, e.toString());
         }
     }
 
@@ -88,7 +94,7 @@ public class JBulletPhysics implements Physics {
         return new javax.vecmath.Vector3f(worldValue.x / PHYSICS_SCALE, worldValue.y / PHYSICS_SCALE, worldValue.z / PHYSICS_SCALE);
     }
 
-    public JBulletPhysics(Aabb g_worldBounds, int maxChunkSize) {
+    public JBulletPhysics(Aabb g_worldBounds, int maxChunkSize, boolean playerCollision) {
         executorService = Executors.newFixedThreadPool(6, new ThreadFactory() {
                     private AtomicInteger count = new AtomicInteger();
                     @Override
@@ -105,6 +111,7 @@ public class JBulletPhysics implements Physics {
         collisionPos = new Vec3f();
         collisionNorm = new Vec3f();
         this.maxChunkSize = maxChunkSize;
+        this.playerCollision = playerCollision;
     }
 
     private void Physics_Initialise(Aabb worldBounds) {
@@ -149,7 +156,7 @@ public class JBulletPhysics implements Physics {
                     PhysicsMeshData newMesh = addMeshToWorldImpl(meshBuffer);
                     EnqueuePhysicsOperation(PhysicsOp_WorldUpdate, () -> ReplaceCollisionNodeMesh(updateMain, node, newMesh));
                 } catch (Throwable e) {
-                    e.printStackTrace();
+                    logger.log(Level.SEVERE, e.toString());
                 }
             }
         });
@@ -261,7 +268,7 @@ public class JBulletPhysics implements Physics {
                         task.run();
                     }
                 } catch (Throwable e) {
-                    e.printStackTrace();
+                    logger.log(Level.SEVERE, e.toString());
                 }
             }
 
@@ -274,7 +281,9 @@ public class JBulletPhysics implements Physics {
             prevTime = System.nanoTime();
             float elapsedTime = ((float) prevTime / 1000.f) - startTime;
             dynamicsWorld.stepSimulation(dt);
-            UpdatePlayer(dt, elapsedTime);
+            if(playerCollision) {
+                UpdatePlayer(dt, elapsedTime);
+            }
         }
     }
 
@@ -285,11 +294,15 @@ public class JBulletPhysics implements Physics {
         try {
             g_physicsThread.join();
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            logger.log(Level.SEVERE, e.toString());
         }
 
-        dynamicsWorld.removeRigidBody(g_player.body);
-        dynamicsWorld.removeCollisionObject(g_player.ghost);
+        if(g_player.body!=null) {
+            dynamicsWorld.removeRigidBody(g_player.body);
+        }
+        if(g_player.ghost!=null) {
+            dynamicsWorld.removeCollisionObject(g_player.ghost);
+        }
         dynamicsWorld.destroy();
     }
 

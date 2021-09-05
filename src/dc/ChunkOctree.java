@@ -48,8 +48,7 @@ public class ChunkOctree {
     }
 
     public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
-                       boolean enablePhysics, boolean enableChunkChache) {
-        //this.enableChunkChache = enableChunkChache;
+                       boolean enablePhysics) {
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
@@ -175,11 +174,11 @@ public class ChunkOctree {
             node.seamMesh = null;
         }
         if(node.worldNode!=null){
-            if(node.worldNode.mainMesh!=null && enablePhysics){
+            if(node.worldNode.mainMesh!=null){
                 physics.RemoveMeshData(node.worldNode.mainMesh);
                 node.worldNode.mainMesh = null;
             }
-            if(node.worldNode.seamMesh!=null && enablePhysics){
+            if(node.worldNode.seamMesh!=null){
                 physics.RemoveMeshData(node.worldNode.seamMesh);
                 node.worldNode.seamMesh = null;
             }
@@ -195,16 +194,12 @@ public class ChunkOctree {
                 logger.log(Level.SEVERE, e.toString());
             }
         });
-        if(enablePhysics) {
-            physics.Physics_CastRay(rayStart, rayEnd);
-        }
+        physics.Physics_CastRay(rayStart, rayEnd);
     }
 
     public void clean(){
         service.shutdown();
-        if(enablePhysics) {
-            physics.Physics_Shutdown();
-        }
+        physics.Physics_Shutdown();
         voxelOctree.computeClearCSGOperations();
     }
 
@@ -252,9 +247,7 @@ public class ChunkOctree {
             if (filteredNode.renderMesh !=null || (filteredNode.chunkBorderNodes !=null && filteredNode.chunkBorderNodes.size()> 0)) {
                 constructedNodes.add(filteredNode);
                 activeNodes.add(filteredNode);
-                if(enablePhysics) {
-                    physics.Physics_UpdateWorldNodeMainMesh(true, filteredNode);
-                }
+                physics.Physics_UpdateWorldNodeMainMesh(true, filteredNode);
             } else {
                 filteredNode.empty = true; // no meshes in chunk - empty chunk
                 emptyNodes.add(filteredNode);
@@ -284,7 +277,7 @@ public class ChunkOctree {
                 seamUpdateNode.seamMesh = null;
             }
             generateClipmapSeamMesh(seamUpdateNode, root);
-            if(enablePhysics && seamUpdateNode.seamMesh!=null) {
+            if(seamUpdateNode.seamMesh!=null) {
                 physics.Physics_UpdateWorldNodeMainMesh(false, seamUpdateNode);
             }
         }
