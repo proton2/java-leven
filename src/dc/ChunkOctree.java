@@ -495,7 +495,7 @@ public class ChunkOctree {
         }
 
         // traversal order is arbitrary
-        if (node.active && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
+        if (node.size <= meshGen.LOD_MAX_NODE_SIZE) {
             nodes.add(node);
         }
     }
