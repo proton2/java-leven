@@ -168,13 +168,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
     private int GenerateDefaultDensityField(GPUDensityField field){
         field.materialsCpu = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
-        int materialSize = 0;
-        try {
-            materialSize = GenerateDefaultFieldMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
+        int materialSize = GenerateDefaultFieldMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
                     field.materialsCpu);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, e.toString());
-        }
         if(materialSize==0){
             field.materialsCpu = null;
         }
@@ -265,7 +260,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private int GenerateDefaultFieldMultiThread(Vec3i offset, int sampleScale, int defaultMaterialIndex,
-                                                int[] field_materials) throws Exception {
+                                                int[] field_materials) {
         List<Callable<Integer>> tasks = new ArrayList<>();
         int bound = meshGen.getFieldSize();
         int threadBound = (bound * bound * bound) / availableProcessors;
@@ -288,9 +283,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
 
         int size = 0;
-        List<Future<Integer>> futures = service.invokeAll(tasks);
-        for (Future<Integer> future : futures) {
-            size += future.get();
+        try {
+            List<Future<Integer>> futures = service.invokeAll(tasks);
+            for (Future<Integer> future : futures) {
+                size += future.get();
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
         }
         return size;
     }

@@ -211,7 +211,7 @@ public class ChunkOctreeWrapper extends GameObject {
 //            Vec3f brushSizeV = new Vec3f(brushSize);
 //            Vec3f offset = dir.mul(brushSizeV);
 //            Vec3f origin = offset.add(rayPos);
-            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), RenderShape.RenderShape_Sphere, meshGenCtx.MATERIAL_AIR, true);
+            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), RenderShape.RenderShape_Sphere, meshGenCtx.MATERIAL_SOLID, false);
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();

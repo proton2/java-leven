@@ -77,14 +77,8 @@ public class CpuCsgImpl implements ICSGOperations{
         int[] d_updatedIndices = new int[fieldBufferSize];
         Vec3i[] d_updatedPoints = new Vec3i[fieldBufferSize];
 
-        int numUpdatedPoints = 0;
-        try {
-            numUpdatedPoints = CSG_HermiteIndicesMultiThread(fieldOffset, opInfo, sampleScale, field.materialsCpu,
+        int numUpdatedPoints = CSG_HermiteIndicesMultiThread(fieldOffset, opInfo, sampleScale, field.materialsCpu,
                     d_updatedIndices, d_updatedPoints);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, e.toString());
-        }
-
         if (numUpdatedPoints <= 0) {    // < 0 will be an error code
             return;
         }
@@ -155,7 +149,7 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     private int CSG_HermiteIndicesMultiThread(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials,
-                                   int[] updated_indices, Vec3i[] updated_positions) throws Exception{
+                                   int[] updated_indices, Vec3i[] updated_positions){
         List<Callable<Integer>> tasks = new ArrayList<>();
         int bound = meshGen.getFieldSize();
         int threadBound = (bound * bound * bound) / availableProcessors;
@@ -178,9 +172,13 @@ public class CpuCsgImpl implements ICSGOperations{
         }
 
         int size = 0;
-        List<Future<Integer>> futures = service.invokeAll(tasks);
-        for (Future<Integer> future : futures) {
-            size += future.get();
+        try {
+            List<Future<Integer>> futures = service.invokeAll(tasks);
+            for (Future<Integer> future : futures) {
+                size += future.get();
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
         }
         return size;
     }
@@ -413,24 +411,26 @@ public class CpuCsgImpl implements ICSGOperations{
         return m;
     }
 
-    private Vec3f BrushNormal(Vec3f world_pos, Collection<CSGOperationInfo> operations) {
+    private Vec3f BrushNormal(Vec3f p, Collection<CSGOperationInfo> operations) {
         Vec3f normal = new Vec3f(0);
         for (CSGOperationInfo op : operations) {
-		    float d = BrushDensity(world_pos, op);
-            if (d > 0.f) {  //	 flip = operationType[i] == 0 ? 1.f : -1.f;
-                continue;
-            }
+		    //float d = BrushDensity(p, op);
+            //if (d > 0.f) continue;
+
 		    float h = 0.001f;
-		    float dx0 = BrushDensity(world_pos.add(new Vec3f(h, 0, 0)), op);
-		    float dx1 = BrushDensity(world_pos.sub(new Vec3f(h, 0, 0)), op);
+            Vec3f xOffcet = new Vec3f(h, 0.f, 0.f);
+            Vec3f yOffcet = new Vec3f(0.f, h, 0.f);
+            Vec3f zOffcet = new Vec3f(0.f, 0.f, h);
+		    float dx0 = BrushDensity(p.add(xOffcet), op);
+		    float dx1 = BrushDensity(p.sub(xOffcet), op);
 
-		    float dy0 = BrushDensity(world_pos.add(new Vec3f(0, h, 0)), op);
-		    float dy1 = BrushDensity(world_pos.sub(new Vec3f(0, h, 0)), op);
+		    float dy0 = BrushDensity(p.add(yOffcet), op);
+		    float dy1 = BrushDensity(p.sub(yOffcet), op);
 
-		    float dz0 = BrushDensity(world_pos.add(new Vec3f(0, 0, h)), op);
-		    float dz1 = BrushDensity(world_pos.sub(new Vec3f(0, 0, h)), op);
+		    float dz0 = BrushDensity(p.add(zOffcet), op);
+		    float dz1 = BrushDensity(p.sub(zOffcet), op);
 
-		    float flip = op.getType() == 0 ? 1.f : -1.f;
+            float flip = op.getType() == 0 ? 1.f : -1.f;
             normal = new Vec3f(dx0 - dx1, dy0 - dy1, dz0 - dz1).normalize().mul(flip);
         }
         return normal;
