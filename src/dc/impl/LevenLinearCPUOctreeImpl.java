@@ -181,7 +181,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
         //////////////////////////////
-        field.numEdges = FindFieldEdges(field.materialsCpu,
+        field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu,
                 edgeOccupancy, edgeIndicesNonCompact);
         if(field.numEdges==0 || field.numEdges<0){
             return;
@@ -306,35 +306,76 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
+    private int FindFieldEdgesMultiThread(int[] materials,
+                               int[] edgeOccupancy, int[] edgeIndices) {
+
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        int bound = meshGen.getHermiteIndexSize();
+        int threadBound = (bound * bound * bound) / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int finalI = i;
+            Callable<Integer> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                int size = 0;
+                for (int it = from; it < to; it++) {
+                    int x = it % bound;
+                    int y = (it / bound) % bound;
+                    int z = (it / bound / bound);
+                    size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z, y, x);
+                }
+                return size;
+            };
+            tasks.add(task);
+        }
+
+        int size = 0;
+        try {
+            List<Future<Integer>> futures = service.invokeAll(tasks);
+            for (Future<Integer> future : futures) {
+                size += future.get();
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+
+        return size;
+    }
+
+    private int processFindFieldEdges(int[] materials, int[] edgeOccupancy, int[] edgeIndices, int size, int z, int y, int x) {
+        Vec4i pos = new Vec4i(x, y, z, 0);
+        int index = (x + (y * meshGen.getHermiteIndexSize()) + (z * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize()));
+        int edgeIndex = index * 3;
+
+        int[] CORNER_MATERIALS = {
+                materials[field_index(pos.add(new Vec4i(0, 0, 0, 0)))],
+                materials[field_index(pos.add(new Vec4i(1, 0, 0, 0)))],
+                materials[field_index(pos.add(new Vec4i(0, 1, 0, 0)))],
+                materials[field_index(pos.add(new Vec4i(0, 0, 1, 0)))],
+        };
+
+        int voxelIndex = pos.x | (pos.y << meshGen.getIndexShift()) | (pos.z << (meshGen.getIndexShift() * 2));
+
+        for (int i = 0; i < 3; i++) {
+            int e = 1 + i;
+            boolean signChange = (CORNER_MATERIALS[0] != meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] == meshGen.MATERIAL_AIR) ||
+                    (CORNER_MATERIALS[0] == meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] != meshGen.MATERIAL_AIR);
+            edgeOccupancy[edgeIndex + i] = signChange ? 1 : 0;
+            edgeIndices[edgeIndex + i] = signChange ? ((voxelIndex << 2) | i) : -1;
+            if (signChange)
+                ++size;
+        }
+        return size;
+    }
+
     private int FindFieldEdges(int[] materials,
                        int[] edgeOccupancy, int[] edgeIndices) {
         int size = 0;
         for (int z = 0; z < meshGen.getHermiteIndexSize(); z++) {
             for (int y = 0; y < meshGen.getHermiteIndexSize(); y++) {
-                for (int x = 0; x < meshGen.getHermiteIndexSize(); x++)
-                {
-                    Vec4i pos = new Vec4i(x, y, z, 0);
-                    int index = (x + (y * meshGen.getHermiteIndexSize()) + (z * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize()));
-                    int edgeIndex = index * 3;
-
-                    int[] CORNER_MATERIALS = {
-                            materials[field_index(pos.add(new Vec4i(0, 0, 0, 0)))],
-                            materials[field_index(pos.add(new Vec4i(1, 0, 0, 0)))],
-                            materials[field_index(pos.add(new Vec4i(0, 1, 0, 0)))],
-                            materials[field_index(pos.add(new Vec4i(0, 0, 1, 0)))],
-                    };
-
-                    int voxelIndex = pos.x | (pos.y << meshGen.getIndexShift()) | (pos.z << (meshGen.getIndexShift() * 2));
-
-                    for (int i = 0; i < 3; i++) {
-                        int e = 1 + i;
-                        boolean signChange =(CORNER_MATERIALS[0] != meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] == meshGen.MATERIAL_AIR) ||
-                                            (CORNER_MATERIALS[0] == meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] != meshGen.MATERIAL_AIR);
-                        edgeOccupancy[edgeIndex + i] = signChange ? 1 : 0;
-                        edgeIndices[edgeIndex + i] = signChange ? ((voxelIndex << 2) | i) : -1;
-                        if (signChange)
-                            ++size;
-                    }
+                for (int x = 0; x < meshGen.getHermiteIndexSize(); x++) {
+                    size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z, y, x);
                 }
             }
         }
