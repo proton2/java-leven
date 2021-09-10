@@ -193,14 +193,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
         GpuOctree octree = new GpuOctree();
+        int voxelCount = meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk();
+        int[] d_leafOccupancy = new int [voxelCount];
+        int[] d_leafEdgeInfo = new int [voxelCount];
+        int[] d_leafCodes = new int [voxelCount];
+        int[] d_leafMaterials = new int [voxelCount];
 
-        int[] d_leafOccupancy = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
-        int[] d_leafEdgeInfo = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
-        int[] d_leafCodes = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
-        int[] d_leafMaterials = new int [meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()];
-        //////////////////////////////
-        octree.numNodes = FindActiveVoxels(chunkSize, chunkMin,
-                0, meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk(), field.materialsCpu,
+        octree.numNodes = FindActiveVoxelsMultiThread(field.materialsCpu,
                 d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
         if (octree.numNodes<=0){
             return null;
@@ -422,12 +421,38 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return edgeInfo;
     }
 
-    private int FindActiveVoxels(int chunkSize, Vec3i chunkMin, int from, int to,
+    private int FindActiveVoxelsMultiThread(int[] materials,
+                                 int[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials) {
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        int bound = voxelMaterials.length;
+        int threadBound = bound / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int finalI = i;
+            Callable<Integer> task = () -> {
+                int from = finalI * threadBound;
+                int to = from + threadBound;
+                return FindActiveVoxels(from, to, materials,
+                        voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials);
+            };
+            tasks.add(task);
+        }
+
+        int size = 0;
+        try {
+            List<Future<Integer>> futures = service.invokeAll(tasks);
+            for (Future<Integer> future : futures) {
+                size += future.get();
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+        return size;
+    }
+
+    private int FindActiveVoxels(int from, int to,
                          int[] materials,
-                         int[] voxelOccupancy,
-                         int[] voxelEdgeInfo,
-                         int[] voxelPositions,
-                         int[] voxelMaterials) {
+                         int[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials) {
         int size = 0;
         for (int k = from; k < to; k++) {
             int indexShift = VoxelHelperUtils.log2(meshGen.getVoxelsPerChunk()); // max octree depth
