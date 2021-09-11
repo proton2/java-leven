@@ -419,16 +419,45 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
     }
 
+//    private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges, int bound) {
+//        Vec4f[] normals = new Vec4f[bound];
+//        int threadBound = bound / availableProcessors;
+//        for (int i = 0; i < availableProcessors; i++) {
+//            int from = i * threadBound;
+//            int to = from + threadBound;
+//            service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals));
+//            if (i == availableProcessors - 1 && to <= bound-1) {
+//                service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals));
+//            }
+//        }
+//        return normals;
+//    }
+
     private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges, int bound) {
+        List<Callable<Boolean>> tasks = new ArrayList<>();
         Vec4f[] normals = new Vec4f[bound];
-        int threadBound = bound / availableProcessors;
+        final int threadBound = bound / availableProcessors;
+
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
-            service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals));
-            if (i == availableProcessors - 1 && to <= bound-1) {
-                service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals));
+            Callable<Boolean> task = () -> {
+                FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals);
+                return true;
+            };
+            tasks.add(task);
+            if (i == availableProcessors - 1 && to <= bound - 1) { //<= normals.length - 1
+                Callable<Boolean> finishTask = () -> {
+                    FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals);
+                    return true;
+                };
+                tasks.add(finishTask);
             }
+        }
+        try {
+            service.invokeAll(tasks);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
         }
         return normals;
     }

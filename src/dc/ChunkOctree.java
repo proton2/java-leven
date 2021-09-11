@@ -191,7 +191,7 @@ public class ChunkOctree {
             try {
                 update(camera);
             } catch (Throwable e){
-                logger.log(Level.SEVERE, e.toString());
+                e.printStackTrace();
             }
         });
         physics.Physics_CastRay(rayStart, rayEnd);
