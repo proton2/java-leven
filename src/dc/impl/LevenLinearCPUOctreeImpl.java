@@ -400,7 +400,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
     private void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges,
                                           Vec4f[] normals) {
-        int t=3;
         for (int index = from; index < to; index++) {
             int edge = encodedEdges[index];
             int axisIndex = edge & 3;
@@ -419,35 +418,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             normals[index] = new Vec4f(normal.getVec3f(), p.w);
         }
     }
-
-//    private void FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges,
-//                                                     Vec4f[] normals) {
-//        List<Callable<Boolean>> tasks = new ArrayList<>();
-//        int bound = normals.length;
-//        final int threadBound = bound / availableProcessors;
-//
-//        for (int i = 0; i < availableProcessors; i++) {
-//            int from = i * threadBound;
-//            int to = from + threadBound;
-//            Callable<Boolean> task = () -> {
-//                FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals);
-//                return true;
-//            };
-//            tasks.add(task);
-//            if (i == availableProcessors - 1 && to < normals.length) { //<= normals.length - 1
-//                Callable<Boolean> finishTask = () -> {
-//                    FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals);
-//                    return true;
-//                };
-//                tasks.add(finishTask);
-//            }
-//        }
-//        try {
-//            service.invokeAll(tasks);
-//        } catch (Exception e) {
-//            logger.log(Level.SEVERE, e.toString());
-//        }
-//    }
 
     private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges, int bound) {
         Vec4f[] normals = new Vec4f[bound];
