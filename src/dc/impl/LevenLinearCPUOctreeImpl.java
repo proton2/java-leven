@@ -180,7 +180,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
-        //////////////////////////////
         field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu,
                 edgeOccupancy, edgeIndicesNonCompact);
         if(field.numEdges==0 || field.numEdges<0){
@@ -188,7 +187,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
 
         field.edgeIndicesCpu = compactEdges(edgeOccupancy, edgeIndicesNonCompact, field.numEdges);
-        field.normalsCpu = FindEdgeIntersectionInfo(field.min, field.size / meshGen.getVoxelsPerChunk(), 0, field.numEdges, field.edgeIndicesCpu);
+        field.normalsCpu = FindEdgeIntersectionInfoMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), field.edgeIndicesCpu, field.numEdges);
     }
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
@@ -399,8 +398,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             new Vec3i(0,0,1)
     };
 
-    private Vec4f[] FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges) {
-        Vec4f[] edgeInfo = new Vec4f[encodedEdges.length];
+    private void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges,
+                                          Vec4f[] normals) {
+        int t=3;
         for (int index = from; index < to; index++) {
             int edge = encodedEdges[index];
             int axisIndex = edge & 3;
@@ -416,9 +416,51 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             Vec4f p = ApproximateLevenCrossingPosition(p0, p1);
             Vec4f normal = CalculateSurfaceNormal(p);
 
-            edgeInfo[index] = new Vec4f(normal.getVec3f(), p.w);
+            normals[index] = new Vec4f(normal.getVec3f(), p.w);
         }
-        return edgeInfo;
+    }
+
+//    private void FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges,
+//                                                     Vec4f[] normals) {
+//        List<Callable<Boolean>> tasks = new ArrayList<>();
+//        int bound = normals.length;
+//        final int threadBound = bound / availableProcessors;
+//
+//        for (int i = 0; i < availableProcessors; i++) {
+//            int from = i * threadBound;
+//            int to = from + threadBound;
+//            Callable<Boolean> task = () -> {
+//                FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals);
+//                return true;
+//            };
+//            tasks.add(task);
+//            if (i == availableProcessors - 1 && to < normals.length) { //<= normals.length - 1
+//                Callable<Boolean> finishTask = () -> {
+//                    FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals);
+//                    return true;
+//                };
+//                tasks.add(finishTask);
+//            }
+//        }
+//        try {
+//            service.invokeAll(tasks);
+//        } catch (Exception e) {
+//            logger.log(Level.SEVERE, e.toString());
+//        }
+//    }
+
+    private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges, int bound) {
+        Vec4f[] normals = new Vec4f[bound];
+        int threadBound = bound / availableProcessors;
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals));
+            if (i == availableProcessors - 1 && to <= bound-1) {
+                service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals));
+            }
+        }
+        return normals;
     }
 
     private int FindActiveVoxelsMultiThread(int[] materials,
