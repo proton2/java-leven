@@ -76,8 +76,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int[] d_indexBuffer = new int[indexBufferSize];
             int trianglesValidSize = octree.numNodes * 3;
             int[] d_trianglesValid = new int[trianglesValidSize];
-            //////////////////////////////
-            int trianglesValidCount = generateMesh(octree.octreeNodes, octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu,
+            int trianglesValidCount = generateMeshMultiThread(octree.d_nodeCodesCpu.length, octree.octreeNodes, octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu,
                     d_indexBuffer, d_trianglesValid);
 
             int numTriangles = trianglesValidCount * 2;
@@ -723,10 +722,39 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             { new Vec3i(0, 0, 0), new Vec3i(0, 1, 0), new Vec3i(1, 0, 0), new Vec3i(1, 1, 0) },
     };
 
-    private int generateMesh(Map<Integer, Integer> nodes, int[] octreeNodeCodes, int[] octreeMaterials,
+    private int generateMeshMultiThread(int bound, Map<Integer, Integer> nodes, int[] octreeNodeCodes, int[] octreeMaterials,
+                                         int[] meshIndexBuffer, int[] trianglesValid) {
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        final int threadBound = bound / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            Callable<Integer> task = () -> generateMesh(from, to, nodes, octreeNodeCodes, octreeMaterials,
+                    meshIndexBuffer, trianglesValid);
+            tasks.add(task);
+            if (i == availableProcessors - 1 && to <= bound - 1) {
+                Callable<Integer> finishTask = () -> generateMesh(to, bound, nodes, octreeNodeCodes, octreeMaterials,
+                    meshIndexBuffer, trianglesValid);
+                tasks.add(finishTask);
+            }
+        }
+        int size = 0;
+        try {
+            List<Future<Integer>> futures = service.invokeAll(tasks);
+            for (Future<Integer> future : futures) {
+                size += future.get();
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+        return size;
+    }
+
+    private int generateMesh(int from, int to, Map<Integer, Integer> nodes, int[] octreeNodeCodes, int[] octreeMaterials,
                              int[] meshIndexBuffer, int[] trianglesValid) {
         int size = 0;
-        for (int index = 0; index < octreeNodeCodes.length; index++) {
+        for (int index = from; index < to; index++) {
             int code = octreeNodeCodes[index];
             int triIndex = index * 3;
 
