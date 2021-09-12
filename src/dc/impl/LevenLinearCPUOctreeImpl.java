@@ -213,17 +213,14 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
         QEFData[] qefs = new QEFData[octree.numNodes];
         octree.d_vertexNormalsCpu = new Vec4f[octree.numNodes];
-        //////////////////////////////
-
         Map<Integer, Integer> edgeIndicatesMap = new HashMap<>(field.edgeIndicesCpu.length);
         for(int i =0; i<field.edgeIndicesCpu.length; i++){
             edgeIndicatesMap.put(field.edgeIndicesCpu[i], i);
         }
-        createLeafNodes(0, octree.numNodes, octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, field.normalsCpu, edgeIndicatesMap,
+        createLeafNodesMultiThread(octree.numNodes, octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, field.normalsCpu, edgeIndicatesMap,
                 qefs, octree.d_vertexNormalsCpu);
 
         octree.d_vertexPositionsCpu = new Vec4f[octree.numNodes];
-        //////////////////////////////
         solveQEFs(octree.d_nodeCodesCpu, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, octree.numNodes, qefs,
                 octree.d_vertexPositionsCpu);
         return octree;
@@ -565,6 +562,36 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
         }
         return octreeNodes;
+    }
+
+    private void createLeafNodesMultiThread(int bound, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
+                                               QEFData[] leafQEFs, Vec4f[] vertexNormals) {
+        List<Callable<Boolean>> tasks = new ArrayList<>();
+        final int threadBound = bound / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            Callable<Boolean> task = () -> {
+                createLeafNodes(from, to, voxelPositions, voxelEdgeInfo, edgeDataTable, nodes,
+                        leafQEFs, vertexNormals);
+                return true;
+            };
+            tasks.add(task);
+            if (i == availableProcessors - 1 && to <= bound - 1) { //<= normals.length - 1
+                Callable<Boolean> finishTask = () -> {
+                    createLeafNodes(to, bound, voxelPositions, voxelEdgeInfo, edgeDataTable, nodes,
+                            leafQEFs, vertexNormals);
+                    return true;
+                };
+                tasks.add(finishTask);
+            }
+        }
+        try {
+            service.invokeAll(tasks);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
     }
 
     private void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Vec4f[] edgeDataTable, Map<Integer, Integer> nodes,
