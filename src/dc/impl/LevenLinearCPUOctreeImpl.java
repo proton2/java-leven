@@ -32,7 +32,8 @@ import static java.lang.Math.max;
 public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     final public static Logger logger = Logger.getLogger(LevenLinearCPUOctreeImpl.class.getName());
     private final ExecutorService service;
-    int availableProcessors;
+    private final int availableProcessors;
+    private final boolean enableQefClamping = true;
 
     public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                     Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
@@ -221,8 +222,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 qefs, octree.d_vertexNormalsCpu);
 
         octree.d_vertexPositionsCpu = new Vec4f[octree.numNodes];
-        solveQEFs(octree.d_nodeCodesCpu, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, octree.numNodes, qefs,
-                octree.d_vertexPositionsCpu);
+        solveQEFsMultiThread(octree.d_nodeCodesCpu, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin,
+                qefs, octree.d_vertexPositionsCpu, octree.numNodes);
         return octree;
     }
 
@@ -647,12 +648,40 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
     }
 
+    private void solveQEFsMultiThread(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin,
+                                      QEFData[] qefs, Vec4f[] solvedPosition, int bound) {
+        List<Callable<Boolean>> tasks = new ArrayList<>();
+        final int threadBound = bound / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            Callable<Boolean> task = () -> {
+                solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, from, to,
+                    qefs, solvedPosition);
+                return true;
+            };
+            tasks.add(task);
+            if (i == availableProcessors - 1 && to <= bound - 1) {
+                Callable<Boolean> finishTask = () -> {
+                    solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, to, bound,
+                            qefs, solvedPosition);
+                    return true;
+                };
+                tasks.add(finishTask);
+            }
+        }
+        try {
+            service.invokeAll(tasks);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+    }
+
     private void solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
                            QEFData[] qefs, Vec4f[] solvedPositions){
         for (int index = from; index < to; index++) {
-            //Vec3i pos = LinearOctreeTest.positionForCode(d_nodeCodes[index]);
             int leafSize = (chunkSize / voxelsPerChunk);
-            //Vec3i leaf = pos.mul(leafSize).add(chunkMin);
 
             Vec4f solvedPos;
             if(leafSize == meshGen.leafSizeScale) {
@@ -662,10 +691,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
 
             solvedPos = solvedPos.mul(leafSize).add(chunkMin);
-
-            // clamping
-            //Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
-            //solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
+            if(enableQefClamping) {
+                Vec3i leaf = positionForCode(d_nodeCodes[index]).mul(leafSize).add(chunkMin);
+                Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
+                solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
+            }
             solvedPositions[index] = solvedPos;
         }
     }
