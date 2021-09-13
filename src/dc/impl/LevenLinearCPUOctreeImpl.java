@@ -466,14 +466,16 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int threadBound = bound / availableProcessors;
 
         for (int i = 0; i < availableProcessors; i++) {
-            int finalI = i;
-            Callable<Integer> task = () -> {
-                int from = finalI * threadBound;
-                int to = from + threadBound;
-                return FindActiveVoxels(from, to, materials,
-                        voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials);
-            };
+            int from = i * threadBound;
+            int to = from + threadBound;
+            Callable<Integer> task = () -> FindActiveVoxels(from, to, materials,
+                    voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials);
             tasks.add(task);
+            if(i == availableProcessors - 1 && to <= bound - 1){
+                Callable<Integer> finishTask = () -> FindActiveVoxels(to, bound, materials,
+                        voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials);
+                tasks.add(finishTask);
+            }
         }
 
         int size = 0;
