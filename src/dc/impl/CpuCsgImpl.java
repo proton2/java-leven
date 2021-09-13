@@ -87,7 +87,7 @@ public class CpuCsgImpl implements ICSGOperations{
         compactElements(d_updatedIndices, d_updatedPoints, d_compactUpdatedPoints);
 
         int[] d_generatedEdgeIndices = new int [numUpdatedPoints * 6];
-        int numCompactEdgeIndices = FindUpdatedEdges(d_compactUpdatedPoints, d_generatedEdgeIndices);
+        int numCompactEdgeIndices = FindUpdatedEdgesMultiThread(d_compactUpdatedPoints, d_generatedEdgeIndices);
 
         Set<Integer> d_invalidatedEdges = CompactIndexArray(d_generatedEdgeIndices, numCompactEdgeIndices);
 
@@ -111,7 +111,7 @@ public class CpuCsgImpl implements ICSGOperations{
         }
 
         if (numCreatedEdges > 0) {
-            Vec4f[] d_createdNormals = FindEdgeIntersectionInfo(fieldOffset, opInfo, sampleScale, d_createdEdges);
+            Vec4f[] d_createdNormals = FindEdgeIntersectionInfoMultiThread(fieldOffset, opInfo, sampleScale, d_createdEdges);
             if (field.numEdges > 0) {
                 int oldSize = field.numEdges;
                 int newSize = oldSize + numCreatedEdges;
@@ -216,11 +216,42 @@ public class CpuCsgImpl implements ICSGOperations{
         }
     }
 
-    private int FindUpdatedEdges(Vec3i[] updatedHermiteIndices,
+    private int FindUpdatedEdgesMultiThread(Vec3i[] updatedHermiteIndices,
+                                 int[] updatedHermiteEdgeIndices) {
+        int bound = updatedHermiteIndices.length;
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        final int threadBound = bound / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            Callable<Integer> task = () -> FindUpdatedEdges(from, to, updatedHermiteIndices,
+                    updatedHermiteEdgeIndices);
+            tasks.add(task);
+            if(i == availableProcessors - 1 && to <= bound - 1){
+                Callable<Integer> finishTask = () -> FindUpdatedEdges(to, bound, updatedHermiteIndices,
+                        updatedHermiteEdgeIndices);
+                tasks.add(finishTask);
+            }
+        }
+
+        int size = 0;
+        try {
+            List<Future<Integer>> futures = service.invokeAll(tasks);
+            for (Future<Integer> future : futures) {
+                size += future.get();
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+        return size;
+    }
+
+    private int FindUpdatedEdges(int from, int to, Vec3i[] updatedHermiteIndices,
             int[] updatedHermiteEdgeIndices)
     {
         int size=0;
-        for(int id=0; id<updatedHermiteIndices.length; id++){
+        for(int id=from; id<to; id++){
             int edgeIndex = id * 6;
             Vec3i pos = updatedHermiteIndices[id];
             int posIndex = (pos.x | (pos.y << meshGen.getIndexShift()) | (pos.z << (meshGen.getIndexShift() * 2))) << 2;
@@ -336,9 +367,38 @@ public class CpuCsgImpl implements ICSGOperations{
         }
     }
 
-    private Vec4f[] FindEdgeIntersectionInfo(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges) {
+    private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges) {
+        List<Callable<Boolean>> tasks = new ArrayList<>();
         Vec4f[] normals = new Vec4f[compactEdges.length];
-        for (int index = 0; index < compactEdges.length; index++) {
+        int bound = compactEdges.length;
+        final int threadBound = bound / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            Callable<Boolean> task = () -> {
+                FindEdgeIntersectionInfo(from, to, offset, operations, sampleScale, compactEdges, normals);
+                return true;
+            };
+            tasks.add(task);
+            if (i == availableProcessors - 1 && to <= bound - 1) { //<= normals.length - 1
+                Callable<Boolean> finishTask = () -> {
+                    FindEdgeIntersectionInfo(to, bound, offset, operations, sampleScale, compactEdges, normals);
+                    return true;
+                };
+                tasks.add(finishTask);
+            }
+        }
+        try {
+            service.invokeAll(tasks);
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+        return normals;
+    }
+
+    private void FindEdgeIntersectionInfo(int from, int to, Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges, Vec4f[] normals) {
+        for (int index = from; index < to; index++) {
             int globalEdgeIndex = compactEdges[index];
             int edgeIndex = 4 * (globalEdgeIndex & 3);
             int voxelIndex = globalEdgeIndex >> 2;
@@ -362,7 +422,6 @@ public class CpuCsgImpl implements ICSGOperations{
             Vec3f n = BrushNormal(p, operations);
             normals[index] = new Vec4f(n, t);
         }
-        return normals;
     }
 
     private Vec4i LeafScaleVec(Vec3i v) {
