@@ -126,7 +126,7 @@ public class Camera {
 		}
 		
 		// free mouse rotation
-		if(Input.getInstance().isButtonHolding(2))
+		if(Input.getInstance().isShowCursor() && Input.getInstance().getLockedCursorPosition()!=null)
 		{
 			float dy = Input.getInstance().getLockedCursorPosition().getY() - Input.getInstance().getCursorPosition().getY();
 			float dx = Input.getInstance().getLockedCursorPosition().getX() - Input.getInstance().getCursorPosition().getX();

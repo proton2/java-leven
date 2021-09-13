@@ -1,19 +1,5 @@
 package core.kernel;
 
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR;
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_HIDDEN;
-import static org.lwjgl.glfw.GLFW.GLFW_CURSOR_NORMAL;
-import static org.lwjgl.glfw.GLFW.GLFW_PRESS;
-import static org.lwjgl.glfw.GLFW.GLFW_RELEASE;
-import static org.lwjgl.glfw.GLFW.glfwPollEvents;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPos;
-import static org.lwjgl.glfw.GLFW.glfwSetCursorPosCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetScrollCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetInputMode;
-import static org.lwjgl.glfw.GLFW.glfwSetKeyCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetMouseButtonCallback;
-import static org.lwjgl.glfw.GLFW.glfwSetFramebufferSizeCallback;
-
 import java.util.ArrayList;
 
 import org.lwjgl.glfw.GLFWCursorPosCallback;
@@ -23,6 +9,8 @@ import org.lwjgl.glfw.GLFWScrollCallback;
 import org.lwjgl.glfw.GLFWFramebufferSizeCallback;
 
 import core.math.Vec2f;
+
+import static org.lwjgl.glfw.GLFW.*;
 
 /**
  * 
@@ -47,6 +35,10 @@ public class Input {
 	private float scrollOffset;
 	
 	private boolean pause = false;
+	private boolean showCursor;
+	public boolean isShowCursor() {
+		return showCursor;
+	}
 	
 	@SuppressWarnings("unused")
 	private GLFWKeyCallback keyCallback;
@@ -98,6 +90,16 @@ public class Input {
                 	keysHolding.remove(new Integer(key));
                 	releasedKeys.add(key);
                 }
+
+				if(keysHolding.contains(GLFW_KEY_TAB)) {
+					lockedCursorPosition = new Vec2f(cursorPosition);
+					showCursor = !showCursor;
+					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
+				}
+
+				if(!showCursor) {
+					glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+				}
             }
         }));
 		
@@ -105,15 +107,6 @@ public class Input {
 
             @Override
             public void invoke(long window, int button, int action, int mods) {
-                if(button == 2 && action == GLFW_PRESS) {
-                	lockedCursorPosition = new Vec2f(cursorPosition);
-                	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_HIDDEN);
-                }
-
-                if(button == 2 && action == GLFW_RELEASE) {
-                	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-                }
-                
                 if (action == GLFW_PRESS){
                 	if (!pushedButtons.contains(button)){
                 		pushedButtons.add(button);
