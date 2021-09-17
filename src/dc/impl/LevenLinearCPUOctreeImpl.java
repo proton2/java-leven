@@ -438,18 +438,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
-            Callable<Boolean> task = () -> {
-                FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals);
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
+            Callable<Boolean> task= () -> {
+                FindEdgeIntersectionInfo(chunkMin, sampleScale, from, last ? bound : to, encodedEdges, normals);
                 return true;
             };
             tasks.add(task);
-            if (i == availableProcessors - 1 && to <= bound - 1) { //<= normals.length - 1
-                Callable<Boolean> finishTask = () -> {
-                    FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals);
-                    return true;
-                };
-                tasks.add(finishTask);
-            }
         }
         try {
             service.invokeAll(tasks);
@@ -468,14 +462,10 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
-            Callable<Integer> task = () -> FindActiveVoxels(from, to, materials,
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
+            Callable<Integer> task = () -> FindActiveVoxels(from, last ? bound : to, materials,
                     voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials);
             tasks.add(task);
-            if(i == availableProcessors - 1 && to <= bound - 1){
-                Callable<Integer> finishTask = () -> FindActiveVoxels(to, bound, materials,
-                        voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials);
-                tasks.add(finishTask);
-            }
         }
 
         int size = 0;
@@ -574,20 +564,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
             Callable<Boolean> task = () -> {
-                createLeafNodes(from, to, voxelPositions, voxelEdgeInfo, edgeDataTable, nodes,
-                        leafQEFs, vertexNormals);
+                createLeafNodes(from, last ? bound : to, voxelPositions, voxelEdgeInfo, edgeDataTable, nodes, leafQEFs, vertexNormals);
                 return true;
             };
             tasks.add(task);
-            if (i == availableProcessors - 1 && to <= bound - 1) { //<= normals.length - 1
-                Callable<Boolean> finishTask = () -> {
-                    createLeafNodes(to, bound, voxelPositions, voxelEdgeInfo, edgeDataTable, nodes,
-                            leafQEFs, vertexNormals);
-                    return true;
-                };
-                tasks.add(finishTask);
-            }
         }
         try {
             service.invokeAll(tasks);
@@ -657,20 +639,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
             Callable<Boolean> task = () -> {
-                solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, from, to,
-                    qefs, solvedPosition);
+                solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, from, last ? bound : to, qefs, solvedPosition);
                 return true;
             };
             tasks.add(task);
-            if (i == availableProcessors - 1 && to <= bound - 1) {
-                Callable<Boolean> finishTask = () -> {
-                    solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, to, bound,
-                            qefs, solvedPosition);
-                    return true;
-                };
-                tasks.add(finishTask);
-            }
         }
         try {
             service.invokeAll(tasks);
@@ -732,14 +706,10 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
-            Callable<Integer> task = () -> generateMesh(from, to, nodes, octreeNodeCodes, octreeMaterials,
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
+            Callable<Integer> task = () -> generateMesh(from, last ? bound : to, nodes, octreeNodeCodes, octreeMaterials,
                     meshIndexBuffer, trianglesValid);
             tasks.add(task);
-            if (i == availableProcessors - 1 && to <= bound - 1) {
-                Callable<Integer> finishTask = () -> generateMesh(to, bound, nodes, octreeNodeCodes, octreeMaterials,
-                    meshIndexBuffer, trianglesValid);
-                tasks.add(finishTask);
-            }
         }
         int size = 0;
         try {

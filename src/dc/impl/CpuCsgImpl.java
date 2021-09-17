@@ -225,14 +225,9 @@ public class CpuCsgImpl implements ICSGOperations{
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
-            Callable<Integer> task = () -> FindUpdatedEdges(from, to, updatedHermiteIndices,
-                    updatedHermiteEdgeIndices);
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
+            Callable<Integer> task = () -> FindUpdatedEdges(from, last ? bound : to, updatedHermiteIndices, updatedHermiteEdgeIndices);
             tasks.add(task);
-            if(i == availableProcessors - 1 && to <= bound - 1){
-                Callable<Integer> finishTask = () -> FindUpdatedEdges(to, bound, updatedHermiteIndices,
-                        updatedHermiteEdgeIndices);
-                tasks.add(finishTask);
-            }
         }
 
         int size = 0;
@@ -376,18 +371,12 @@ public class CpuCsgImpl implements ICSGOperations{
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
             Callable<Boolean> task = () -> {
-                FindEdgeIntersectionInfo(from, to, offset, operations, sampleScale, compactEdges, normals);
+                FindEdgeIntersectionInfo(from, last ? bound : to, offset, operations, sampleScale, compactEdges, normals);
                 return true;
             };
             tasks.add(task);
-            if (i == availableProcessors - 1 && to <= bound - 1) { //<= normals.length - 1
-                Callable<Boolean> finishTask = () -> {
-                    FindEdgeIntersectionInfo(to, bound, offset, operations, sampleScale, compactEdges, normals);
-                    return true;
-                };
-                tasks.add(finishTask);
-            }
         }
         try {
             service.invokeAll(tasks);
