@@ -19,15 +19,14 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class ChunkOctree {
     final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
     private final ExecutorService service;
+    private final ExecutorService chunkService;
     private ChunkNode root;
     private Camera camera;
     private final VoxelOctree voxelOctree;
@@ -38,6 +37,9 @@ public class ChunkOctree {
     private final Physics physics;
     private final boolean enablePhysics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
+    private ArrayList<ChunkNode> nodes;
+    private float[] LOD_ACTIVE_DISTANCES;
+    private final int availableProcessors;
 
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
@@ -50,6 +52,18 @@ public class ChunkOctree {
     public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
                        boolean enablePhysics) {
         this.meshGen = meshGen;
+         LOD_ACTIVE_DISTANCES = new float[] {0.f,
+                meshGen.clipmapLeafSize * 1.5f,
+                meshGen.clipmapLeafSize * 3.5f,
+                meshGen.clipmapLeafSize * 5.5f,
+                meshGen.clipmapLeafSize * 7.5f,
+                meshGen.clipmapLeafSize * 9.5f,
+                meshGen.clipmapLeafSize * 11.5f,
+                meshGen.clipmapLeafSize * 13.5f
+        };
+        availableProcessors = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
+        chunkService = Executors.newFixedThreadPool(availableProcessors);
+
         this.physics = physics;
         this.voxelOctree = voxelOctree;
         service = Executors.newSingleThreadExecutor();
@@ -97,12 +111,14 @@ public class ChunkOctree {
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
         root.worldNode = new WorldCollisionNode();
 
-        constructChildrens(root);
+        nodes = new ArrayList<>(2396745);
+        int count = constructChildrens(root);
     }
 
-    private void constructChildrens(ChunkNode node) {
+    private int constructChildrens(ChunkNode node) {
+        nodes.add(node);
         if (node.size == meshGen.clipmapLeafSize) {
-            return;
+            return 1;
         }
         for (int i = 0; i < 8; i++) {
             ChunkNode child = new ChunkNode();
@@ -111,40 +127,57 @@ public class ChunkOctree {
             child.worldNode = new WorldCollisionNode();
             node.children[i] = child;
         }
+        int count = 1;
         for (int i = 0; i < 8; i++) {
-            constructChildrens(node.children[i]);
+            count += constructChildrens(node.children[i]);
         }
+        return count;
     }
 
-    private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
-        float[] LOD_ACTIVE_DISTANCES = {0.f,
-                meshGen.clipmapLeafSize * 1.5f,
-                meshGen.clipmapLeafSize * 3.5f,
-                meshGen.clipmapLeafSize * 5.5f,
-                meshGen.clipmapLeafSize * 7.5f,
-                meshGen.clipmapLeafSize * 9.5f,
-                meshGen.clipmapLeafSize * 11.5f,
-                meshGen.clipmapLeafSize * 13.5f
-        };
-        if (node==null) {
-            return;
-        }
-        boolean nodeActive = false;
-        if (!parentActive && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
+//    private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
+//        if (node==null) {
+//            return;
+//        }
+//        boolean nodeActive = false;
+//        if (!parentActive && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
+//            int size = node.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
+//            int distanceIndex = VoxelHelperUtils.log2(size);
+//            float d = LOD_ACTIVE_DISTANCES[distanceIndex];
+//            float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
+//            if (nodeDistance >= d) {
+//                selectedNodes.add(node);
+//                nodeActive = true;
+//            }
+//        }
+//        if (node.active && !nodeActive) {
+//            node.invalidated = true;
+//        }
+//        for (int i = 0; i < 8; i++) {
+//            selectActiveChunkNodes(node.children[i], parentActive || nodeActive, camPos, selectedNodes);
+//        }
+//    }
+
+    private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
+        if (node.size <= meshGen.LOD_MAX_NODE_SIZE) {
             int size = node.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
             int distanceIndex = VoxelHelperUtils.log2(size);
             float d = LOD_ACTIVE_DISTANCES[distanceIndex];
             float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
             if (nodeDistance >= d) {
                 selectedNodes.add(node);
-                nodeActive = true;
+                return true;
             }
         }
-        if (node.active && !nodeActive) {
-            node.invalidated = true;
+        return false;
+    }
+
+    private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
+        if (node==null || parentActive) {
+            return;
         }
+        node.canBeSelected = checkNodeForSelection(node, camPos, selectedNodes);
         for (int i = 0; i < 8; i++) {
-            selectActiveChunkNodes(node.children[i], parentActive || nodeActive, camPos, selectedNodes);
+            selectActiveChunkNodes(node.children[i], node.canBeSelected, camPos, selectedNodes);
         }
     }
 
@@ -152,7 +185,7 @@ public class ChunkOctree {
         if (node==null)
             return;
 
-        if(node.invalidated){
+        if(node.invalidated || (node.active && !node.canBeSelected)){
             ReleaseClipmapNodeData(node, invalidatedMeshes);
             node.invalidated=false;
         }
@@ -185,6 +218,44 @@ public class ChunkOctree {
         }
     }
 
+    private ArrayList<RenderMesh> ReleaseInvalidatedNodes(ArrayList<ChunkNode> chunkNodes) {
+        List<Callable<List<RenderMesh>>> tasks = new ArrayList<>();
+        int bound = chunkNodes.size();
+        final int threadBound = bound / availableProcessors;
+
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
+            Callable<List<RenderMesh>> task = () -> ReleaseInvalidatedNodes(from, last ? bound : to, chunkNodes);
+            tasks.add(task);
+        }
+
+        ArrayList<RenderMesh> selectedNodes = new ArrayList<>();
+        try {
+            List<Future<List<RenderMesh>>> futures = chunkService.invokeAll(tasks);
+            for (Future<List<RenderMesh>> future : futures) {
+                selectedNodes.addAll(future.get());
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
+        }
+        return selectedNodes;
+    }
+
+    private ArrayList<RenderMesh> ReleaseInvalidatedNodes(int from, int to, ArrayList<ChunkNode> chunkNodes){
+        ArrayList<RenderMesh> invalidatedMeshes = new ArrayList<>();
+        for (int i = from; i < to; i++) {
+            ChunkNode node = chunkNodes.get(i);
+
+            if(node.invalidated || (node.active && !node.canBeSelected)){
+                ReleaseClipmapNodeData(node, invalidatedMeshes);
+                node.invalidated=false;
+            }
+        }
+        return invalidatedMeshes;
+    }
+
     public void update(Camera cam, Vec3f rayStart, Vec3f rayEnd){
         this.camera = cam;
         service.submit(() -> {
@@ -206,9 +277,7 @@ public class ChunkOctree {
     public void update(Camera camera) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
-
-        ArrayList<RenderMesh> invalidatedMeshes = new ArrayList<>();
-        ReleaseInvalidatedNodes(root, invalidatedMeshes);
+        ArrayList<RenderMesh> invalidatedMeshes = ReleaseInvalidatedNodes(nodes);
 
         ArrayList<ChunkNode> filteredNodes = new ArrayList<>();
         ArrayList<ChunkNode> reserveNodes = new ArrayList<>();
@@ -224,6 +293,7 @@ public class ChunkOctree {
             } else {
                 activeNodes.add(selectedNode);
             }
+            selectedNode.canBeSelected = false;
         }
         if (filteredNodes.isEmpty()) {
             if (!reserveNodes.isEmpty()) {          // no nodes in the frustum need updated so update outside nodes
