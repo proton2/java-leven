@@ -19,14 +19,14 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.*;
-import java.util.logging.Level;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 public class ChunkOctree {
     final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
     private final ExecutorService service;
-    private final ExecutorService chunkService;
     private ChunkNode root;
     private Camera camera;
     private final VoxelOctree voxelOctree;
@@ -35,11 +35,9 @@ public class ChunkOctree {
     private List<RenderMesh> invalidateMeshes;
     private ConcurrentLinkedDeque<CSGOperationInfo> g_operationQueue = new ConcurrentLinkedDeque<>();
     private final Physics physics;
-    private final boolean enablePhysics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
-    private ArrayList<ChunkNode> nodes;
     private float[] LOD_ACTIVE_DISTANCES;
-    private final int availableProcessors;
+    private ArrayList<ChunkNode> prevSelectedNodes;
 
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
@@ -61,14 +59,10 @@ public class ChunkOctree {
                 meshGen.clipmapLeafSize * 11.5f,
                 meshGen.clipmapLeafSize * 13.5f
         };
-        availableProcessors = Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
-        chunkService = Executors.newFixedThreadPool(availableProcessors);
-
         this.physics = physics;
         this.voxelOctree = voxelOctree;
         service = Executors.newSingleThreadExecutor();
         buildChunkOctree();
-        this.enablePhysics = enablePhysics;
         update(cam);
         if(enablePhysics) {
             physics.Physics_SpawnPlayer(cam.getPosition());
@@ -110,13 +104,10 @@ public class ChunkOctree {
         root.min = boundsCentre.sub(new Vec3i(root.size / 2));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
         root.worldNode = new WorldCollisionNode();
-
-        nodes = new ArrayList<>(2396745);
         int count = constructChildrens(root);
     }
 
     private int constructChildrens(ChunkNode node) {
-        nodes.add(node);
         if (node.size == meshGen.clipmapLeafSize) {
             return 1;
         }
@@ -133,29 +124,6 @@ public class ChunkOctree {
         }
         return count;
     }
-
-//    private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
-//        if (node==null) {
-//            return;
-//        }
-//        boolean nodeActive = false;
-//        if (!parentActive && node.size <= meshGen.LOD_MAX_NODE_SIZE) {
-//            int size = node.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
-//            int distanceIndex = VoxelHelperUtils.log2(size);
-//            float d = LOD_ACTIVE_DISTANCES[distanceIndex];
-//            float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
-//            if (nodeDistance >= d) {
-//                selectedNodes.add(node);
-//                nodeActive = true;
-//            }
-//        }
-//        if (node.active && !nodeActive) {
-//            node.invalidated = true;
-//        }
-//        for (int i = 0; i < 8; i++) {
-//            selectActiveChunkNodes(node.children[i], parentActive || nodeActive, camPos, selectedNodes);
-//        }
-//    }
 
     private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
         if (node.size <= meshGen.LOD_MAX_NODE_SIZE) {
@@ -181,21 +149,7 @@ public class ChunkOctree {
         }
     }
 
-    private void ReleaseInvalidatedNodes(ChunkNode node, ArrayList<RenderMesh> invalidatedMeshes) {
-        if (node==null)
-            return;
-
-        if(node.invalidated || (node.active && !node.canBeSelected)){
-            ReleaseClipmapNodeData(node, invalidatedMeshes);
-            node.invalidated=false;
-        }
-
-        for (int i = 0; i < 8; i++) {
-            ReleaseInvalidatedNodes(node.children[i], invalidatedMeshes);
-        }
-    }
-
-    void ReleaseClipmapNodeData(ChunkNode node, ArrayList<RenderMesh> invalidatedMeshes) {
+    private void ReleaseClipmapNodeData(ChunkNode node, ArrayList<RenderMesh> invalidatedMeshes) {
         node.active = false;
 
         if (node.renderMesh!=null) {
@@ -218,39 +172,14 @@ public class ChunkOctree {
         }
     }
 
-    private ArrayList<RenderMesh> ReleaseInvalidatedNodes(ArrayList<ChunkNode> chunkNodes) {
-        List<Callable<List<RenderMesh>>> tasks = new ArrayList<>();
-        int bound = chunkNodes.size();
-        final int threadBound = bound / availableProcessors;
-
-        for (int i = 0; i < availableProcessors; i++) {
-            int from = i * threadBound;
-            int to = from + threadBound;
-            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
-            Callable<List<RenderMesh>> task = () -> ReleaseInvalidatedNodes(from, last ? bound : to, chunkNodes);
-            tasks.add(task);
-        }
-
-        ArrayList<RenderMesh> selectedNodes = new ArrayList<>();
-        try {
-            List<Future<List<RenderMesh>>> futures = chunkService.invokeAll(tasks);
-            for (Future<List<RenderMesh>> future : futures) {
-                selectedNodes.addAll(future.get());
-            }
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, e.toString());
-        }
-        return selectedNodes;
-    }
-
-    private ArrayList<RenderMesh> ReleaseInvalidatedNodes(int from, int to, ArrayList<ChunkNode> chunkNodes){
+    private ArrayList<RenderMesh> ReleaseInvalidatedNodes(ArrayList<ChunkNode> chunkNodes){
         ArrayList<RenderMesh> invalidatedMeshes = new ArrayList<>();
-        for (int i = from; i < to; i++) {
-            ChunkNode node = chunkNodes.get(i);
-
-            if(node.invalidated || (node.active && !node.canBeSelected)){
-                ReleaseClipmapNodeData(node, invalidatedMeshes);
-                node.invalidated=false;
+        if(chunkNodes!=null) {
+            for (ChunkNode node : chunkNodes) {
+                if (node.invalidated || (node.active && !node.canBeSelected)) {
+                    ReleaseClipmapNodeData(node, invalidatedMeshes);
+                    node.invalidated = false;
+                }
             }
         }
         return invalidatedMeshes;
@@ -277,7 +206,8 @@ public class ChunkOctree {
     public void update(Camera camera) {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
-        ArrayList<RenderMesh> invalidatedMeshes = ReleaseInvalidatedNodes(nodes);
+        ArrayList<RenderMesh> invalidatedMeshes = ReleaseInvalidatedNodes(prevSelectedNodes);
+        prevSelectedNodes = selectedNodes;
 
         ArrayList<ChunkNode> filteredNodes = new ArrayList<>();
         ArrayList<ChunkNode> reserveNodes = new ArrayList<>();
