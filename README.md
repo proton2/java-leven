@@ -15,6 +15,7 @@ CPU and OpenCL GPU implementations.
   - Transition implementation Linear octree dual contouring between simple implementation and NickGildea OpenCL DC implementation - TransitionLinearOctreeImpl.java. This is my favorite implementation.
   - Nick Gildea Leven Dual contouring implementation translated to Java CPU realization - LevenLinearCPUOctreeImpl.java
   - Nick Gildea Leven OpenCL Dual contouring implementation. In this implementation LevenLinearGPUOctreeImpl.java I call OpenCL kernels in java .
+- CSG operations (add/delete sphere/box brushes);  
 
 ## Build Instructions
 please, perform
