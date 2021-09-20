@@ -60,6 +60,10 @@ R - switch CSG brush / sphere / cube
 
 M - switch CSG operation (add/delete mode)
 
+[ - increase brush size
+
+] - decrease brush size 
+
 F1 - solid / wireframe
 
 F2 - Show chunks octree bounds
