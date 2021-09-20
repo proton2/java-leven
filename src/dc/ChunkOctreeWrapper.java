@@ -49,6 +49,8 @@ public class ChunkOctreeWrapper extends GameObject {
     private Physics physics;
     private boolean playerCollision = false;
     private int brushSize = 8;
+    private RenderShape brushShape = RenderShape.RenderShape_Sphere;
+    private boolean isAddOperation = false;
     //private ModelEntity actorCSGCube;
 
     // Uncomment necessary implementation in constructor
@@ -128,6 +130,14 @@ public class ChunkOctreeWrapper extends GameObject {
         if (Input.getInstance().isKeyHold(GLFW_KEY_LEFT_BRACKET)) {
             sleep(100);
             brushSize -=1;
+        }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_R)) {
+            sleep(200);
+            brushShape = RenderShape.values()[(brushShape.ordinal() + 1) % 2];
+        }
+        if (Input.getInstance().isKeyHold(GLFW_KEY_M)) {
+            sleep(200);
+            isAddOperation = !isAddOperation;
         }
 
         glPolygonMode(GL_FRONT_AND_BACK, drawWireframe ? GL_LINE : GL_FILL);
@@ -211,7 +221,7 @@ public class ChunkOctreeWrapper extends GameObject {
 //            Vec3f brushSizeV = new Vec3f(brushSize);
 //            Vec3f offset = dir.mul(brushSizeV);
 //            Vec3f origin = offset.add(rayPos);
-            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), RenderShape.RenderShape_Sphere, meshGenCtx.MATERIAL_SOLID, false);
+            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), brushShape, meshGenCtx.MATERIAL_SOLID, isAddOperation);
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
