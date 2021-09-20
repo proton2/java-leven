@@ -51,6 +51,14 @@ OpenCL GPU implementation:
 
 W/S/A/D - forward, backward, left, right
 
+Tab - enable/disable mouse rotation mode
+
+R_Mouse - perform CSG brush to object
+
+R - switch CSG brush / sphere / cube
+
+M - switch CSG operation (add/delete mode)
+
 F1 - solid / wireframe
 
 F2 - Show chunks octree bounds
