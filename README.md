@@ -49,6 +49,9 @@ public class ChunkOctreeWrapper extends GameObject {
 <img src="res/logo/screens/screen-02.png" width="800" />
 OpenCL GPU implementation:
 <img src="res/logo/screens/screen-03-opencl.png" width="800" />
+CSG operations:
+<img src="res/logo/screens/screen-04-csg.png" width="800" />
+<img src="res/logo/screens/screen-05-csg.png" width="800" />
 
 W/S/A/D - forward, backward, left, right
 
