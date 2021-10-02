@@ -17,9 +17,7 @@ import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import static dc.utils.SimplexNoise.getNoise;
 
@@ -72,13 +70,13 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         extractNodeInfo(isSeamNode, Constants.Yellow,chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
-        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        Set<Integer> seamNodeCodes = new HashSet<>(seamSize);
         for (OctreeNode seamNode : seamNodes) {
             if (seamNode.size > meshGen.leafSizeScale) {
-                seamNodesMap.put(seamNode.min, seamNode);
+                seamNodeCodes.add(codeForPosition(seamNode.nodeNum, meshGen.MAX_OCTREE_DEPTH));
             }
         }
-        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, chunkMin, chunkSize / meshGen.getVoxelsPerChunk());
         seamNodes.addAll(addedNodes);
     }
 

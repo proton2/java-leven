@@ -587,117 +587,37 @@ public abstract class AbstractDualContouring implements DualContouring{
     We iterate over each created boundary chunk node. We check each neighbor of the border node -
     do its children contain a surface? If they do, we create a boundary node to close the hole in the seam.
      */
-    protected List<OctreeNode> findAndCreateBorderNodes(Map<Vec3i, OctreeNode> seamNodesMap) {
-        List<OctreeNode> addedNodes = new ArrayList<>();
-        for(Map.Entry<Vec3i, OctreeNode>set : seamNodesMap.entrySet()){
-            OctreeNode node = set.getValue();
-            boolean canMoveX = !(node.nodeNum.x==0 || node.nodeNum.x==meshGen.getVoxelsPerChunk()-1);
-            boolean canMoveY = !(node.nodeNum.y==0 || node.nodeNum.y==meshGen.getVoxelsPerChunk()-1);
-            boolean canMoveZ = !(node.nodeNum.z==0 || node.nodeNum.z==meshGen.getVoxelsPerChunk()-1);
-            Vec3i right, left, top, bottom;
+    private final Vec3i[] SEAM_NODE_AXIS_OFFSET = {
+            new Vec3i(1, 0, 0),
+            new Vec3i(0, 1, 0),
+            new Vec3i(0, 0, 1),
+            new Vec3i(-1, 0, 0),
+            new Vec3i(0, -1, 0),
+            new Vec3i(0, 0, -1)
+    };
 
-            int countAxies=0;
-            if(canMoveX){
-                ++countAxies;
-            }
-            if(canMoveY){
-                ++countAxies;
-            }
-            if(canMoveZ){
-                ++countAxies;
-            }
-
-            if (canMoveX || canMoveZ) {
-                right = getRight(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(right) == null) {
-                    OctreeNode rightNode = createBorderNode(right, node.size);
-                    if (rightNode != null) {
-                        addedNodes.add(rightNode);
-                    }
-                }
-            }
-
-            if (canMoveX || canMoveZ) {
-                left = getLeft(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(left) == null) {
-                    OctreeNode leftNode = createBorderNode(left, node.size);
-                    if (leftNode != null) {
-                        addedNodes.add(leftNode);
-                    }
-                }
-            }
-
-            if (canMoveY) {
-                top = getTop(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(top) == null) {
-                    OctreeNode topNode = createBorderNode(top, node.size);
-                    if (topNode != null) {
-                        addedNodes.add(topNode);
-                    }
-                }
-            }
-
-            if (canMoveY) {
-                bottom = getBottom(node, canMoveX, canMoveY, canMoveZ, countAxies);
-                if (seamNodesMap.get(bottom) == null) {
-                    OctreeNode bottomNode = createBorderNode(bottom, node.size);
-                    if (bottomNode != null) {
-                        addedNodes.add(bottomNode);
+    protected List<OctreeNode> findAndCreateBorderNodes(Set<Integer> seamNodeCodes, Vec3i chunkMin, int chunkSize) {
+        Set<OctreeNode> addedNodes = new HashSet<>();
+        for (int seamNodeCode : seamNodeCodes) {
+            Vec3i seamNodePos = positionForCode(seamNodeCode);
+            for (int axis = 0; axis < 6; axis++) {
+                Vec3i neighbour = seamNodePos.add(SEAM_NODE_AXIS_OFFSET[axis]);
+                if((neighbour.x>=0 && neighbour.x < meshGen.getVoxelsPerChunk()) &&
+                        (neighbour.y>=0 && neighbour.y < meshGen.getVoxelsPerChunk()) &&
+                        (neighbour.z>=0 && neighbour.z < meshGen.getVoxelsPerChunk()))
+                {
+                    int seamNeighbourCode = codeForPosition(neighbour, meshGen.MAX_OCTREE_DEPTH);
+                    if (!seamNodeCodes.contains(seamNeighbourCode)) {
+                        Vec3i min = neighbour.mul(chunkSize).add(chunkMin);
+                        OctreeNode neighbourNode = createBorderNode(min, chunkSize);
+                        if (neighbourNode != null) {
+                            addedNodes.add(neighbourNode);
+                        }
                     }
                 }
             }
         }
-        return addedNodes;
-    }
-
-    private Vec3i getRight(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
-            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
-            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
-        } else if (countAxies == 2) {
-            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
-            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
-    }
-
-    private Vec3i getLeft(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
-            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
-            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
-        } else if (countAxies == 2) {
-            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
-            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
-    }
-
-    private Vec3i getTop(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x < meshGen.getVoxelsPerChunk() - 1 && canMovedX ? node.size : 0;
-            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
-            z = node.nodeNum.z < meshGen.getVoxelsPerChunk() - 1 && canMovedZ ? node.size : 0;
-        } else if (countAxies == 2) {
-            y = node.nodeNum.y < meshGen.getVoxelsPerChunk() - 1 && canMovedY ? node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
-    }
-
-    private Vec3i getBottom(OctreeNode node, boolean canMovedX, boolean canMovedY, boolean canMovedZ, int countAxies) {
-        int x = 0, y = 0, z = 0;
-        if (countAxies == 1) {
-            x = node.nodeNum.x > 0 && canMovedX ? -node.size : 0;
-            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
-            z = node.nodeNum.z > 0 && canMovedZ ? -node.size : 0;
-        } else if (countAxies == 2) {
-            y = node.nodeNum.y > 0 && canMovedY ? -node.size : 0;
-        }
-        return node.min.add(new Vec3i(x, y, z));
+        return new ArrayList<>(addedNodes);
     }
 
     private OctreeNode createBorderNode(Vec3i min, int size) {

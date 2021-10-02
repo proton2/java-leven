@@ -60,6 +60,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
 
     private boolean simpleDebugCreateLeafVoxelNodes(int chunkSize, Vec3i chunkMin,
                                                    List<OctreeNode> chunkNodes, List<OctreeNode> seamNodes) {
+        Set<Integer> seamNodeCodes = new HashSet<>();
         for (int zi = 0; zi < meshGen.getVoxelsPerChunk(); zi++) {
             for (int yi = 0; yi < meshGen.getVoxelsPerChunk(); yi++) {
                 for (int xi = 0; xi < meshGen.getVoxelsPerChunk(); xi++) {
@@ -73,18 +74,15 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                         }
                         if(nodeIsSeam(zi, yi, xi)) {
                             seamNodes.add(leaf);
+                            if (leaf.size > meshGen.leafSizeScale) {
+                                seamNodeCodes.add(codeForPosition(leaf.nodeNum, meshGen.MAX_OCTREE_DEPTH));
+                            }
                         }
                     }
                 }
             }
         }
-        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
-        for (OctreeNode seamNode : seamNodes) {
-            if (seamNode.size > meshGen.leafSizeScale) {
-                seamNodesMap.put(seamNode.min, seamNode);
-            }
-        }
-        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, chunkMin, chunkSize / meshGen.getVoxelsPerChunk());
         seamNodes.addAll(addedNodes);
         return !chunkNodes.isEmpty() && !seamNodes.isEmpty();
     }
@@ -93,7 +91,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                                                                                       int from, int to) {
         List<OctreeNode> voxels = new ArrayList<>();
         List<OctreeNode> seamNodes = new ArrayList<>();
-
+        Set<Integer> seamNodeCodes = new HashSet<>();
         for (int i=from; i < to; i++){
             int indexShift = VoxelHelperUtils.log2(meshGen.getVoxelsPerChunk()); // max octree depth
             int x = (i >> (indexShift * 0)) & meshGen.getVoxelsPerChunk()-1;
@@ -110,16 +108,13 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                 }
                 if(nodeIsSeam(z, y, x)) {
                     seamNodes.add(leaf);
+                    if (leaf.size > meshGen.leafSizeScale) {
+                        seamNodeCodes.add(codeForPosition(leaf.nodeNum, meshGen.MAX_OCTREE_DEPTH));
+                    }
                 }
             }
         }
-        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
-        for (OctreeNode seamNode : seamNodes) {
-            if (seamNode.size > meshGen.leafSizeScale) {
-                seamNodesMap.put(seamNode.min, seamNode);
-            }
-        }
-        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, chunkMin, chunkSize / meshGen.getVoxelsPerChunk());
         seamNodes.addAll(addedNodes);
 
         EnumMap<VoxelTypes, List<OctreeNode>> res = new EnumMap<>(VoxelTypes.class);

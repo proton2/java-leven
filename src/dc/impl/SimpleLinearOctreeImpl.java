@@ -13,10 +13,7 @@ import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -99,19 +96,19 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             return false;
         }
         Map<Integer, Integer> octreeNodes = new HashMap<>();
-        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        Set<Integer> seamNodeCodes = new HashSet<>();
         for(int i=0; i<listHolders.size(); i++){
             octreeNodes.put(listHolders.get(i).encodedVoxelPosition, i);
             if (listHolders.get(i).isSeam) {
                 OctreeNode seamNode = extractSeamNode(listHolders.get(i), chunkMin, chunkSize / voxelsPerChunk);
                 if(seamNode.size > meshGen.leafSizeScale) {
-                    seamNodesMap.put(seamNode.min, seamNode);
+                    seamNodeCodes.add(codeForPosition(seamNode.nodeNum, meshGen.MAX_OCTREE_DEPTH));
                 }
                 seamNodes.add(seamNode);
             }
         }
 
-        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, chunkMin, chunkSize / meshGen.getVoxelsPerChunk());
         seamNodes.addAll(addedNodes);
 
         int[] d_nodeCodes = listHolders.stream().mapToInt(e->e.encodedVoxelPosition).toArray();
@@ -531,31 +528,32 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
 //    }
 
     public static void main(String[] args) {
-        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
+        MeshGenerationContext meshGen = new MeshGenerationContext(64);
+        Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
+        Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
+        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGen, new CpuCsgImpl(), densityFieldCache, octreeCache);
+
+        Set<Integer> seamNodeCodes = new HashSet<>();
         PointerBasedOctreeNode n0 = new PointerBasedOctreeNode(new Vec3i(20,30,40), 1, OctreeNodeType.Node_Leaf);
         n0.nodeNum = new Vec3i(0, 13, 63);
-        seamNodesMap.put(n0.min, n0);
+        seamNodeCodes.add(voxelOctree.codeForPosition(n0.min, meshGen.MAX_OCTREE_DEPTH));
         PointerBasedOctreeNode n1 = new PointerBasedOctreeNode(new Vec3i(50,60,70), 1, OctreeNodeType.Node_Leaf);
         n1.nodeNum = new Vec3i(15, 63, 0);
-        seamNodesMap.put(n1.min, n1);
+        seamNodeCodes.add(voxelOctree.codeForPosition(n1.min, meshGen.MAX_OCTREE_DEPTH));
         PointerBasedOctreeNode n2 = new PointerBasedOctreeNode(new Vec3i(80,90,100), 1, OctreeNodeType.Node_Leaf);
         n2.nodeNum = new Vec3i(63, 0, 15);
-        seamNodesMap.put(n2.min, n2);
+        seamNodeCodes.add(voxelOctree.codeForPosition(n2.min, meshGen.MAX_OCTREE_DEPTH));
 
         PointerBasedOctreeNode n3 = new PointerBasedOctreeNode(new Vec3i(25,35,45), 1, OctreeNodeType.Node_Leaf);
         n3.nodeNum = new Vec3i(33, 13, 63);
-        seamNodesMap.put(n3.min, n3);
+        seamNodeCodes.add(voxelOctree.codeForPosition(n3.min, meshGen.MAX_OCTREE_DEPTH));
         PointerBasedOctreeNode n4 = new PointerBasedOctreeNode(new Vec3i(55,65,75), 1, OctreeNodeType.Node_Leaf);
         n4.nodeNum = new Vec3i(15, 63, 33);
-        seamNodesMap.put(n4.min, n4);
+        seamNodeCodes.add(voxelOctree.codeForPosition(n4.min, meshGen.MAX_OCTREE_DEPTH));
         PointerBasedOctreeNode n5 = new PointerBasedOctreeNode(new Vec3i(85,95,105), 1, OctreeNodeType.Node_Leaf);
         n5.nodeNum = new Vec3i(63, 33, 15);
-        seamNodesMap.put(n5.min, n5);
+        seamNodeCodes.add(voxelOctree.codeForPosition(n5.min, meshGen.MAX_OCTREE_DEPTH));
 
-        MeshGenerationContext meshGenCtx = new MeshGenerationContext(64);
-        Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
-        Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
-        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
-        List<OctreeNode> addedNodes = voxelOctree.findAndCreateBorderNodes(seamNodesMap);
+        List<OctreeNode> addedNodes = voxelOctree.findAndCreateBorderNodes(seamNodeCodes, new Vec3i(0,0,0), 128 / meshGen.getVoxelsPerChunk());
     }
 }

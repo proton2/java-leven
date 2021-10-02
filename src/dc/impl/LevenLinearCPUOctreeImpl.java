@@ -96,18 +96,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int[] isSeamNode = new int[octree.numNodes];
             // ToDo return seamNodes which size have seamSize from method
             int seamSize = findSeamNodes(octree.d_nodeCodesCpu, isSeamNode, 0, octree.numNodes);
-
+            Set<Integer> seamNodeCodes = new HashSet<>(seamSize);
             extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
                     chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, octree.numNodes,
-                    octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu, octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, seamNodes);
+                    octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu, octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, seamNodes, seamNodeCodes);
 
-            Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();
-            for (OctreeNode seamNode : seamNodes) {
-                if (seamNode.size > meshGen.leafSizeScale) {
-                    seamNodesMap.put(seamNode.min, seamNode);
-                }
-            }
-            List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodesMap);
+            List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, chunkMin, chunkSize / meshGen.getVoxelsPerChunk());
             seamNodes.addAll(addedNodes);
         }
         return true;
@@ -827,9 +821,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private void extractNodeInfo(int[] isSeamNode, Vec3f color,
                                  int leafSize, Vec3i chunkMin, int from, int to,
                                  int[] octreeCodes, int[] octreeMaterials, Vec4f[] octreePositions, Vec4f[] octreeNormals,
-                                 List<OctreeNode> seamNodes) {
+                                 List<OctreeNode> seamNodes, Set<Integer> seamNodeCodesForSearch) {
+        int i=0;
         for (int index = from; index < to; index++) {
             if (isSeamNode==null || isSeamNode[index]==1) {
+                if(leafSize > meshGen.leafSizeScale) {
+                    seamNodeCodesForSearch.add(octreeCodes[index]);
+                }
                 Vec3i min = positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
                 PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
                 node.corners = octreeMaterials[index];
