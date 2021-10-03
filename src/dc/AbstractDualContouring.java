@@ -420,60 +420,6 @@ public abstract class AbstractDualContouring implements DualContouring{
         return maxMaterial;
     }
 
-    protected Vec3i[] BORDER_EDGE_OFFSETS = {
-            new Vec3i(1, 2, 0), new Vec3i(1, 0, 2),
-            new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
-            new Vec3i(2, 0, 1), new Vec3i(0, 2, 1),
-            new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
-            new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2)
-    };
-
-    private Vec3i getChunkBorder(Vec3i pos){
-        Vec3i faces = new Vec3i(0,0,0);
-        // checks which side this node is facing
-        if (pos.x == 0)
-            faces.x = -1;
-        else if (pos.x == meshGen.getVoxelsPerChunk()-1)
-            faces.x = 1;
-
-        if (pos.y == 0)
-            faces.y = -1;
-        else if (pos.y == meshGen.getVoxelsPerChunk()-1)
-            faces.y = 1;
-
-        if (pos.z == 0)
-            faces.z = -1;
-        else if (pos.z == meshGen.getVoxelsPerChunk()-1)
-            faces.z = 1;
-        return faces;
-    }
-
-    protected Vec4f tryToCreateBoundSeamPseudoNode(Vec3i leafMin, int leafSize, Vec3i pos, int corners,
-                                                                    int nodeMinSize) {
-        Vec3i chunkBorders = getChunkBorder(pos);
-        // if it is facing no border at all or has the highest amount of detail (LOD 0) skip it and drop the node
-        if ((chunkBorders.x != 0 || chunkBorders.y != 0 || chunkBorders.z != 0) && leafSize != nodeMinSize) {
-            for (int i = 0; i < 12; i++) {
-                if (!(  (chunkBorders.x != 0 && chunkBorders.x + 1 == BORDER_EDGE_OFFSETS[i].x) ||
-                        (chunkBorders.y != 0 && chunkBorders.y + 1 == BORDER_EDGE_OFFSETS[i].y) ||
-                        (chunkBorders.z != 0 && chunkBorders.z + 1 == BORDER_EDGE_OFFSETS[i].z))) {
-                    continue;
-                }
-                // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
-                int x = leafMin.x + (BORDER_EDGE_OFFSETS[i].x) * leafSize / 2;
-                int y = leafMin.y + (BORDER_EDGE_OFFSETS[i].y) * leafSize / 2;
-                int z = leafMin.z + (BORDER_EDGE_OFFSETS[i].z) * leafSize / 2;
-
-                Vec4f nodePos = new Vec4f(x,y,z);
-                float density = getNoise(nodePos);
-                if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
-                    return nodePos;
-                }
-            }
-        }
-        return null;    // voxel is full inside or outside the volume
-    }
-
     protected int field_index(Vec3i pos) {
         return pos.x + (pos.y * meshGen.getFieldSize()) + (pos.z * meshGen.getFieldSize() * meshGen.getFieldSize());
     }
@@ -582,11 +528,14 @@ public abstract class AbstractDualContouring implements DualContouring{
         return -1;
     }
 
-    /*
-    Algorithm for closing holes in the seams.
-    We iterate over each created boundary chunk node. We check each neighbor of the border node -
-    do its children contain a surface? If they do, we create a boundary node to close the hole in the seam.
-     */
+    private final Vec3i[] BORDER_EDGE_OFFSETS = {
+            new Vec3i(1, 2, 0), new Vec3i(1, 0, 2),
+            new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
+            new Vec3i(2, 0, 1), new Vec3i(0, 2, 1),
+            new Vec3i(1, 0, 0), new Vec3i(0, 1, 0), new Vec3i(0, 0, 1),
+            new Vec3i(1, 2, 2), new Vec3i(2, 2, 1), new Vec3i(2, 1, 2)
+    };
+
     private final Vec3i[] SEAM_NODE_AXIS_OFFSET = {
             new Vec3i(1, 0, 0),
             new Vec3i(0, 1, 0),
@@ -596,6 +545,11 @@ public abstract class AbstractDualContouring implements DualContouring{
             new Vec3i(0, 0, -1)
     };
 
+    /*
+    Algorithm for closing holes in the seams.
+    We iterate over each created boundary chunk node. We check each neighbor of the border node -
+    do its children contain a surface? If they do, we create a boundary node to close the hole in the seam.
+     */
     protected List<OctreeNode> findAndCreateBorderNodes(Set<Integer> seamNodeCodes, Vec3i chunkMin, int chunkSize) {
         Set<OctreeNode> addedNodes = new HashSet<>();
         for (int seamNodeCode : seamNodeCodes) {
@@ -609,8 +563,12 @@ public abstract class AbstractDualContouring implements DualContouring{
                     int seamNeighbourCode = codeForPosition(neighbour, meshGen.MAX_OCTREE_DEPTH);
                     if (!seamNodeCodes.contains(seamNeighbourCode)) {
                         Vec3i min = neighbour.mul(chunkSize).add(chunkMin);
-                        OctreeNode neighbourNode = createBorderNode(min, chunkSize);
-                        if (neighbourNode != null) {
+                        PointerBasedOctreeNode neighbourNode = new PointerBasedOctreeNode(min, chunkSize, OctreeNodeType.Node_Leaf);
+                        if(addedNodes.contains(neighbourNode)){
+                            continue;
+                        }
+                        neighbourNode = createBorderNode(neighbourNode);
+                        if (neighbourNode!= null) {
                             addedNodes.add(neighbourNode);
                         }
                     }
@@ -620,10 +578,10 @@ public abstract class AbstractDualContouring implements DualContouring{
         return new ArrayList<>(addedNodes);
     }
 
-    private OctreeNode createBorderNode(Vec3i min, int size) {
+    private PointerBasedOctreeNode createBorderNode(PointerBasedOctreeNode node) {
         int corners = 0;
         for (int i = 0; i < 8; i++) {
-            Vec3i cornerPos = min.add(CHILD_MIN_OFFSETS[i].mul(size));
+            Vec3i cornerPos = node.min.add(CHILD_MIN_OFFSETS[i].mul(node.size));
             float density = getNoise(cornerPos);
             int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
             corners |= (material << i);
@@ -631,14 +589,13 @@ public abstract class AbstractDualContouring implements DualContouring{
 
         for (int i = 0; i < 12; i++) {
             // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
-            int x = min.x + (BORDER_EDGE_OFFSETS[i].x) * size / 2;
-            int y = min.y + (BORDER_EDGE_OFFSETS[i].y) * size / 2;
-            int z = min.z + (BORDER_EDGE_OFFSETS[i].z) * size / 2;
+            int x = node.min.x + (BORDER_EDGE_OFFSETS[i].x) * node.size / 2;
+            int y = node.min.y + (BORDER_EDGE_OFFSETS[i].y) * node.size / 2;
+            int z = node.min.z + (BORDER_EDGE_OFFSETS[i].z) * node.size / 2;
 
             Vec4f nodePos = new Vec4f(x,y,z);
             float density = getNoise(nodePos);
             if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
-                PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, size, OctreeNodeType.Node_Leaf);
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
                 drawInfo.position = nodePos.getVec3f();
                 drawInfo.color = Constants.Yellow;
