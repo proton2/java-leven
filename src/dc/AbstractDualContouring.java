@@ -564,12 +564,11 @@ public abstract class AbstractDualContouring implements DualContouring{
                     if (!seamNodeCodes.contains(seamNeighbourCode)) {
                         Vec3i min = neighbour.mul(chunkSize).add(chunkMin);
                         PointerBasedOctreeNode neighbourNode = new PointerBasedOctreeNode(min, chunkSize, OctreeNodeType.Node_Leaf);
-                        if(addedNodes.contains(neighbourNode)){
-                            continue;
-                        }
-                        neighbourNode = createBorderNode(neighbourNode);
-                        if (neighbourNode!= null) {
-                            addedNodes.add(neighbourNode);
+                        if(!addedNodes.contains(neighbourNode)){
+                            neighbourNode = createBorderNode(neighbourNode);
+                            if (neighbourNode!= null) {
+                                addedNodes.add(neighbourNode);
+                            }
                         }
                     }
                 }
