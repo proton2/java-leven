@@ -17,6 +17,12 @@ CPU and OpenCL GPU implementations.
   - Nick Gildea Leven OpenCL Dual contouring implementation. In this implementation LevenLinearGPUOctreeImpl.java I call OpenCL kernels in java .
 - CSG operations (add/delete sphere/box brushes);  
 
+## Сhanges relative to the original solution
+- fixed the appearance of holes in the seams between chunks
+- fixed seam and chunk mesh overlap at seam intersections
+- no double call to generate mesh for rendering and mesh for collisions - mesh is generated only once
+- CPU multi-threaded implementation, which made it possible to improve performance in the CPU realization
+
 ## Build Instructions
 please, perform
 <br>
