@@ -11,6 +11,7 @@ CPU and OpenCL GPU implementations.
 - fixed seam and chunk mesh overlap at seam intersections
 - no double call to generate mesh for rendering and mesh for collisions - mesh is generated only once
 - CPU multi-threaded implementation, which made it possible to improve performance in the CPU realization
+- faster selectActiveChunkNodes and ReleaseInvalidatedNodes (no need to recursively traverse the whole tree to invalidate chunks - which improved performance)
 
 
 ## Features:
