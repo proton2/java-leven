@@ -222,7 +222,7 @@ public abstract class AbstractDualContouring implements DualContouring{
             return;
         }
 
-        // bit of a hack but it works: prevent overlapping seams by only processing edges that stradle multiple chunks
+        // bit of a hack but it works: prevent overlapping seams by only processing edges that straddle multiple chunks
         if (isSeam && chunkMinForPosition(node[0].min, chunkSize).equals(chunkMinForPosition(node[1].min, chunkSize))) {
             return;
         }
