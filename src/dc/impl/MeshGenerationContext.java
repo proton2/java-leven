@@ -15,8 +15,8 @@ public class MeshGenerationContext {
     public final int clipmapLeafSize;
     public final int worldSizeXZ;
     public final int worldSizeY;
-    public static final int MATERIAL_AIR = 0;
-    public static final int MATERIAL_SOLID = 1;
+    public final int MATERIAL_AIR = 0;
+    public final int MATERIAL_SOLID = 1;
     public final int MAX_OCTREE_DEPTH;
     public final int LOD_MAX_NODE_SIZE;
 
@@ -78,5 +78,31 @@ public class MeshGenerationContext {
 
     public int getIndexMask() {
         return indexMask;
+    }
+
+    public int getArrayPosByEdgeCode(int edgeCode){
+        int voxelIndex = edgeCode >> 2;
+        int x = (voxelIndex >> (indexShift * 0)) & indexMask;
+        int y = (voxelIndex >> (indexShift * 1)) & indexMask;
+        int z = (voxelIndex >> (indexShift * 2)) & indexMask;
+        int index = (x + (y * hermiteIndexSize) + (z * hermiteIndexSize * hermiteIndexSize));
+        int edgeIndex = index * 3;
+        int edgeNumber = edgeCode & 3;
+        return edgeIndex + edgeNumber;
+    }
+
+    public int getArrayPosByPosition(Vec3i pos, int axisNum){
+        int voxelIndex = pos.x | (pos.y << indexShift) | (pos.z << (indexShift * 2));
+        int x = (voxelIndex >> (indexShift * 0)) & indexMask;
+        int y = (voxelIndex >> (indexShift * 1)) & indexMask;
+        int z = (voxelIndex >> (indexShift * 2)) & indexMask;
+        int index = (x + (y * hermiteIndexSize) + (z * hermiteIndexSize * hermiteIndexSize));
+        int edgeIndex = index * 3;
+        return edgeIndex + axisNum;
+    }
+
+    public int getEdgeCodeByPosition(Vec3i pos, int axisNum){
+        int voxelIndex = pos.x | (pos.y << indexShift) | (pos.z << (indexShift * 2));
+        return (voxelIndex << 2) | axisNum;
     }
 }
