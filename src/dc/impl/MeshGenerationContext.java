@@ -101,8 +101,8 @@ public class MeshGenerationContext {
         return edgeIndex + axisNum;
     }
 
-    public int getEdgeCodeByPosition(Vec3i pos, int axisNum){
-        int voxelIndex = pos.x | (pos.y << indexShift) | (pos.z << (indexShift * 2));
+    public int getEdgeCodeByPosition(int x, int y, int z, int axisNum){
+        int voxelIndex = x | (y << indexShift) | (z << (indexShift * 2));
         return (voxelIndex << 2) | axisNum;
     }
 }

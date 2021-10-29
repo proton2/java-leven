@@ -16,6 +16,8 @@ public class ChunkNode {
     public RenderMesh renderMesh, seamMesh;
     public WorldCollisionNode worldNode;
     public boolean canBeSelected = false;
+    public boolean parentIsDirty = false;
+    public boolean chunkIsEdited = false;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);

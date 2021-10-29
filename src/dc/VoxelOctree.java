@@ -32,9 +32,9 @@ public interface VoxelOctree {
     float QEF_ERROR = 1e-6f;
     int QEF_SWEEPS = 4;
 
-    boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer meshBuffer);
+    boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer meshBuffer);
     void processNodesToMesh(List<OctreeNode> seamNodes, Vec3i min, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer);
-    GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> operations, Vec3i min, int clipmapNodeSize);
+    GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> operations, ChunkNode node);
     void computeStoreCSGOperation(CSGOperationInfo opInfo, Aabb aabb);
     void computeClearCSGOperations();
     void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize);

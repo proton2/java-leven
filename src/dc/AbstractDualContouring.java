@@ -485,7 +485,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         return chunkScaleSize * meshGen.leafSizeScale;
     }
 
-    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> operations, Vec3i min, int size){
+    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> operations, ChunkNode node){
         return null;
     }
 

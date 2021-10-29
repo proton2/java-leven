@@ -38,23 +38,23 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer meshBuffer) {
+    public boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer meshBuffer) {
         boolean result;
         List<OctreeNode> chunkNodes = new ArrayList<>();
 
         if (multiThreadCalculation) {
             try {
-                result = multiThreadCreateLeafVoxelNodes(chunkSize, chunkMin, chunkNodes, seamNodes);
+                result = multiThreadCreateLeafVoxelNodes(node.size, node.min, chunkNodes, seamNodes);
             } catch (Exception e) {
                 result = false;
             }
         } else {
-            result = simpleDebugCreateLeafVoxelNodes(chunkSize, chunkMin, chunkNodes, seamNodes);
+            result = simpleDebugCreateLeafVoxelNodes(node.size, node.min, chunkNodes, seamNodes);
         }
         if (!result){
             return false;
         }
-        processNodesToMesh(chunkNodes, chunkMin, chunkSize, false, meshBuffer);
+        processNodesToMesh(chunkNodes, node.min, node.size, false, meshBuffer);
         return true;
     }
 

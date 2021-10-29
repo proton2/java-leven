@@ -4,10 +4,7 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
-import dc.AbstractDualContouring;
-import dc.OctreeNode;
-import dc.PointerBasedOctreeNode;
-import dc.VoxelOctree;
+import dc.*;
 import dc.entities.MeshBuffer;
 import dc.impl.opencl.*;
 
@@ -34,10 +31,10 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer) {
+    public boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer buffer) {
         GPUDensityField field = new GPUDensityField();
-        field.setMin(chunkMin);
-        field.setSize(chunkSize);
+        field.setMin(node.min);
+        field.setSize(node.size);
         BufferGpuService bufferGpuService = new BufferGpuService(ctx);
         OpenCLCalculateMaterialsService calculateMaterialsService = new OpenCLCalculateMaterialsService(ctx, meshGen.getFieldSize(),
                 meshGen, field, bufferGpuService);
@@ -92,7 +89,7 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
         if(numSeamNodes<=0){
             return false;
         }
-        generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, chunkMin, chunkSize/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
+        generateMeshFromOctreeService.gatherSeamNodesFromOctree(kernels, node.min, node.size/meshGen.getVoxelsPerChunk(), seamNodes, numSeamNodes);
         bufferGpuService.releaseAll();
 
 //        Map<Vec3i, OctreeNode> seamNodesMap = new HashMap<>();

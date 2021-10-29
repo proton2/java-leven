@@ -405,7 +405,7 @@ public class ChunkOctree {
     private boolean ConstructChunkNodeData(ChunkNode chunk) {
         List<OctreeNode> seamNodes = new ArrayList<>();
         MeshBuffer meshBuffer = new MeshBuffer();
-        chunk.active = voxelOctree.createLeafVoxelNodes(chunk.size, chunk.min, seamNodes, meshBuffer);
+        chunk.active = voxelOctree.createLeafVoxelNodes(chunk, seamNodes, meshBuffer);
         chunk.chunkBorderNodes = seamNodes;
         if(!chunk.active){
             return false;
@@ -456,7 +456,7 @@ public class ChunkOctree {
         }
         for(ChunkNode clipmapNode : touchedNodes) {
             if (clipmapNode.active) {
-                voxelOctree.computeApplyCSGOperations(operations, clipmapNode.min, clipmapNode.size);
+                voxelOctree.computeApplyCSGOperations(operations, clipmapNode);
             }
             voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size); // free the current octree to force a reconstruction
             clipmapNode.invalidated = true;

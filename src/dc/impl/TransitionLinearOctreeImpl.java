@@ -33,12 +33,12 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer) {
+    public boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer buffer) {
         // experimental transitional branch. It worked successfull but seams have some holes. More faster
-        return createLeafVoxelNodesExperimental(chunkSize, chunkMin, seamNodes, buffer);
+        return createLeafVoxelNodesExperimental(node, seamNodes, buffer);
     }
 
-    private void processDc(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer,
+    private void processDc(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer buffer,
                            Map<Integer, Integer> octreeNodes, int[] d_nodeCodes, int[] d_nodeMaterials,
                            Vec3f[] d_vertexPositions, Vec3f[] d_vertexNormals) {
         int numVertices = octreeNodes.size();
@@ -67,7 +67,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         // ToDo return seamNodes which size have seamSize from method
         int seamSize = findSeamNodes(d_nodeCodes, isSeamNode, 0, d_nodeCodes.length);
 
-        extractNodeInfo(isSeamNode, Constants.Yellow,chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
+        extractNodeInfo(isSeamNode, Constants.Yellow,node.size / meshGen.getVoxelsPerChunk(), node.min, 0, numVertices,
                 d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals, seamNodes);
 
         Set<Integer> seamNodeCodes = new HashSet<>(seamSize);
@@ -76,7 +76,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                 seamNodeCodes.add(codeForPosition(seamNode.nodeNum, meshGen.MAX_OCTREE_DEPTH));
             }
         }
-        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, chunkMin, chunkSize / meshGen.getVoxelsPerChunk());
+        List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, node.min, node.size / meshGen.getVoxelsPerChunk());
         seamNodes.addAll(addedNodes);
     }
 
@@ -100,14 +100,14 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         return size;
     }
 
-    private boolean createLeafVoxelNodesExperimental(int chunkSize, Vec3i chunkMin,
+    private boolean createLeafVoxelNodesExperimental(ChunkNode node,
                                                      List<OctreeNode> seamNodes, MeshBuffer buffer) {
         int availableProcessors = Runtime.getRuntime().availableProcessors();
         int threadBound = (meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk() * meshGen.getVoxelsPerChunk()) / availableProcessors;
 
         int[] materials = new int[meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize()];
-        GenerateDefaultField(chunkMin, 0, meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize(),
-                chunkSize / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID, materials);
+        GenerateDefaultField(node.min, 0, meshGen.getFieldSize()*meshGen.getFieldSize()*meshGen.getFieldSize(),
+                node.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID, materials);
 //        GPUDensityField field = new GPUDensityField();
 //        field.setMin(chunkMin);
 //        field.setSize(chunkSize);
@@ -151,7 +151,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 //            return false;
 //        }
 //        service.shutdown();
-        int activeLeafsSize = FindActiveVoxels(chunkSize, chunkMin,
+        int activeLeafsSize = FindActiveVoxels(node.size, node.min,
                 0, meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk(), materials,
                 d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials, borderNodePositions);
 
@@ -169,7 +169,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         int numVertices = activeLeafsSize;
         QEFData[] qefs = new QEFData[numVertices];
         Vec3f[] d_vertexNormals = new Vec3f[numVertices];
-        createLeafNodes(chunkSize, chunkMin, 0, numVertices, borderNodePositions,
+        createLeafNodes(node.size, node.min, 0, numVertices, borderNodePositions,
                 d_nodeCodes, d_compactLeafEdgeInfo,
                 d_vertexNormals, qefs);
 
@@ -195,10 +195,10 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
 //        serviceLeafs.shutdown();
 
         Vec3f[] d_vertexPositions = new Vec3f[numVertices];
-        solveQEFs(d_nodeCodes, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin, 0, numVertices,
+        solveQEFs(d_nodeCodes, node, meshGen.getVoxelsPerChunk(),0, numVertices,
                 qefs, d_vertexPositions);
 
-        processDc(chunkSize, chunkMin, seamNodes, buffer, octreeNodes, d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
+        processDc(node, seamNodes, buffer, octreeNodes, d_nodeCodes, d_nodeMaterials, d_vertexPositions, d_vertexNormals);
         return true;
     }
 
@@ -323,13 +323,13 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
         return 1;
     }
 
-    private int solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
+    private int solveQEFs(int[] d_nodeCodes, ChunkNode node, int voxelsPerChunk, int from, int to,
                           QEFData[] qefs, Vec3f[] solvedPositions) {
         for (int index = from; index < to; index++) {
             int encodedPosition = d_nodeCodes[index];
             Vec3i pos = positionForCode(encodedPosition);
-            int leafSize = (chunkSize / voxelsPerChunk);
-            Vec3i leaf = pos.mul(leafSize).add(chunkMin);
+            int leafSize = (node.size / voxelsPerChunk);
+            Vec3i leaf = pos.mul(leafSize).add(node.min);
 
             Vec3f qefPosition;
             if (leafSize == meshGen.leafSizeScale) {

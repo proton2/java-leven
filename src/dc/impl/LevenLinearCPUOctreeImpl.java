@@ -52,12 +52,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, Vec3i clipmapNodeMin, int clipmapNodeSize) {
-        GPUDensityField field = LoadDensityField(clipmapNodeMin, clipmapNodeSize);
+    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
+        GPUDensityField field = LoadDensityField(node);
         if(field==null){
             return null;
         }
-        csgOperationsProcessor.ApplyCSGOperations(meshGen, opInfo, clipmapNodeMin, clipmapNodeSize, field);
+        csgOperationsProcessor.ApplyCSGOperations(meshGen, opInfo, node.min, node.size, field);
         field.lastCSGOperation += opInfo.size();
 
         StoreDensityField(field);
@@ -65,8 +65,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public boolean createLeafVoxelNodes(int chunkSize, Vec3i chunkMin, List<OctreeNode> seamNodes, MeshBuffer buffer) {
-        GpuOctree octree = LoadOctree(chunkMin, chunkSize);
+    public boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer buffer) {
+        GpuOctree octree = LoadOctree(node);
         if(octree==null){
             return false;
         }
@@ -87,7 +87,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             MeshVertex[] d_vertexBuffer = new MeshVertex[octree.numNodes];
             //////////////////////////////
             GenerateMeshVertexBuffer(octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, octree.d_nodeMaterialsCpu,
-                    VoxelHelperUtils.ColourForMinLeafSize(chunkSize / meshGen.clipmapLeafSize), d_vertexBuffer);
+                    VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.clipmapLeafSize), d_vertexBuffer);
             buffer.setVertices(BufferUtil.createDcFlippedBufferAOS(d_vertexBuffer));
             buffer.setNumVertices(octree.numNodes);
             buffer.setIndicates(BufferUtil.createFlippedBuffer(d_compactIndexBuffer));
@@ -97,28 +97,28 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             // ToDo return seamNodes which size have seamSize from method
             int seamSize = findSeamNodes(octree.d_nodeCodesCpu, isSeamNode, 0, octree.numNodes);
             Set<Integer> seamNodeCodes = new HashSet<>(seamSize);
-            extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(chunkSize / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
-                    chunkSize / meshGen.getVoxelsPerChunk(), chunkMin, 0, octree.numNodes,
+            extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
+                    node.size / meshGen.getVoxelsPerChunk(), node.min, 0, octree.numNodes,
                     octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu, octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, seamNodes, seamNodeCodes);
 
-            List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, chunkMin, chunkSize / meshGen.getVoxelsPerChunk());
+            List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, node.min, node.size / meshGen.getVoxelsPerChunk());
             seamNodes.addAll(addedNodes);
         }
         return true;
     }
 
-    private GpuOctree LoadOctree(Vec3i chunkMin, int chunkSize){
-        Vec4i key = new Vec4i(chunkMin, chunkSize);
+    private GpuOctree LoadOctree(ChunkNode node){
+        Vec4i key = new Vec4i(node.min, node.size);
         GpuOctree octree = octreeCache.get(key);
         if (octree!=null){
             return octree;
         }
-        GPUDensityField field = LoadDensityField(chunkMin, chunkSize);
+        GPUDensityField field = LoadDensityField(node);
         if(field==null){
             return null;
         }
         if(field.numEdges>0){
-            octree = ConstructOctreeFromField(chunkMin, chunkSize, field);
+            octree = ConstructOctreeFromField(node.min, node.size, field);
             octreeCache.put(key, octree);
         }
         return octree;
@@ -129,17 +129,17 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         densityFieldCache.put(key, field);
     }
 
-    private GPUDensityField LoadDensityField(Vec3i chunkMin, int chunkSize){
-        Vec4i key = new Vec4i(chunkMin, chunkSize);
+    private GPUDensityField LoadDensityField(ChunkNode node){
+        Vec4i key = new Vec4i(node.min, node.size);
         GPUDensityField field = densityFieldCache.get(key);
         if(field==null) {
             field = new GPUDensityField();
-            field.min = chunkMin;
-            field.size = chunkSize;
+            field.min = node.min;
+            field.size = node.size;
             if(GenerateDefaultDensityField(field)==0){
                 return null;
             }
-            FindDefaultEdges(field);
+            FindDefaultEdges(field, node);
         }
 
         Aabb fieldBB = new Aabb(field.min, field.size);
@@ -153,7 +153,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         field.lastCSGOperation = storedOps.size();
 
         if (!csgOperations.isEmpty()) {
-            csgOperationsProcessor.ApplyCSGOperations(meshGen, csgOperations, field.min, field.size, field);
+            csgOperationsProcessor.ApplyCSGOperations(meshGen, csgOperations, node.min, node.size, field);
             StoreDensityField(field);
         }
 
@@ -170,10 +170,23 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return materialSize;
     }
 
-    private void FindDefaultEdges(GPUDensityField field){
+    private void FindDefaultEdges(GPUDensityField field, ChunkNode node){
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
+//        Integer[] changedChunks = new Integer[8];
+//        for (int i=0, k=0; i<8; i++){
+//            if(node.children[i]!=null && node.children[i].parentIsDirty){
+//                node.children[i].parentIsDirty = false;
+//                node.parentIsDirty = true;
+//                changedChunks[k++] = i;
+//            }
+//            if(node.children[i]!=null && node.children[i].chunkIsEdited){
+//                node.chunkIsEdited = true;
+//            }
+//            reduce(i, field.materialsCpu, field.edgeIndicesCpu, node);
+//        }
+
         field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu,
                 edgeOccupancy, edgeIndicesNonCompact);
         if(field.numEdges==0 || field.numEdges<0){
@@ -211,6 +224,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         for(int i =0; i<field.edgeIndicesCpu.length; i++){
             edgeIndicatesMap.put(field.edgeIndicesCpu[i], i);
         }
+        field.hermiteEdgesMap = edgeIndicatesMap;
         createLeafNodesMultiThread(octree.numNodes, octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, field.normalsCpu, edgeIndicatesMap,
                 qefs, octree.d_vertexNormalsCpu);
 
@@ -351,11 +365,77 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             boolean signChange = (CORNER_MATERIALS[0] != meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] == meshGen.MATERIAL_AIR) ||
                     (CORNER_MATERIALS[0] == meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] != meshGen.MATERIAL_AIR);
             edgeOccupancy[edgeIndex + i] = signChange ? 1 : 0;
-            edgeIndices[edgeIndex + i] = signChange ? ((voxelIndex << 2) | i) : -1;
+            int edgeCode = (voxelIndex << 2) | i;
+            edgeIndices[edgeIndex + i] = signChange ? edgeCode : -1;
             if (signChange)
                 ++size;
         }
         return size;
+    }
+
+    private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField, int[] edgeIndicesNonCompact, ChunkNode node){
+        int NUM_AXES = 3;
+        int size = meshGen.getHermiteIndexSize(); // ??????????????????????????????????????
+        Vec3i dstOffset = new Vec3i(
+                (chunkOrder & (1<<(0))) > 0 ? node.size/2 : 0,
+                (chunkOrder & (1<<(1))) > 0 ? node.size/2 : 0,
+                (chunkOrder & (1<<(2))) > 0 ? node.size/2 : 0
+        );
+
+        for(int iSrcCellZ = 0; iSrcCellZ < size; iSrcCellZ += 2 ) {
+            for (int iSrcCellY = 0; iSrcCellY < size; iSrcCellY += 2) {
+                for (int iSrcCellX = 0; iSrcCellX < size; iSrcCellX += 2) {
+                    Vec3i dstCellOffset = new Vec3i(iSrcCellX/2, iSrcCellY/2, iSrcCellZ/2).add(dstOffset);
+                    int iDstCellIndex = getHermiteIndex(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z);
+
+                    int iSrcCellIndex = getHermiteIndex(iSrcCellX, iSrcCellY, iSrcCellZ);
+                    int startpoint_material = srcField.materialsCpu[getMaterialIndex(iSrcCellX, iSrcCellY, iSrcCellZ)];
+                    for(int iAxis = 0; iAxis < NUM_AXES; iAxis++) {
+                        int	numIntersections = 0;
+                        int[] iSrcEndPointVoxel = new int[]{iSrcCellX, iSrcCellY, iSrcCellZ};
+                        iSrcEndPointVoxel[iAxis] += 2;
+
+                        int iSrcEndPointVoxelIndex = getMaterialIndex(iSrcEndPointVoxel[0], iSrcEndPointVoxel[1], iSrcEndPointVoxel[2]);
+                        if(iSrcEndPointVoxel[0] < meshGen.getFieldSize() && iSrcEndPointVoxel[1] < meshGen.getFieldSize() && iSrcEndPointVoxel[2] < meshGen.getFieldSize()){
+                            int[] iSrcMidPointVoxel = new int[]{iSrcCellX, iSrcCellY, iSrcCellZ};
+                            iSrcMidPointVoxel[iAxis]++;
+
+                            int iSrcMidPointVoxelIndex = getMaterialIndex(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2]);
+                            int midpoint_material = srcField.materialsCpu[iSrcMidPointVoxelIndex];
+                            int endpoint_material = srcField.materialsCpu[iSrcEndPointVoxelIndex];
+
+                            int srcEdgeCode = meshGen.getEdgeCodeByPosition(iSrcCellX, iSrcCellY, iSrcCellZ, iAxis);
+                            Integer srcNormalPos = srcField.hermiteEdgesMap.get(srcEdgeCode);
+                            if(startpoint_material != midpoint_material && srcNormalPos!=null){
+                                edgeIndicesNonCompact[iDstCellIndex + iAxis] = edgeIndicesNonCompact[iSrcCellIndex + iAxis];
+                                Vec4f norm = srcField.normalsCpu[srcNormalPos];
+                                numIntersections++;
+                            }
+
+                            if(midpoint_material != endpoint_material) {
+                                int iSrcMidPointVoxelHermiteIndex = getHermiteIndex(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2]);
+                                edgeIndicesNonCompact[iDstCellIndex + iAxis] = edgeIndicesNonCompact[iSrcMidPointVoxelHermiteIndex + iAxis];
+                                numIntersections++;
+                            }
+
+                            if(numIntersections>0) {
+
+                            }
+                        }
+                    }
+                    int dstMaterialIndex = getMaterialIndex(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z);
+                    dstField.materialsCpu[dstMaterialIndex] = startpoint_material;
+                }
+            }
+        }
+    }
+
+    private int getMaterialIndex(int x, int y, int z){
+        return x + (y * meshGen.getFieldSize()) + (z * meshGen.getFieldSize() * meshGen.getFieldSize());
+    }
+
+    private int getHermiteIndex(int x, int y, int z){
+        return (x + (y * meshGen.getHermiteIndexSize()) + (z * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize())) * 3;
     }
 
     private int FindFieldEdges(int[] materials,

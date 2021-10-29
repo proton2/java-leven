@@ -313,13 +313,13 @@ public class CpuCsgImpl implements ICSGOperations{
                     (edgeIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask(),
                     0);
 
-            int index0 = field_index(position);
-            int index1 = field_index(position.add(EDGE_OFFSETS[edgeNumber]));
+            int materialIndex0 = field_index(position);
+            int materialIndex1 = field_index(position.add(EDGE_OFFSETS[edgeNumber]));
 
             // There should be no need to check these indices, the previous call to
             // RemoveInvalidIndices should have validated the generatedEdgeIndices array
-            int material0 = index0 < FIELD_BUFFER_SIZE ? materials[index0] : meshGen.MATERIAL_AIR;
-	        int material1 = index1 < FIELD_BUFFER_SIZE ? materials[index1] : meshGen.MATERIAL_AIR;
+            int material0 = materialIndex0 < FIELD_BUFFER_SIZE ? materials[materialIndex0] : meshGen.MATERIAL_AIR;
+	        int material1 = materialIndex1 < FIELD_BUFFER_SIZE ? materials[materialIndex1] : meshGen.MATERIAL_AIR;
 
             int signChange = (material0 == meshGen.MATERIAL_AIR && material1 != meshGen.MATERIAL_AIR) ||
                     (material1 == meshGen.MATERIAL_AIR && material0 != meshGen.MATERIAL_AIR) ? 1 : 0;
