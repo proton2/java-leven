@@ -373,7 +373,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField, int[] edgeIndicesNonCompact, ChunkNode node){
+    private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField, int[] edgeIndicesNonCompact,
+                        ChunkNode node, Map<Integer, Vec4f> destNormals){
         int NUM_AXES = 3;
         int size = meshGen.getHermiteIndexSize(); // ??????????????????????????????????????
         Vec3i dstOffset = new Vec3i(
@@ -388,7 +389,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                     Vec3i dstCellOffset = new Vec3i(iSrcCellX/2, iSrcCellY/2, iSrcCellZ/2).add(dstOffset);
                     int iDstCellIndex = getHermiteIndex(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z);
 
-                    int iSrcCellIndex = getHermiteIndex(iSrcCellX, iSrcCellY, iSrcCellZ);
                     int startpoint_material = srcField.materialsCpu[getMaterialIndex(iSrcCellX, iSrcCellY, iSrcCellZ)];
                     for(int iAxis = 0; iAxis < NUM_AXES; iAxis++) {
                         int	numIntersections = 0;
@@ -397,6 +397,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
                         int iSrcEndPointVoxelIndex = getMaterialIndex(iSrcEndPointVoxel[0], iSrcEndPointVoxel[1], iSrcEndPointVoxel[2]);
                         if(iSrcEndPointVoxel[0] < meshGen.getFieldSize() && iSrcEndPointVoxel[1] < meshGen.getFieldSize() && iSrcEndPointVoxel[2] < meshGen.getFieldSize()){
+                            Integer srcMidpointNormalPos = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPosition(iSrcCellX, iSrcCellY, iSrcCellZ, iAxis));
+                            if(srcMidpointNormalPos==null){
+                                edgeIndicesNonCompact[iDstCellIndex + iAxis]=-1;
+                                continue;
+                            }
                             int[] iSrcMidPointVoxel = new int[]{iSrcCellX, iSrcCellY, iSrcCellZ};
                             iSrcMidPointVoxel[iAxis]++;
 
@@ -404,22 +409,37 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                             int midpoint_material = srcField.materialsCpu[iSrcMidPointVoxelIndex];
                             int endpoint_material = srcField.materialsCpu[iSrcEndPointVoxelIndex];
 
-                            int srcEdgeCode = meshGen.getEdgeCodeByPosition(iSrcCellX, iSrcCellY, iSrcCellZ, iAxis);
-                            Integer srcNormalPos = srcField.hermiteEdgesMap.get(srcEdgeCode);
-                            if(startpoint_material != midpoint_material && srcNormalPos!=null){
-                                edgeIndicesNonCompact[iDstCellIndex + iAxis] = edgeIndicesNonCompact[iSrcCellIndex + iAxis];
-                                Vec4f norm = srcField.normalsCpu[srcNormalPos];
+                            Vec4f destNorm = new Vec4f();
+                            if(startpoint_material != midpoint_material){
+                                Vec4f srcNorm = srcField.normalsCpu[srcMidpointNormalPos];
+                                destNorm.x+= srcNorm.x;
+                                destNorm.y+= srcNorm.y;
+                                destNorm.z+= srcNorm.z;
+                                destNorm.w+= srcNorm.w * 0.5f;
                                 numIntersections++;
                             }
 
                             if(midpoint_material != endpoint_material) {
-                                int iSrcMidPointVoxelHermiteIndex = getHermiteIndex(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2]);
-                                edgeIndicesNonCompact[iDstCellIndex + iAxis] = edgeIndicesNonCompact[iSrcMidPointVoxelHermiteIndex + iAxis];
-                                numIntersections++;
+                                int edgeCode = meshGen.getEdgeCodeByPosition(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2], iAxis);
+                                Integer srcEndPointNormPos = srcField.hermiteEdgesMap.get(edgeCode);
+                                if(srcEndPointNormPos!=null) {
+                                    Vec4f srcEndPointNorm = srcField.normalsCpu[srcEndPointNormPos];
+                                    destNorm.x+= srcEndPointNorm.x;
+                                    destNorm.y+= srcEndPointNorm.y;
+                                    destNorm.z+= srcEndPointNorm.z;
+                                    destNorm.w+= 0.5f + srcEndPointNorm.w * 0.5f;
+                                    numIntersections++;
+                                }
                             }
 
                             if(numIntersections>0) {
-
+                                float invNum = 1.0f / numIntersections;
+                                destNorm = destNorm.mul(invNum);
+                                destNorm = destNorm.normalize();
+                                destNorm = destNorm.mul(invNum);
+                                int destEdgeCode = meshGen.getEdgeCodeByPosition(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z, iAxis);
+                                edgeIndicesNonCompact[iDstCellIndex + iAxis] = destEdgeCode;
+                                destNormals.put(destEdgeCode, destNorm);
                             }
                         }
                     }
