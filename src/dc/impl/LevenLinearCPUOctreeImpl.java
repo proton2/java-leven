@@ -174,18 +174,22 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
-//        Integer[] changedChunks = new Integer[8];
-//        for (int i=0, k=0; i<8; i++){
-//            if(node.children[i]!=null && node.children[i].parentIsDirty){
-//                node.children[i].parentIsDirty = false;
-//                node.parentIsDirty = true;
-//                changedChunks[k++] = i;
-//            }
-//            if(node.children[i]!=null && node.children[i].chunkIsEdited){
-//                node.chunkIsEdited = true;
-//            }
-//            reduce(i, field.materialsCpu, field.edgeIndicesCpu, node);
-//        }
+
+        Integer[] changedChunks = new Integer[8];
+        Map<Integer, Vec4f> destNormals = new HashMap<>();
+        for (int i=0, k=0; i<8; i++){
+            if(node.children[i]!=null && node.children[i].parentIsDirty){
+                node.children[i].parentIsDirty = false;
+                node.parentIsDirty = true;
+                changedChunks[k++] = i;
+            }
+            if(node.children[i]!=null && node.children[i].chunkIsEdited){
+                node.chunkIsEdited = true;
+                Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
+                GPUDensityField srcField = densityFieldCache.get(key);
+                reduce(i, srcField, field, edgeIndicesNonCompact, node, destNormals);
+            }
+        }
 
         field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu,
                 edgeOccupancy, edgeIndicesNonCompact);
@@ -389,11 +393,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                     Vec3i dstCellOffset = new Vec3i(iSrcCellX/2, iSrcCellY/2, iSrcCellZ/2).add(dstOffset);
                     int iDstCellIndex = getHermiteIndex(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z);
                     int startpoint_material = srcField.materialsCpu[getMaterialIndex(iSrcCellX, iSrcCellY, iSrcCellZ)];
+
                     for(int iAxis = 0; iAxis < NUM_AXES; iAxis++) {
                         int numIntersections = 0;
                         int[] iSrcEndPointVoxel = new int[]{iSrcCellX, iSrcCellY, iSrcCellZ};
                         iSrcEndPointVoxel[iAxis] += 2;
                         int iSrcEndPointVoxelIndex = getMaterialIndex(iSrcEndPointVoxel[0], iSrcEndPointVoxel[1], iSrcEndPointVoxel[2]);
+
                         Vec4f destNorm = new Vec4f();
                         if(iSrcEndPointVoxel[0] < meshGen.getFieldSize() && iSrcEndPointVoxel[1] < meshGen.getFieldSize() && iSrcEndPointVoxel[2] < meshGen.getFieldSize()) {
                             int[] iSrcMidPointVoxel = new int[]{iSrcCellX, iSrcCellY, iSrcCellZ};
@@ -407,6 +413,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                             int iSrcMidPointVoxelIndex = getMaterialIndex(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2]);
                             int midpoint_material = srcField.materialsCpu[iSrcMidPointVoxelIndex];
                             int endpoint_material = srcField.materialsCpu[iSrcEndPointVoxelIndex];
+
                             if (startpoint_material != midpoint_material) {
                                 Vec4f startPointNorm = srcField.normalsCpu[srcCellNormalPos];
                                 destNorm.x += startPointNorm.x;
@@ -415,6 +422,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                                 destNorm.w += startPointNorm.w * 0.5f;
                                 numIntersections++;
                             }
+
                             if (midpoint_material != endpoint_material) {
                                 edgeCode = meshGen.getEdgeCodeByPosition(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2], iAxis);
                                 Integer srcEndPointNormPos = srcField.hermiteEdgesMap.get(edgeCode);
