@@ -191,7 +191,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
         }
 
-        field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu,
+        field.numEdges = FindFieldEdgesPerChild(field.materialsCpu,
                 edgeOccupancy, edgeIndicesNonCompact);
         if(field.numEdges==0 || field.numEdges<0){
             return;
@@ -310,6 +310,29 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
         field_materials[field_index(local_pos)] = material;
         if (material == defaultMaterialIndex) size++;
+        return size;
+    }
+
+    private int FindFieldEdgesPerChild(int[] materials,
+                               int[] edgeOccupancy, int[] edgeIndices) {
+        int size = 0;
+        int childSize = meshGen.getHermiteIndexSize()/2;
+        for (int child = 0; child < 8; child++) {
+            Vec3i dstOffset = new Vec3i(
+                    (child & (1<<(0))) > 0 ? childSize : 0,
+                    (child & (1<<(1))) > 0 ? childSize : 0,
+                    (child & (1<<(2))) > 0 ? childSize : 0
+            );
+
+            for(int z = 0; z < childSize; z++) {
+                for (int y = 0; y < childSize; y++) {
+                    for (int x = 0; x < childSize; x++) {
+                        size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z + dstOffset.z, y + dstOffset.y, x + dstOffset.x);
+                    }
+                }
+            }
+
+        }
         return size;
     }
 
