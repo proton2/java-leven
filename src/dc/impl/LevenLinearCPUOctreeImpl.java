@@ -324,9 +324,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                     (child & (1<<(2))) > 0 ? childSize : 0
             );
 
-            for(int z = 0; z < childSize; z++) {
-                for (int y = 0; y < childSize; y++) {
-                    for (int x = 0; x < childSize; x++) {
+            for(int z = 0; z < (dstOffset.z == 0 ? childSize : childSize + 1); z++) {
+                for (int y = 0; y < (dstOffset.y == 0 ? childSize : childSize + 1); y++) {
+                    for (int x = 0; x < (dstOffset.x == 0 ? childSize : childSize + 1); x++) {
                         size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z + dstOffset.z, y + dstOffset.y, x + dstOffset.x);
                     }
                 }
