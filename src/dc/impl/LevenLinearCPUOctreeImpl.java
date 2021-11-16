@@ -175,23 +175,23 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
 
-        Integer[] changedChunks = new Integer[8];
+        boolean[] reducedChunks = new boolean[8];
         Map<Integer, Vec4f> destNormals = new HashMap<>();
-        for (int i=0, k=0; i<8; i++){
+        for (int i=0; i<8; i++){
             if(node.children[i]!=null && node.children[i].parentIsDirty){
                 node.children[i].parentIsDirty = false;
                 node.parentIsDirty = true;
-                changedChunks[k++] = i;
             }
             if(node.children[i]!=null && node.children[i].chunkIsEdited){
                 node.chunkIsEdited = true;
                 Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
                 GPUDensityField srcField = densityFieldCache.get(key);
                 reduce(i, srcField, field, edgeIndicesNonCompact, node, destNormals);
+                reducedChunks[i] = true;
             }
         }
 
-        field.numEdges = FindFieldEdgesPerChild(field.materialsCpu,
+        field.numEdges = FindFieldEdgesPerChild(field.materialsCpu, reducedChunks,
                 edgeOccupancy, edgeIndicesNonCompact);
         if(field.numEdges==0 || field.numEdges<0){
             return;
@@ -313,25 +313,42 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    private int FindFieldEdgesPerChild(int[] materials,
+    private int FindFieldEdgesPerChild(int[] materials, boolean[] reducedChunks,
                                int[] edgeOccupancy, int[] edgeIndices) {
-        int size = 0;
-        int childSize = meshGen.getHermiteIndexSize()/2;
-        for (int child = 0; child < 8; child++) {
-            Vec3i dstOffset = new Vec3i(
-                    (child & (1<<(0))) > 0 ? childSize : 0,
-                    (child & (1<<(1))) > 0 ? childSize : 0,
-                    (child & (1<<(2))) > 0 ? childSize : 0
-            );
 
-            for(int z = 0; z < (dstOffset.z == 0 ? childSize : childSize + 1); z++) {
-                for (int y = 0; y < (dstOffset.y == 0 ? childSize : childSize + 1); y++) {
-                    for (int x = 0; x < (dstOffset.x == 0 ? childSize : childSize + 1); x++) {
-                        size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z + dstOffset.z, y + dstOffset.y, x + dstOffset.x);
+        int childSize = meshGen.getHermiteIndexSize()/2;
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        for (int child = 0; child < 8; child++) {
+            if(reducedChunks[child]) {
+                continue;
+            }
+            Vec3i childOffset = new Vec3i(
+                    (child & (1 << (0))) > 0 ? childSize : 0,
+                    (child & (1 << (1))) > 0 ? childSize : 0,
+                    (child & (1 << (2))) > 0 ? childSize : 0
+            );
+            Callable<Integer> task = () -> {
+                int size = 0;
+                for (int z = 0; z < (childOffset.z == 0 ? childSize : childSize + 1); z++) {
+                    for (int y = 0; y < (childOffset.y == 0 ? childSize : childSize + 1); y++) {
+                        for (int x = 0; x < (childOffset.x == 0 ? childSize : childSize + 1); x++) {
+                            size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z + childOffset.z, y + childOffset.y, x + childOffset.x);
+                        }
                     }
                 }
-            }
+                return size;
+            };
+            tasks.add(task);
+        }
 
+        int size = 0;
+        try {
+            List<Future<Integer>> futures = service.invokeAll(tasks);
+            for (Future<Integer> future : futures) {
+                size += future.get();
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, e.toString());
         }
         return size;
     }
