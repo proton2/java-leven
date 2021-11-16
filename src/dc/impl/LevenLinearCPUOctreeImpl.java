@@ -34,6 +34,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private final ExecutorService service;
     private final int availableProcessors;
     private final boolean enableQefClamping = true;
+    private final ExecutorService childsService;
 
     public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                     Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
@@ -49,6 +50,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 return thread;
             }
         });
+        childsService = Executors.newFixedThreadPool(8);
     }
 
     @Override
@@ -343,7 +345,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
         int size = 0;
         try {
-            List<Future<Integer>> futures = service.invokeAll(tasks);
+            List<Future<Integer>> futures = childsService.invokeAll(tasks);
             for (Future<Integer> future : futures) {
                 size += future.get();
             }
