@@ -4,6 +4,7 @@ import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
+import dc.ChunkNode;
 import dc.entities.CSGOperationInfo;
 import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
@@ -22,6 +23,13 @@ public class CpuCsgImpl implements ICSGOperations{
     private MeshGenerationContext meshGen;
     private final ExecutorService service;
     int availableProcessors;
+
+    @Override
+    public boolean isReduceChunk() {
+        return reduceChunk;
+    }
+
+    final private boolean reduceChunk;
 
     private final Vec4i[] EDGE_OFFSETS = {
             new Vec4i( 1, 0, 0, 0),
@@ -47,7 +55,8 @@ public class CpuCsgImpl implements ICSGOperations{
             new Vec4i( 1, 1, 1, 0 ),
     };
 
-    public CpuCsgImpl() {
+    public CpuCsgImpl(boolean reduce) {
+        this.reduceChunk = reduce;
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
             private final AtomicInteger count = new AtomicInteger();
@@ -61,18 +70,17 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     @Override
-    public void ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, Vec3i clipmapNodeMin,
-                                   int clipmapNodeSize, GPUDensityField field){
+    public void ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field){
         this.meshGen = meshGen;
         if (opInfo.isEmpty()) {
             return;
         }
-        processCSG(meshGen, opInfo, clipmapNodeMin, clipmapNodeSize, field);
+        processCSG(meshGen, opInfo, node, field);
     }
 
-    private void processCSG(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, Vec3i clipmapNodeMin, int clipmapNodeSize, GPUDensityField field) {
-        Vec4i fieldOffset = LeafScaleVec(clipmapNodeMin);
-        int sampleScale = clipmapNodeSize / (meshGen.leafSizeScale * meshGen.getVoxelsPerChunk());
+    private void processCSG(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field) {
+        Vec4i fieldOffset = LeafScaleVec(node.min);
+        int sampleScale = node.size / (meshGen.leafSizeScale * meshGen.getVoxelsPerChunk());
         int fieldBufferSize = meshGen.fieldSize * meshGen.fieldSize * meshGen.fieldSize;
         int[] d_updatedIndices = new int[fieldBufferSize];
         Vec3i[] d_updatedPoints = new Vec3i[fieldBufferSize];
@@ -82,6 +90,8 @@ public class CpuCsgImpl implements ICSGOperations{
         if (numUpdatedPoints <= 0) {    // < 0 will be an error code
             return;
         }
+        node.chunkIsEdited = true;
+        node.parentIsDirty = true;
 
         Vec3i[] d_compactUpdatedPoints = new Vec3i[numUpdatedPoints];
         compactElements(d_updatedIndices, d_updatedPoints, d_compactUpdatedPoints);

@@ -529,7 +529,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         MeshGenerationContext meshGen = new MeshGenerationContext(64);
         Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
         Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
-        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGen, new CpuCsgImpl(), densityFieldCache, octreeCache);
+        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGen, new CpuCsgImpl(false), densityFieldCache, octreeCache);
 
         Set<Integer> seamNodeCodes = new HashSet<>();
         PointerBasedOctreeNode n0 = new PointerBasedOctreeNode(new Vec3i(20,30,40), 1, OctreeNodeType.Node_Leaf);

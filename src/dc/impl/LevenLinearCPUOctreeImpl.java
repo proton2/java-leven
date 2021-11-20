@@ -59,7 +59,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(field==null){
             return null;
         }
-        csgOperationsProcessor.ApplyCSGOperations(meshGen, opInfo, node.min, node.size, field);
+        getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
         field.lastCSGOperation += opInfo.size();
 
         StoreDensityField(field);
@@ -144,19 +144,19 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             FindDefaultEdges(field, node);
         }
 
-        Aabb fieldBB = new Aabb(field.min, field.size);
-        Set<CSGOperationInfo> csgOperations = new HashSet<>();
-        for (int i = field.lastCSGOperation; i < storedOps.size(); i++) {
-            if (fieldBB.overlaps(storedOpAABBs.get(i))) {
-                csgOperations.add(storedOps.get(i));
+        if(!getCsgOperationsProcessor().isReduceChunk()) {
+            Aabb fieldBB = new Aabb(field.min, field.size);
+            Set<CSGOperationInfo> csgOperations = new HashSet<>();
+            for (int i = field.lastCSGOperation; i < storedOps.size(); i++) {
+                if (fieldBB.overlaps(storedOpAABBs.get(i))) {
+                    csgOperations.add(storedOps.get(i));
+                }
             }
-        }
-
-        field.lastCSGOperation = storedOps.size();
-
-        if (!csgOperations.isEmpty()) {
-            csgOperationsProcessor.ApplyCSGOperations(meshGen, csgOperations, node.min, node.size, field);
-            StoreDensityField(field);
+            field.lastCSGOperation = storedOps.size();
+            if (!csgOperations.isEmpty()) {
+                getCsgOperationsProcessor().ApplyCSGOperations(meshGen, csgOperations, node, field);
+                StoreDensityField(field);
+            }
         }
 
         return field;
@@ -177,28 +177,32 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
 
-        boolean[] reducedChunks = new boolean[8];
-        Map<Integer, Vec4f> destNormals = new HashMap<>();
-        for (int i=0; i<8; i++){
-            if(node.children[i]!=null && node.children[i].parentIsDirty){
-                node.children[i].parentIsDirty = false;
-                node.parentIsDirty = true;
+        if (getCsgOperationsProcessor().isReduceChunk()) {
+            boolean[] reducedChunks = new boolean[8];
+            Map<Integer, Vec4f> destNormals = new HashMap<>();
+            for (int i=0; i<8; i++){
+                if(node.children[i]!=null && node.children[i].parentIsDirty){
+                    node.children[i].parentIsDirty = false;
+                    node.parentIsDirty = true;
+                }
+                if(node.children[i]!=null && node.children[i].chunkIsEdited){
+                    node.chunkIsEdited = true;
+                    Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
+                    GPUDensityField srcField = densityFieldCache.get(key);
+                    reduce(i, srcField, field, edgeIndicesNonCompact, node, destNormals);
+                    reducedChunks[i] = true;
+                }
             }
-            if(node.children[i]!=null && node.children[i].chunkIsEdited){
-                node.chunkIsEdited = true;
-                Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
-                GPUDensityField srcField = densityFieldCache.get(key);
-                reduce(i, srcField, field, edgeIndicesNonCompact, node, destNormals);
-                reducedChunks[i] = true;
-            }
+            field.numEdges = FindFieldEdgesPerChild(field.materialsCpu, reducedChunks,
+                    edgeOccupancy, edgeIndicesNonCompact);
+        } else {
+            field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu,
+                    edgeOccupancy, edgeIndicesNonCompact);
         }
 
-        field.numEdges = FindFieldEdgesPerChild(field.materialsCpu, reducedChunks,
-                edgeOccupancy, edgeIndicesNonCompact);
         if(field.numEdges==0 || field.numEdges<0){
             return;
         }
-
         field.edgeIndicesCpu = compactEdges(edgeOccupancy, edgeIndicesNonCompact, field.numEdges);
         field.normalsCpu = FindEdgeIntersectionInfoMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), field.edgeIndicesCpu, field.numEdges);
     }

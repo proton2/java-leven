@@ -1,15 +1,14 @@
 package dc;
 
 import core.math.Vec3i;
-import core.math.Vec4i;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.impl.GPUDensityField;
+import dc.impl.ICSGOperations;
 import dc.utils.Aabb;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 public interface VoxelOctree {
     int[][] edgevmap = {
@@ -38,4 +37,5 @@ public interface VoxelOctree {
     void computeStoreCSGOperation(CSGOperationInfo opInfo, Aabb aabb);
     void computeClearCSGOperations();
     void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize);
+    ICSGOperations getCsgOperationsProcessor();
 }

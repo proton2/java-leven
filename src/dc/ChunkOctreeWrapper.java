@@ -76,12 +76,12 @@ public class ChunkOctreeWrapper extends GameObject {
             kernelHolder.buildKernel(KernelNames.SCAN, null);
             kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
             kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
-            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx, new CpuCsgImpl(), densityFieldCache, octreeCache);
+            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx, new CpuCsgImpl(false), densityFieldCache, octreeCache);
         } else{
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx, null, densityFieldCache, octreeCache);
             //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
             //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx, null, densityFieldCache, octreeCache);
-            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
+            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(true), densityFieldCache, octreeCache);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         }
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, playerCollision);

@@ -26,11 +26,15 @@ import static dc.utils.SimplexNoise.getNoise;
 
 public abstract class AbstractDualContouring implements DualContouring{
     protected MeshGenerationContext meshGen;
-    protected ICSGOperations csgOperationsProcessor;
+    private final ICSGOperations csgOperationsProcessor;
     protected Map<Vec4i, GPUDensityField> densityFieldCache;
     protected Map<Vec4i, GpuOctree> octreeCache;
     protected List<Aabb> storedOpAABBs = new ArrayList<>();
     protected List<CSGOperationInfo> storedOps = new ArrayList<>();
+
+    public ICSGOperations getCsgOperationsProcessor() {
+        return csgOperationsProcessor;
+    }
 
     public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                   Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
