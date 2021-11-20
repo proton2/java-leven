@@ -178,26 +178,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
 
         if (getCsgOperationsProcessor().isReduceChunk()) {
-            boolean[] reducedChunks = new boolean[8];
-            Map<Integer, Vec4f> destNormals = new HashMap<>();
-            for (int i=0; i<8; i++){
-                if(node.children[i]!=null && node.children[i].parentIsDirty){
-                    node.children[i].parentIsDirty = false;
-                    node.parentIsDirty = true;
-                }
-                if(node.children[i]!=null && node.children[i].chunkIsEdited){
-                    node.chunkIsEdited = true;
-                    Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
-                    GPUDensityField srcField = densityFieldCache.get(key);
-                    reduce(i, srcField, field, edgeIndicesNonCompact, node, destNormals);
-                    reducedChunks[i] = true;
-                }
-            }
-            field.numEdges = FindFieldEdgesPerChild(field.materialsCpu, reducedChunks,
-                    edgeOccupancy, edgeIndicesNonCompact);
+            field.numEdges = findFieldEdgesProcessReduce(field, node, edgeOccupancy, edgeIndicesNonCompact);
         } else {
-            field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu,
-                    edgeOccupancy, edgeIndicesNonCompact);
+            field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu, edgeOccupancy, edgeIndicesNonCompact);
         }
 
         if(field.numEdges==0 || field.numEdges<0){
@@ -205,6 +188,26 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
         field.edgeIndicesCpu = compactEdges(edgeOccupancy, edgeIndicesNonCompact, field.numEdges);
         field.normalsCpu = FindEdgeIntersectionInfoMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), field.edgeIndicesCpu, field.numEdges);
+    }
+
+    private int findFieldEdgesProcessReduce(GPUDensityField field, ChunkNode node, int[] edgeOccupancy, int[] edgeIndicesNonCompact) {
+        boolean[] reducedChunks = new boolean[8];
+        Map<Integer, Vec4f> destNormals = new HashMap<>();
+        for (int i=0; i<8; i++){
+            if(node.children[i]!=null && node.children[i].parentIsDirty){
+                node.children[i].parentIsDirty = false;
+                node.parentIsDirty = true;
+            }
+            if(node.children[i]!=null && node.children[i].chunkIsEdited){
+                node.chunkIsEdited = true;
+                Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
+                GPUDensityField srcField = densityFieldCache.get(key);
+                reduce(i, srcField, field, edgeIndicesNonCompact, node, destNormals);
+                reducedChunks[i] = true;
+            }
+        }
+        return FindFieldEdgesPerChild(field.materialsCpu, reducedChunks,
+                edgeOccupancy, edgeIndicesNonCompact);
     }
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
