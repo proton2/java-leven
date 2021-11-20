@@ -176,11 +176,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int edgeBufferSize = meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize() * 3;
         int[] edgeOccupancy = new int[edgeBufferSize];
         int[] edgeIndicesNonCompact = new int[edgeBufferSize];
+        Map<Integer, Vec4f> normals = new HashMap<>();
 
         if (getCsgOperationsProcessor().isReduceChunk()) {
-            field.numEdges = findFieldEdgesProcessReduce(field, node, edgeOccupancy, edgeIndicesNonCompact);
+            field.numEdges = findFieldEdgesProcessReduce(field, node, edgeOccupancy, edgeIndicesNonCompact, normals);
         } else {
-            field.numEdges = FindFieldEdgesMultiThread(field.materialsCpu, edgeOccupancy, edgeIndicesNonCompact);
+            field.numEdges = FindFieldEdgesMultiThread(field, edgeOccupancy, edgeIndicesNonCompact, normals);
         }
 
         if(field.numEdges==0 || field.numEdges<0){
@@ -190,9 +191,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         field.normalsCpu = FindEdgeIntersectionInfoMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), field.edgeIndicesCpu, field.numEdges);
     }
 
-    private int findFieldEdgesProcessReduce(GPUDensityField field, ChunkNode node, int[] edgeOccupancy, int[] edgeIndicesNonCompact) {
+    private int findFieldEdgesProcessReduce(GPUDensityField field, ChunkNode node, int[] edgeOccupancy, int[] edgeIndicesNonCompact, Map<Integer, Vec4f> destNormals) {
         boolean[] reducedChunks = new boolean[8];
-        Map<Integer, Vec4f> destNormals = new HashMap<>();
         for (int i=0; i<8; i++){
             if(node.children[i]!=null && node.children[i].parentIsDirty){
                 node.children[i].parentIsDirty = false;
@@ -206,8 +206,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 reducedChunks[i] = true;
             }
         }
-        return FindFieldEdgesPerChild(field.materialsCpu, reducedChunks,
-                edgeOccupancy, edgeIndicesNonCompact);
+        return FindFieldEdgesPerChild(field.min, field.size / meshGen.getVoxelsPerChunk(), field.materialsCpu, reducedChunks,
+                edgeOccupancy, edgeIndicesNonCompact, destNormals);
     }
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
@@ -313,17 +313,14 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private int processMaterial(Vec3i offset, int sampleScale, int defaultMaterialIndex, int[] field_materials, int size, Vec3i local_pos) {
         Vec3i world_pos = local_pos.mul(sampleScale).add(offset);
         float density = getNoise(world_pos);
-        //float cube = SimplexNoise.Density_Cuboid(world_pos.toVec3f(), new Vec3f(-139.034f,-176.0f,-1923.888f), new Vec3f(4.0f, 4.0f, 4.0f));
-        //float cube = SimplexNoise.Density_Sphere(new Vec3f(world_pos), new Vec3f(-139.034f,-176.0f,-1923.888f), 4);
-        //float densityCorr = Math.max(-cube, density);
         int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
         field_materials[field_index(local_pos)] = material;
         if (material == defaultMaterialIndex) size++;
         return size;
     }
 
-    private int FindFieldEdgesPerChild(int[] materials, boolean[] reducedChunks,
-                               int[] edgeOccupancy, int[] edgeIndices) {
+    private int FindFieldEdgesPerChild(Vec3i chunkMin, int sampleScale, int[] materials, boolean[] reducedChunks,
+                               int[] edgeOccupancy, int[] edgeIndices, Map<Integer, Vec4f> normals) {
 
         int childSize = meshGen.getHermiteIndexSize()/2;
         List<Callable<Integer>> tasks = new ArrayList<>();
@@ -341,7 +338,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 for (int z = 0; z < (childOffset.z == 0 ? childSize : childSize + 1); z++) {
                     for (int y = 0; y < (childOffset.y == 0 ? childSize : childSize + 1); y++) {
                         for (int x = 0; x < (childOffset.x == 0 ? childSize : childSize + 1); x++) {
-                            size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z + childOffset.z, y + childOffset.y, x + childOffset.x);
+                            size = processFindFieldEdges(chunkMin, sampleScale, materials, edgeOccupancy, edgeIndices, size,
+                                    z + childOffset.z, y + childOffset.y, x + childOffset.x, normals);
                         }
                     }
                 }
@@ -362,8 +360,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    private int FindFieldEdgesMultiThread(int[] materials,
-                               int[] edgeOccupancy, int[] edgeIndices) {
+    private int FindFieldEdgesMultiThread(GPUDensityField field,
+                               int[] edgeOccupancy, int[] edgeIndices, Map<Integer, Vec4f> normals) {
 
         List<Callable<Integer>> tasks = new ArrayList<>();
         int bound = meshGen.getHermiteIndexSize();
@@ -379,7 +377,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                     int x = it % bound;
                     int y = (it / bound) % bound;
                     int z = (it / bound / bound);
-                    size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z, y, x);
+                    size = processFindFieldEdges(field.min, field.size / meshGen.getVoxelsPerChunk(),
+                            field.materialsCpu, edgeOccupancy, edgeIndices, size, z, y, x, normals);
                 }
                 return size;
             };
@@ -399,7 +398,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    private int processFindFieldEdges(int[] materials, int[] edgeOccupancy, int[] edgeIndices, int size, int z, int y, int x) {
+    private int processFindFieldEdges(Vec3i chunkMin, int sampleScale, int[] materials, int[] edgeOccupancy, int[] edgeIndices,
+                                      int size, int z, int y, int x, Map<Integer, Vec4f> normals) {
         Vec4i pos = new Vec4i(x, y, z, 0);
         int index = (x + (y * meshGen.getHermiteIndexSize()) + (z * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize()));
         int edgeIndex = index * 3;
@@ -420,10 +420,41 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             edgeOccupancy[edgeIndex + i] = signChange ? 1 : 0;
             int edgeCode = (voxelIndex << 2) | i;
             edgeIndices[edgeIndex + i] = signChange ? edgeCode : -1;
-            if (signChange)
+            if (signChange) {
+                normals.put(edgeCode, calculateNorm(chunkMin, sampleScale, i, x, y, z));
                 ++size;
+            }
         }
         return size;
+    }
+
+    private final Vec3i[] EDGE_END_OFFSETS = {
+            new Vec3i(1,0,0),
+            new Vec3i(0,1,0),
+            new Vec3i(0,0,1)
+    };
+
+    private void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges,
+                                          Vec4f[] normals) {
+        for (int index = from; index < to; index++) {
+            int edge = encodedEdges[index];
+            int axisIndex = edge & 3;
+            int hermiteIndex = edge >> 2;
+
+            int x = (hermiteIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask();
+            int y = (hermiteIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask();
+            int z = (hermiteIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask();
+            normals[index] = calculateNorm(chunkMin, sampleScale, axisIndex, x, y, z);
+        }
+    }
+
+    private Vec4f calculateNorm(Vec3i chunkMin, int sampleScale, int axisIndex, int x, int y, int z){
+        Vec3f p0 = new Vec3i(x, y, z).mul(sampleScale).add(chunkMin).toVec3f();
+        Vec3f p1 = p0.add(EDGE_END_OFFSETS[axisIndex].mul(sampleScale).toVec3f());
+
+        Vec4f p = ApproximateLevenCrossingPosition(p0, p1);
+        Vec4f normal = CalculateSurfaceNormal(p);
+        return new Vec4f(normal.getVec3f(), p.w);
     }
 
     private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField, int[] edgeIndicesNonCompact,
@@ -511,19 +542,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return (x + (y * meshGen.getHermiteIndexSize()) + (z * meshGen.getHermiteIndexSize() * meshGen.getHermiteIndexSize())) * 3;
     }
 
-    private int FindFieldEdges(int[] materials,
-                       int[] edgeOccupancy, int[] edgeIndices) {
-        int size = 0;
-        for (int z = 0; z < meshGen.getHermiteIndexSize(); z++) {
-            for (int y = 0; y < meshGen.getHermiteIndexSize(); y++) {
-                for (int x = 0; x < meshGen.getHermiteIndexSize(); x++) {
-                    size = processFindFieldEdges(materials, edgeOccupancy, edgeIndices, size, z, y, x);
-                }
-            }
-        }
-        return size;
-    }
-
     private int[] compactEdges(int[] edgeValid, int[] edges, int compactEdgesSize) {
         int[] compactActiveEdges = new int [compactEdgesSize];
         int current = 0;
@@ -535,47 +553,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
         return compactActiveEdges;
     }
-
-    Vec3i[] EDGE_END_OFFSETS = {
-            new Vec3i(1,0,0),
-            new Vec3i(0,1,0),
-            new Vec3i(0,0,1)
-    };
-
-    private void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges,
-                                          Vec4f[] normals) {
-        for (int index = from; index < to; index++) {
-            int edge = encodedEdges[index];
-            int axisIndex = edge & 3;
-            int hermiteIndex = edge >> 2;
-
-            int x = (hermiteIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask();
-            int y = (hermiteIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask();
-            int z = (hermiteIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask();
-
-            Vec3f p0 = new Vec3i(x, y, z).mul(sampleScale).add(chunkMin).toVec3f();
-            Vec3f p1 = p0.add(EDGE_END_OFFSETS[axisIndex].mul(sampleScale).toVec3f());
-
-            Vec4f p = ApproximateLevenCrossingPosition(p0, p1);
-            Vec4f normal = CalculateSurfaceNormal(p);
-
-            normals[index] = new Vec4f(normal.getVec3f(), p.w);
-        }
-    }
-
-//    private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges, int bound) {
-//        Vec4f[] normals = new Vec4f[bound];
-//        int threadBound = bound / availableProcessors;
-//        for (int i = 0; i < availableProcessors; i++) {
-//            int from = i * threadBound;
-//            int to = from + threadBound;
-//            service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, from, to, encodedEdges, normals));
-//            if (i == availableProcessors - 1 && to <= bound-1) {
-//                service.submit(() -> FindEdgeIntersectionInfo(chunkMin, sampleScale, to, bound, encodedEdges, normals));
-//            }
-//        }
-//        return normals;
-//    }
 
     private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges, int bound) {
         List<Callable<Boolean>> tasks = new ArrayList<>();
