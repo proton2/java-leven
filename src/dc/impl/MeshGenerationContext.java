@@ -105,4 +105,16 @@ public class MeshGenerationContext {
         int voxelIndex = x | (y << indexShift) | (z << (indexShift * 2));
         return (voxelIndex << 2) | axisNum;
     }
+
+    public int getMaterialIndex(Vec3i pos) {
+        return pos.x + (pos.y * getFieldSize()) + (pos.z * getFieldSize() * getFieldSize());
+    }
+
+    public int getMaterialIndex(int x, int y, int z){
+        return x + (y * getFieldSize()) + (z * getFieldSize() * getFieldSize());
+    }
+
+    public int getHermiteIndex(int x, int y, int z){
+        return (x + (y * getHermiteIndexSize()) + (z * getHermiteIndexSize() * getHermiteIndexSize())) * 3;
+    }
 }

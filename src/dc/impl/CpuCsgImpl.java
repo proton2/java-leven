@@ -5,14 +5,17 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import dc.ChunkNode;
+import dc.VoxelOctree;
 import dc.entities.CSGOperationInfo;
 import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -30,30 +33,6 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     final private boolean reduceChunk;
-
-    private final Vec4i[] EDGE_OFFSETS = {
-            new Vec4i( 1, 0, 0, 0),
-            new Vec4i( 0, 1, 0, 0),
-            new Vec4i( 0, 0, 1, 0)
-    };
-
-    private final int[][] EDGE_MAP = {
-            {0,4},{1,5},{2,6},{3,7},	// x-axis
-            {0,2},{1,3},{4,6},{5,7},	// y-axis
-            {0,1},{2,3},{4,5},{6,7}		// z-axis
-    };
-
-    private final Vec4i[] CHILD_MIN_OFFSETS = {
-        // needs to match the vertMap from Dual Contouring impl
-            new Vec4i( 0, 0, 0, 0 ),
-            new Vec4i( 0, 0, 1, 0 ),
-            new Vec4i( 0, 1, 0, 0 ),
-            new Vec4i( 0, 1, 1, 0 ),
-            new Vec4i( 1, 0, 0, 0 ),
-            new Vec4i( 1, 0, 1, 0 ),
-            new Vec4i( 1, 1, 0, 0 ),
-            new Vec4i( 1, 1, 1, 0 ),
-    };
 
     public CpuCsgImpl(boolean reduce) {
         this.reduceChunk = reduce;
@@ -100,73 +79,32 @@ public class CpuCsgImpl implements ICSGOperations{
         int numCompactEdgeIndices = FindUpdatedEdgesMultiThread(d_compactUpdatedPoints, d_generatedEdgeIndices);
 
         Set<Integer> d_invalidatedEdges = CompactIndexArray(d_generatedEdgeIndices, numCompactEdgeIndices);
-
-        int[] d_createdEdges = FilterValidEdges(d_invalidatedEdges, field.materialsCpu);
-        int numCreatedEdges = d_createdEdges.length;
+        Map<Integer, Vec4f> createdEdges = FilterValidEdges(fieldOffset, opInfo, sampleScale, d_invalidatedEdges, field.materialsCpu);
 
         if (d_invalidatedEdges.size() > 0 && field.numEdges > 0) {
-            int[] d_fieldEdgeValidity = new int[field.numEdges];
-            int numPrunedEdges = PruneFieldEdges(field.edgeIndicesCpu, d_invalidatedEdges,
-                    d_fieldEdgeValidity);
-            if (numPrunedEdges > 0) {
-                int[] d_prunedEdgeIndices = new int[numPrunedEdges];
-                Vec4f[] d_prunedNormals = new Vec4f[numPrunedEdges];
-                compactElements(d_fieldEdgeValidity, field.edgeIndicesCpu, field.normalsCpu,
-                        d_prunedEdgeIndices, d_prunedNormals);
-
-                field.numEdges = numPrunedEdges;
-                field.edgeIndicesCpu = d_prunedEdgeIndices;
-                field.normalsCpu = d_prunedNormals;
-            }
+            field.hermiteEdgesMap.keySet().removeAll(d_invalidatedEdges);
+            field.numEdges = field.hermiteEdgesMap.size();
         }
 
-        if (numCreatedEdges > 0) {
-            Vec4f[] d_createdNormals = FindEdgeIntersectionInfoMultiThread(fieldOffset, opInfo, sampleScale, d_createdEdges);
+        if (createdEdges.size() > 0) {
             if (field.numEdges > 0) {
-                int oldSize = field.numEdges;
-                int newSize = oldSize + numCreatedEdges;
-                int[] combinedEdges = new int[newSize];
-                Vec4f[] combinedNormals = new Vec4f[newSize];
-
-                System.arraycopy(field.edgeIndicesCpu, 0, combinedEdges, 0, oldSize);
-                System.arraycopy(field.normalsCpu, 0, combinedNormals, 0, oldSize);
-
-                System.arraycopy(d_createdEdges, 0, combinedEdges, oldSize, numCreatedEdges);
-                System.arraycopy(d_createdNormals, 0, combinedNormals, oldSize, numCreatedEdges);
-
-                field.numEdges = newSize;
-                field.edgeIndicesCpu = combinedEdges;
-                field.normalsCpu = combinedNormals;
+                field.hermiteEdgesMap.putAll(createdEdges);
+                field.numEdges = field.hermiteEdgesMap.size();
             } else {
-                field.numEdges = numCreatedEdges;
-                field.edgeIndicesCpu = d_createdEdges;
-                field.normalsCpu = d_createdNormals;
+                field.numEdges = createdEdges.size();
+                field.hermiteEdgesMap = createdEdges;
             }
         }
-    }
-
-    private int CSG_HermiteIndices(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials,
-                                   int[] updated_indices, Vec3i[] updated_positions) {
-        int size = 0;
-        for (int z = 0; z < meshGen.getFieldSize(); z++) {
-            for (int y = 0; y < meshGen.getFieldSize(); y++) {
-                for (int x = 0; x < meshGen.getFieldSize(); x++) {
-                    size = processMaterials(worldspaceOffset, operations, sampleScale, field_materials, updated_indices, updated_positions, size, z, y, x);
-                }
-            }
-        }
-        return size;
     }
 
     private int CSG_HermiteIndicesMultiThread(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials,
                                    int[] updated_indices, Vec3i[] updated_positions){
-        List<Callable<Integer>> tasks = new ArrayList<>();
         int bound = meshGen.getFieldSize();
         int threadBound = (bound * bound * bound) / availableProcessors;
-
+        List<Callable<Integer>> tasks = new ArrayList<>();
         for (int i = 0; i < availableProcessors; i++) {
             int finalI = i;
-            Callable<Integer> task = () -> {
+            tasks.add(() -> {
                 int from = finalI * threadBound;
                 int to = from + threadBound;
                 int size = 0;
@@ -177,20 +115,9 @@ public class CpuCsgImpl implements ICSGOperations{
                     size = processMaterials(worldspaceOffset, operations, sampleScale, field_materials, updated_indices, updated_positions, size, z, y, x);
                 }
                 return size;
-            };
-            tasks.add(task);
+            });
         }
-
-        int size = 0;
-        try {
-            List<Future<Integer>> futures = service.invokeAll(tasks);
-            for (Future<Integer> future : futures) {
-                size += future.get();
-            }
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, e.toString());
-        }
-        return size;
+        return VoxelOctree.performIntCallableTask(tasks, service, logger);
     }
 
     private int processMaterials(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials, int[] updated_indices, Vec3i[] updated_positions, int size, int z, int y, int x) {
@@ -199,7 +126,7 @@ public class CpuCsgImpl implements ICSGOperations{
         int sy = sampleScale * y;
         int sz = sampleScale * z;
 
-        int index = field_index(local_pos);
+        int index = meshGen.getMaterialIndex(local_pos);
         int oldMaterial = field_materials[index];
         int material = field_materials[index];
 
@@ -229,27 +156,16 @@ public class CpuCsgImpl implements ICSGOperations{
     private int FindUpdatedEdgesMultiThread(Vec3i[] updatedHermiteIndices,
                                  int[] updatedHermiteEdgeIndices) {
         int bound = updatedHermiteIndices.length;
-        List<Callable<Integer>> tasks = new ArrayList<>();
         final int threadBound = bound / availableProcessors;
+        List<Callable<Integer>> tasks = new ArrayList<>();
 
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
             int to = from + threadBound;
             boolean last = (i == availableProcessors - 1 && to <= bound - 1);
-            Callable<Integer> task = () -> FindUpdatedEdges(from, last ? bound : to, updatedHermiteIndices, updatedHermiteEdgeIndices);
-            tasks.add(task);
+            tasks.add(() -> FindUpdatedEdges(from, last ? bound : to, updatedHermiteIndices, updatedHermiteEdgeIndices));
         }
-
-        int size = 0;
-        try {
-            List<Future<Integer>> futures = service.invokeAll(tasks);
-            for (Future<Integer> future : futures) {
-                size += future.get();
-            }
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, e.toString());
-        }
-        return size;
+        return VoxelOctree.performIntCallableTask(tasks, service, logger);
     }
 
     private int FindUpdatedEdges(int from, int to, Vec3i[] updatedHermiteIndices,
@@ -310,21 +226,21 @@ public class CpuCsgImpl implements ICSGOperations{
         return Arrays.stream(compactIndices).boxed().collect(Collectors.toSet());
     }
 
-    private int[] FilterValidEdges(Set<Integer> generatedHermiteEdgeIndices, int[] materials) {
-        int[] compactIndices = new int[generatedHermiteEdgeIndices.size()];
-        int id = 0;
+    private Map<Integer, Vec4f> FilterValidEdges(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale,
+                                  Set<Integer> generatedHermiteEdgeIndices, int[] materials) {
+        Map<Integer, Vec4f> normals = new HashMap<>();
         int FIELD_BUFFER_SIZE = meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize();
         for (int generatedEdgeIndex : generatedHermiteEdgeIndices) {
             int edgeNumber = generatedEdgeIndex & 3;
             int edgeIndex = generatedEdgeIndex >> 2;
-            Vec4i position = new Vec4i(
+            Vec3i position = new Vec4i(
                     (edgeIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask(),
                     (edgeIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask(),
                     (edgeIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask(),
                     0);
 
-            int materialIndex0 = field_index(position);
-            int materialIndex1 = field_index(position.add(EDGE_OFFSETS[edgeNumber]));
+            int materialIndex0 = meshGen.getMaterialIndex(position);
+            int materialIndex1 = meshGen.getMaterialIndex(position.add(VoxelOctree.EDGE_END_OFFSETS[edgeNumber]));
 
             // There should be no need to check these indices, the previous call to
             // RemoveInvalidIndices should have validated the generatedEdgeIndices array
@@ -336,91 +252,25 @@ public class CpuCsgImpl implements ICSGOperations{
 
             int edgeValid = signChange==1 && generatedEdgeIndex != -1 ? 1 : 0;
             if (edgeValid == 1) {
-                compactIndices[id++] = generatedEdgeIndex;
+                normals.put(generatedEdgeIndex, calculateNorm(operations, offset, sampleScale, edgeNumber * 4, position));
             }
-        }
-        int[] d_createdEdges = new int[id];
-        System.arraycopy(compactIndices, 0, d_createdEdges, 0, id);
-        return d_createdEdges;
-    }
-
-    //обрезать (дерево или куст), срезая мертвые или разросшиеся ветви или стебли, особенно для увеличения урожайности и роста.
-    private int PruneFieldEdges(int[] fieldEdgeIndices, Set<Integer> invalidatedEdgeIndices,
-                                int[] fieldEdgeValidity)
-    {
-        int count = 0;
-        for (int id = 0; id < fieldEdgeIndices.length; id++) {
-            if (invalidatedEdgeIndices.contains(fieldEdgeIndices[id])) {
-                fieldEdgeValidity[id] = 0;
-            } else {
-                fieldEdgeValidity[id] = 1;
-                count++;
-            }
-        }
-        return count;
-    }
-
-    private void compactElements(int[] edgeValid, int[] edgeIndices, Vec4f[] edgeNormals,
-                                 int[] compactIndices, Vec4f[] compactNormals) {
-        int cid = 0;
-        for (int index = 0; index<edgeValid.length; index++) {
-            if (edgeValid[index]==1) {
-                compactIndices[cid] = edgeIndices[index];
-                compactNormals[cid] = edgeNormals[index];
-                cid++;
-            }
-        }
-    }
-
-    private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges) {
-        List<Callable<Boolean>> tasks = new ArrayList<>();
-        Vec4f[] normals = new Vec4f[compactEdges.length];
-        int bound = compactEdges.length;
-        final int threadBound = bound / availableProcessors;
-
-        for (int i = 0; i < availableProcessors; i++) {
-            int from = i * threadBound;
-            int to = from + threadBound;
-            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
-            Callable<Boolean> task = () -> {
-                FindEdgeIntersectionInfo(from, last ? bound : to, offset, operations, sampleScale, compactEdges, normals);
-                return true;
-            };
-            tasks.add(task);
-        }
-        try {
-            service.invokeAll(tasks);
-        } catch (Exception e) {
-            logger.log(Level.SEVERE, e.toString());
         }
         return normals;
     }
 
-    private void FindEdgeIntersectionInfo(int from, int to, Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges, Vec4f[] normals) {
-        for (int index = from; index < to; index++) {
-            int globalEdgeIndex = compactEdges[index];
-            int edgeIndex = 4 * (globalEdgeIndex & 3);
-            int voxelIndex = globalEdgeIndex >> 2;
+    private Vec4f calculateNorm(Collection<CSGOperationInfo> operations, Vec4i offset, int sampleScale, int edgeIndex, Vec3i local_pos){
+        int e0 = VoxelOctree.edgevmap[edgeIndex][0];
+        int e1 = VoxelOctree.edgevmap[edgeIndex][1];
 
-            Vec4i local_pos = new Vec4i(
-                    (voxelIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask(),
-                    (voxelIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask(),
-                    (voxelIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask(),
-                    0);
+        Vec3i world_pos = (local_pos.mul(sampleScale)).add(offset);
+        Vec4f p0 = world_pos.add(VoxelOctree.CHILD_MIN_OFFSETS[e0]).toVec4f();
+        Vec4f p1 = world_pos.add(VoxelOctree.CHILD_MIN_OFFSETS[e1].mul(sampleScale)).toVec4f();
 
-            int e0 = EDGE_MAP[edgeIndex][0];
-            int e1 = EDGE_MAP[edgeIndex][1];
+        float t = BrushZeroCrossing(p0, p1, operations);
+        Vec3f p = VoxelHelperUtils.mix(p0, p1, t).getVec3f();
 
-            Vec4i world_pos = (local_pos.mul(sampleScale)).add(offset);
-            Vec4f p0 = world_pos.add(CHILD_MIN_OFFSETS[e0]).toVec4f();
-            Vec4f p1 = world_pos.add(CHILD_MIN_OFFSETS[e1].mul(sampleScale)).toVec4f();
-
-            float t = BrushZeroCrossing(p0, p1, operations);
-            Vec3f p = VoxelHelperUtils.mix(p0, p1, t).getVec3f();
-
-            Vec3f n = BrushNormal(p, operations);
-            normals[index] = new Vec4f(n, t);
-        }
+        Vec3f n = BrushNormal(p, operations);
+        return new Vec4f(n, t);
     }
 
     private Vec4i LeafScaleVec(Vec3i v) {
@@ -494,7 +344,100 @@ public class CpuCsgImpl implements ICSGOperations{
         return normal;
     }
 
-    private int field_index(Vec3i pos) {
-        return pos.x + (pos.y * meshGen.getFieldSize()) + (pos.z * meshGen.getFieldSize() * meshGen.getFieldSize());
-    }
+//    private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges) {
+//        List<Callable<Boolean>> tasks = new ArrayList<>();
+//        Vec4f[] normals = new Vec4f[compactEdges.length];
+//        int bound = compactEdges.length;
+//        final int threadBound = bound / availableProcessors;
+//
+//        for (int i = 0; i < availableProcessors; i++) {
+//            int from = i * threadBound;
+//            int to = from + threadBound;
+//            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
+//            Callable<Boolean> task = () -> {
+//                FindEdgeIntersectionInfo(from, last ? bound : to, offset, operations, sampleScale, compactEdges, normals);
+//                return true;
+//            };
+//            tasks.add(task);
+//        }
+//        try {
+//            service.invokeAll(tasks);
+//        } catch (Exception e) {
+//            logger.log(Level.SEVERE, e.toString());
+//        }
+//        return normals;
+//    }
+//
+//    private void FindEdgeIntersectionInfo(int from, int to, Vec4i offset, Collection<CSGOperationInfo> operations, int sampleScale, int[] compactEdges, Vec4f[] normals) {
+//        for (int index = from; index < to; index++) {
+//            int globalEdgeIndex = compactEdges[index];
+//            int edgeIndex = 4 * (globalEdgeIndex & 3);
+//            int voxelIndex = globalEdgeIndex >> 2;
+//
+//            Vec4i local_pos = new Vec4i(
+//                    (voxelIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask(),
+//                    (voxelIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask(),
+//                    (voxelIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask(),
+//                    0);
+//
+//            normals[index] = calculateNorm(operations, offset, sampleScale, edgeIndex, local_pos);
+//        }
+//    }
+//    private int CSG_HermiteIndices(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials,
+//                                   int[] updated_indices, Vec3i[] updated_positions) {
+//        int size = 0;
+//        for (int z = 0; z < meshGen.getFieldSize(); z++) {
+//            for (int y = 0; y < meshGen.getFieldSize(); y++) {
+//                for (int x = 0; x < meshGen.getFieldSize(); x++) {
+//                    size = processMaterials(worldspaceOffset, operations, sampleScale, field_materials, updated_indices, updated_positions, size, z, y, x);
+//                }
+//            }
+//        }
+//        return size;
+//    }
+
+    //обрезать (дерево или куст), срезая мертвые или разросшиеся ветви или стебли, особенно для увеличения урожайности и роста.
+//    private int PruneFieldEdges(int[] fieldEdgeIndices, Set<Integer> invalidatedEdgeIndices,
+//                                int[] fieldEdgeValidity)
+//    {
+//        int count = 0;
+//        for (int id = 0; id < fieldEdgeIndices.length; id++) {
+//            if (invalidatedEdgeIndices.contains(fieldEdgeIndices[id])) {
+//                fieldEdgeValidity[id] = 0;
+//            } else {
+//                fieldEdgeValidity[id] = 1;
+//                count++;
+//            }
+//        }
+//        return count;
+//    }
+
+//    private int PruneFieldEdges(Map<Integer, Vec4f> edgeIndices, Set<Integer> invalidatedEdgeIndices,
+//                                int[] fieldEdgeValidity)
+//    {
+//        int count = 0;
+//        int id = 0;
+//        for (Integer edgeIndicate : edgeIndices.keySet()) {
+//            if (invalidatedEdgeIndices.contains(edgeIndicate)) {
+//                fieldEdgeValidity[id] = 0;
+//            } else {
+//                fieldEdgeValidity[id] = 1;
+//                count++;
+//            }
+//            id++;
+//        }
+//        return count;
+//    }
+
+//    private void compactElements(int[] edgeValid, int[] edgeIndices, Vec4f[] edgeNormals,
+//                                 int[] compactIndices, Vec4f[] compactNormals) {
+//        int cid = 0;
+//        for (int index = 0; index<edgeValid.length; index++) {
+//            if (edgeValid[index]==1) {
+//                compactIndices[cid] = edgeIndices[index];
+//                compactNormals[cid] = edgeNormals[index];
+//                cid++;
+//            }
+//        }
+//    }
 }

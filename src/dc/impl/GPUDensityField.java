@@ -5,6 +5,7 @@ import core.math.Vec4f;
 import dc.impl.opencl.BufferGpu;
 
 import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 public class GPUDensityField {
     private BufferGpu materials;
@@ -16,9 +17,7 @@ public class GPUDensityField {
     public int numEdges;
 
     public int[] materialsCpu;
-    public int[] edgeIndicesCpu;
-    public Vec4f[] normalsCpu;
-    public Map<Integer, Integer> hermiteEdgesMap;
+    public Map<Integer, Vec4f> hermiteEdgesMap = new ConcurrentSkipListMap<>();
 
     public BufferGpu getNormals() {
         return normals;
