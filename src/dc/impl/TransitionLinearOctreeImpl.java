@@ -9,10 +9,6 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.impl.opencl.BufferGpuService;
-import dc.impl.opencl.ComputeContext;
-import dc.impl.opencl.KernelsHolder;
-import dc.impl.opencl.OpenCLCalculateMaterialsService;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
@@ -90,7 +86,7 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
                     Vec3i local_pos = new Vec3i(x, y, z);
                     Vec3i world_pos = local_pos.mul(sampleScale).add(offset);
                     float density = getNoise(world_pos);
-                    int index = field_index(local_pos);
+                    int index = meshGen.getMaterialIndex(local_pos);
                     int material = density < 0.f ? defaultMaterialIndex : meshGen.MATERIAL_AIR;
                     field_materials[index] = material;
                     if(material==defaultMaterialIndex) size++;
@@ -216,14 +212,14 @@ public class TransitionLinearOctreeImpl extends AbstractDualContouring implement
             Vec3i pos = new Vec3i(x, y, z);
 
             int[] cornerMaterials = {
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[0]))],
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[1]))],
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[2]))],
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[3]))],
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[4]))],
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[5]))],
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[6]))],
-                    materials[field_index(pos.add(CHILD_MIN_OFFSETS[7]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[0]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[1]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[2]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[3]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[4]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[5]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[6]))],
+                    materials[meshGen.getMaterialIndex(pos.add(CHILD_MIN_OFFSETS[7]))],
             };
 
             // record the on/off values at the corner of each voxel

@@ -424,10 +424,6 @@ public abstract class AbstractDualContouring implements DualContouring{
         return maxMaterial;
     }
 
-    protected int field_index(Vec3i pos) {
-        return pos.x + (pos.y * meshGen.getFieldSize()) + (pos.z * meshGen.getFieldSize() * meshGen.getFieldSize());
-    }
-
     public Vec4f CalculateSurfaceNormal(Vec4f p) {
 //	    float H = 0.001f;
 //	    float dx = Density.Density_Func(p.add(new Vec3f(H, 0.f, 0.f)), densityField) - Density.Density_Func(p.sub(new Vec3f(H, 0.f, 0.f)), densityField);

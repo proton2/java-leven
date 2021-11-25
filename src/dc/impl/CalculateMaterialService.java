@@ -57,10 +57,6 @@ public class CalculateMaterialService {
         //calculateTest(offset, sampleScale, fieldMaterials);
     }
 
-    protected int field_index(Vec3i pos) {
-        return pos.x + (pos.y * meshGen.getFieldSize()) + (pos.z * meshGen.getFieldSize() * meshGen.getFieldSize());
-    }
-
     void calculateTest(Vec3i offset, int sampleScale, int[] fieldMaterials) {
         for (int z = 0; z < meshGen.getFieldSize(); z++) {
             for (int y = 0; y < meshGen.getFieldSize(); y++) {
@@ -68,7 +64,7 @@ public class CalculateMaterialService {
                     Vec3i local_pos = new Vec3i(x, y, z);
                     Vec3f world_pos = local_pos.mul(sampleScale).add(offset).toVec3f();
                     float density = Density_Func(world_pos);
-                    int index = field_index(local_pos);
+                    int index = meshGen.getMaterialIndex(local_pos);
                     int material = density < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
                     fieldMaterials[index] = material;
                 }
