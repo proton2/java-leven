@@ -484,7 +484,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 edgeList |= (signChange << i);
             }
             voxelOccupancy[index] = haveVoxel ? 1 : 0;
-            voxelPositions[index] = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+            voxelPositions[index] = meshGen.codeForPosition(pos);
             voxelEdgeInfo[index] = edgeList;
 
             // store cornerValues here too as its needed by the CPU side and edgeInfo isn't exported
@@ -531,7 +531,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
-            Vec3i position = positionForCode(encodedPosition);
+            Vec3i position = meshGen.positionForCode(encodedPosition);
             int edgeList = voxelEdgeInfo[index];
 
             Vec4f[] edgePositions = new Vec4f[12];
@@ -552,7 +552,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 // the next 4 are the Y axis and the last 4 are the Z axis
                 int axis = i / 4;
                 Vec3i hermiteIndexPosition = position.add(CHILD_MIN_OFFSETS[e0]);
-                int edgeIndex = (encodeVoxelIndex(hermiteIndexPosition) << 2) | axis;
+                int edgeIndex = (meshGen.encodeVoxelIndex(hermiteIndexPosition) << 2) | axis;
 
                 Vec4f edgeData = nodes.get(edgeIndex);
                 if (edgeData!=null) {
@@ -608,7 +608,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
             solvedPos = solvedPos.mul(leafSize).add(chunkMin);
             if(enableQefClamping) {
-                Vec3i leaf = positionForCode(d_nodeCodes[index]).mul(leafSize).add(chunkMin);
+                Vec3i leaf = meshGen.positionForCode(d_nodeCodes[index]).mul(leafSize).add(chunkMin);
                 Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
                 solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
             }
@@ -620,7 +620,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int res = 0;
         for (int index = from; index < to; index++) {
             int code = nodeCodes[index];
-            Vec3i position = positionForCode(code);
+            Vec3i position = meshGen.positionForCode(code);
             boolean xSeam = position.x == 0 || position.x == (meshGen.getVoxelsPerChunk() - 1);
             boolean ySeam = position.y == 0 || position.y == (meshGen.getVoxelsPerChunk() - 1);
             boolean zSeam = position.z == 0 || position.z == (meshGen.getVoxelsPerChunk() - 1);
@@ -661,7 +661,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int code = octreeNodeCodes[index];
             int triIndex = index * 3;
 
-            Vec3i offset = positionForCode(code);
+            Vec3i offset = meshGen.positionForCode(code);
             int[] pos = {offset.x, offset.y, offset.z};
             Integer[] nodeIndices = {null, null, null, null};
 
@@ -682,7 +682,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 nodeIndices[0] = index;
                 for (int n = 1; n < 4; n++) {
                     Vec3i p = offset.add(EDGE_NODE_OFFSETS[axis][n]);
-                    int c = codeForPosition(p, meshGen.MAX_OCTREE_DEPTH);
+                    int c = meshGen.codeForPosition(p);
                     nodeIndices[n] = nodes.get(c);
                 }
 
@@ -765,7 +765,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 if(leafSize > meshGen.leafSizeScale) {
                     seamNodeCodesForSearch.add(octreeCodes[index]);
                 }
-                Vec3i min = positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
+                Vec3i min = meshGen.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
                 PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
                 node.corners = octreeMaterials[index];
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
@@ -773,7 +773,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 drawInfo.color = color;
                 drawInfo.averageNormal = octreeNormals[index].getVec3f();
                 node.drawInfo = drawInfo;
-                node.nodeNum = positionForCode(octreeCodes[index]);
+                node.nodeNum = meshGen.positionForCode(octreeCodes[index]);
                 seamNodes.add(node);
             }
         }

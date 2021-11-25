@@ -2,6 +2,7 @@ package dc.impl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4i;
 import dc.utils.Aabb;
 import dc.utils.VoxelHelperUtils;
 
@@ -116,5 +117,64 @@ public class MeshGenerationContext {
 
     public int getHermiteIndex(int x, int y, int z){
         return (x + (y * getHermiteIndexSize()) + (z * getHermiteIndexSize() * getHermiteIndexSize())) * 3;
+    }
+
+    public Vec3i decodeVoxelIndex(int index) {
+        Vec3i p = new Vec4i(0);
+        p.x = (index >> (getIndexShift() * 0)) & getIndexMask();
+        p.y = (index >> (getIndexShift() * 1)) & getIndexMask();
+        p.z = (index >> (getIndexShift() * 2)) & getIndexMask();
+        return p;
+    }
+
+    public int encodeVoxelIndex(Vec3i pos) {
+        int encoded = 0;
+        encoded |= pos.x << (getIndexShift() * 0);
+        encoded |= pos.y << (getIndexShift() * 1);
+        encoded |= pos.z << (getIndexShift() * 2);
+        return encoded;
+    }
+
+    public Vec3i positionForCode(int code) {
+        int nodeDepth = getMsb(code)/3;
+        Vec3i pos = new Vec3i();
+        for (int i = MAX_OCTREE_DEPTH - nodeDepth; i < MAX_OCTREE_DEPTH; i++) {
+            int c = code & 7;
+            code >>= 3;
+
+            int x = (c >> 2) & 1;
+            int y = (c >> 1) & 1;
+            int z = (c >> 0) & 1;
+
+            pos.x |= (x << i);
+            pos.y |= (y << i);
+            pos.z |= (z << i);
+        }
+        return pos;
+    }
+
+    public int codeForPosition(Vec3i p) {
+        return codeForPosition(p, MAX_OCTREE_DEPTH);
+    }
+
+    private int codeForPosition(Vec3i p, int nodeDepth) {
+        int code = 1;
+        for (int depth = MAX_OCTREE_DEPTH - 1; depth >= (MAX_OCTREE_DEPTH - nodeDepth); depth--) {
+            int x = (p.x >> depth) & 1;
+            int y = (p.y >> depth) & 1;
+            int z = (p.z >> depth) & 1;
+            int c = (x << 2) | (y << 1) | z;
+            code = (code << 3) | c;
+        }
+        return code;
+    }
+
+    private int getMsb(int value) {
+        for (int i = 0, maxBits = 31, test = ~(~0 >>> 1); 0 != test; ++i, test >>>= 1) {
+            if (test == (value & test)) {
+                return (maxBits - i);
+            }
+        }
+        return -1;
     }
 }

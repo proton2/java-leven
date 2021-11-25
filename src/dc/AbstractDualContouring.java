@@ -360,22 +360,6 @@ public abstract class AbstractDualContouring implements DualContouring{
         GenerateMeshFromOctree(seamOctreeRoot, isSeam, meshBuffer, rootNodeSize);
     }
 
-    protected Vec3i decodeVoxelIndex(int index) {
-        Vec3i p = new Vec4i(0);
-        p.x = (index >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask();
-        p.y = (index >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask();
-        p.z = (index >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask();
-        return p;
-    }
-
-    protected int encodeVoxelIndex(Vec3i pos) {
-        int encoded = 0;
-        encoded |= pos.x << (meshGen.getIndexShift() * 0);
-        encoded |= pos.y << (meshGen.getIndexShift() * 1);
-        encoded |= pos.z << (meshGen.getIndexShift() * 2);
-        return encoded;
-    }
-
     protected void inlineInsertionSwap8(int[] data) {
         int i, j;
         for (i = 1; i < 8; i++) {
@@ -489,45 +473,6 @@ public abstract class AbstractDualContouring implements DualContouring{
         return null;
     }
 
-    public Vec3i positionForCode(int code) {
-        int nodeDepth = getMsb(code)/3;
-        Vec3i pos = new Vec3i();
-        for (int i = meshGen.MAX_OCTREE_DEPTH - nodeDepth; i < meshGen.MAX_OCTREE_DEPTH; i++) {
-            int c = code & 7;
-            code >>= 3;
-
-            int x = (c >> 2) & 1;
-            int y = (c >> 1) & 1;
-            int z = (c >> 0) & 1;
-
-            pos.x |= (x << i);
-            pos.y |= (y << i);
-            pos.z |= (z << i);
-        }
-        return pos;
-    }
-
-    public int codeForPosition(Vec3i p, int nodeDepth) {
-        int code = 1;
-        for (int depth = meshGen.MAX_OCTREE_DEPTH - 1; depth >= (meshGen.MAX_OCTREE_DEPTH - nodeDepth); depth--) {
-            int x = (p.x >> depth) & 1;
-            int y = (p.y >> depth) & 1;
-            int z = (p.z >> depth) & 1;
-            int c = (x << 2) | (y << 1) | z;
-            code = (code << 3) | c;
-        }
-        return code;
-    }
-
-    private static int getMsb(int value) {
-        for (int i = 0, maxBits = 31, test = ~(~0 >>> 1); 0 != test; ++i, test >>>= 1) {
-            if (test == (value & test)) {
-                return (maxBits - i);
-            }
-        }
-        return -1;
-    }
-
     private final Vec3i[] BORDER_EDGE_OFFSETS = {
             new Vec3i(1, 2, 0), new Vec3i(1, 0, 2),
             new Vec3i(2, 1, 0), new Vec3i(0, 1, 2),
@@ -553,14 +498,14 @@ public abstract class AbstractDualContouring implements DualContouring{
     protected List<OctreeNode> findAndCreateBorderNodes(Set<Integer> seamNodeCodes, Vec3i chunkMin, int chunkSize) {
         Set<OctreeNode> addedNodes = new HashSet<>();
         for (int seamNodeCode : seamNodeCodes) {
-            Vec3i seamNodePos = positionForCode(seamNodeCode);
+            Vec3i seamNodePos = meshGen.positionForCode(seamNodeCode);
             for (int axis = 0; axis < 6; axis++) {
                 Vec3i neighbour = seamNodePos.add(SEAM_NODE_AXIS_OFFSET[axis]);
                 if((neighbour.x>=0 && neighbour.x < meshGen.getVoxelsPerChunk()) &&
                         (neighbour.y>=0 && neighbour.y < meshGen.getVoxelsPerChunk()) &&
                         (neighbour.z>=0 && neighbour.z < meshGen.getVoxelsPerChunk()))
                 {
-                    int seamNeighbourCode = codeForPosition(neighbour, meshGen.MAX_OCTREE_DEPTH);
+                    int seamNeighbourCode = meshGen.codeForPosition(neighbour);
                     if (!seamNodeCodes.contains(seamNeighbourCode)) {
                         Vec3i min = neighbour.mul(chunkSize).add(chunkMin);
                         PointerBasedOctreeNode neighbourNode = new PointerBasedOctreeNode(min, chunkSize, OctreeNodeType.Node_Leaf);

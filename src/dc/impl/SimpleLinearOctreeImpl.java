@@ -102,7 +102,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             if (listHolders.get(i).isSeam) {
                 OctreeNode seamNode = extractSeamNode(listHolders.get(i), node.min, node.size / voxelsPerChunk);
                 if(seamNode.size > meshGen.leafSizeScale) {
-                    seamNodeCodes.add(codeForPosition(seamNode.nodeNum, meshGen.MAX_OCTREE_DEPTH));
+                    seamNodeCodes.add(meshGen.codeForPosition(seamNode.nodeNum));
                 }
                 seamNodes.add(seamNode);
             }
@@ -207,7 +207,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         leafHolder.solvedPosition = qef.solve();
         int materialIndex = findDominantMaterial(cornerMaterials);
         leafHolder.materialIndex = (materialIndex << 8) | corners;
-        leafHolder.encodedVoxelPosition = codeForPosition(pos, meshGen.MAX_OCTREE_DEPTH);
+        leafHolder.encodedVoxelPosition = meshGen.codeForPosition(pos);
         //leafHolder.voxelEdgeInfo = edgeList;
         leafHolder.averageNormal = averageNormal.div((float)edgeCount).normalize();
 
@@ -231,7 +231,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             int code = octreeNodeCodes[index];
             int triIndex = index * 3;
 
-            Vec3i offset = positionForCode(code);
+            Vec3i offset = meshGen.positionForCode(code);
             int[] pos = {offset.x, offset.y, offset.z};
             Integer[] nodeIndices = {null, null, null, null};
 
@@ -252,7 +252,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
                 nodeIndices[0] = index;
                 for (int n = 1; n < 4; n++) {
                     Vec3i p = offset.add(EDGE_NODE_OFFSETS[axis][n]);
-                    int c = codeForPosition(p, meshGen.MAX_OCTREE_DEPTH);
+                    int c = meshGen.codeForPosition(p);
                     nodeIndices[n] = nodes.get(c);
                 }
 
@@ -325,7 +325,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     }
 
     private OctreeNode extractSeamNode(LinearLeafHolder leafHolder, Vec3i chunkMin, int leafSize){
-        Vec3i min = positionForCode(leafHolder.encodedVoxelPosition).mul(leafSize).add(chunkMin);
+        Vec3i min = meshGen.positionForCode(leafHolder.encodedVoxelPosition).mul(leafSize).add(chunkMin);
         PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
         OctreeDrawInfo drawInfo = new OctreeDrawInfo();
         drawInfo.position = leafHolder.solvedPosition.getVec3f();
@@ -333,7 +333,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         drawInfo.averageNormal = leafHolder.averageNormal.getVec3f();
         node.corners = leafHolder.materialIndex;
         node.drawInfo = drawInfo;
-        node.nodeNum = positionForCode(leafHolder.encodedVoxelPosition);
+        node.nodeNum = meshGen.positionForCode(leafHolder.encodedVoxelPosition);
         return node;
     }
 
@@ -534,23 +534,23 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         Set<Integer> seamNodeCodes = new HashSet<>();
         PointerBasedOctreeNode n0 = new PointerBasedOctreeNode(new Vec3i(20,30,40), 1, OctreeNodeType.Node_Leaf);
         n0.nodeNum = new Vec3i(0, 13, 63);
-        seamNodeCodes.add(voxelOctree.codeForPosition(n0.min, meshGen.MAX_OCTREE_DEPTH));
+        seamNodeCodes.add(meshGen.codeForPosition(n0.min));
         PointerBasedOctreeNode n1 = new PointerBasedOctreeNode(new Vec3i(50,60,70), 1, OctreeNodeType.Node_Leaf);
         n1.nodeNum = new Vec3i(15, 63, 0);
-        seamNodeCodes.add(voxelOctree.codeForPosition(n1.min, meshGen.MAX_OCTREE_DEPTH));
+        seamNodeCodes.add(meshGen.codeForPosition(n1.min));
         PointerBasedOctreeNode n2 = new PointerBasedOctreeNode(new Vec3i(80,90,100), 1, OctreeNodeType.Node_Leaf);
         n2.nodeNum = new Vec3i(63, 0, 15);
-        seamNodeCodes.add(voxelOctree.codeForPosition(n2.min, meshGen.MAX_OCTREE_DEPTH));
+        seamNodeCodes.add(meshGen.codeForPosition(n2.min));
 
         PointerBasedOctreeNode n3 = new PointerBasedOctreeNode(new Vec3i(25,35,45), 1, OctreeNodeType.Node_Leaf);
         n3.nodeNum = new Vec3i(33, 13, 63);
-        seamNodeCodes.add(voxelOctree.codeForPosition(n3.min, meshGen.MAX_OCTREE_DEPTH));
+        seamNodeCodes.add(meshGen.codeForPosition(n3.min));
         PointerBasedOctreeNode n4 = new PointerBasedOctreeNode(new Vec3i(55,65,75), 1, OctreeNodeType.Node_Leaf);
         n4.nodeNum = new Vec3i(15, 63, 33);
-        seamNodeCodes.add(voxelOctree.codeForPosition(n4.min, meshGen.MAX_OCTREE_DEPTH));
+        seamNodeCodes.add(meshGen.codeForPosition(n4.min));
         PointerBasedOctreeNode n5 = new PointerBasedOctreeNode(new Vec3i(85,95,105), 1, OctreeNodeType.Node_Leaf);
         n5.nodeNum = new Vec3i(63, 33, 15);
-        seamNodeCodes.add(voxelOctree.codeForPosition(n5.min, meshGen.MAX_OCTREE_DEPTH));
+        seamNodeCodes.add(meshGen.codeForPosition(n5.min));
 
         List<OctreeNode> addedNodes = voxelOctree.findAndCreateBorderNodes(seamNodeCodes, new Vec3i(0,0,0), 128 / meshGen.getVoxelsPerChunk());
     }

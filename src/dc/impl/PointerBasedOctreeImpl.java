@@ -8,7 +8,6 @@ import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
 import dc.entities.VoxelTypes;
-import dc.solver.GlslSvd;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
@@ -75,7 +74,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                         if(nodeIsSeam(zi, yi, xi)) {
                             seamNodes.add(leaf);
                             if (leaf.size > meshGen.leafSizeScale) {
-                                seamNodeCodes.add(codeForPosition(leaf.nodeNum, meshGen.MAX_OCTREE_DEPTH));
+                                seamNodeCodes.add(meshGen.codeForPosition(leaf.nodeNum));
                             }
                         }
                     }
@@ -109,7 +108,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
                 if(nodeIsSeam(z, y, x)) {
                     seamNodes.add(leaf);
                     if (leaf.size > meshGen.leafSizeScale) {
-                        seamNodeCodes.add(codeForPosition(leaf.nodeNum, meshGen.MAX_OCTREE_DEPTH));
+                        seamNodeCodes.add(meshGen.codeForPosition(leaf.nodeNum));
                     }
                 }
             }
