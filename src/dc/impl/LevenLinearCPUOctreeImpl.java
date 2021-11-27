@@ -182,11 +182,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 node.parentIsDirty = true;
             }
             if(node.children[i]!=null && node.children[i].chunkIsEdited){
-                node.chunkIsEdited = true;
                 Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
                 GPUDensityField srcField = densityFieldCache.get(key);
-                reduce(i, srcField, field, node, field.hermiteEdgesMap);
-                reducedChunks[i] = true;
+                if(srcField!=null) {
+                    reduce(i, srcField, field, node, field.hermiteEdgesMap);
+                    node.chunkIsEdited = true;
+                    reducedChunks[i] = true;
+                }
             }
         }
 

@@ -454,20 +454,16 @@ public class ChunkOctree {
         for (CSGOperationInfo opInfo: operations){
             touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
         }
-        for(ChunkNode clipmapNode : touchedNodes) {
-            if(voxelOctree.getCsgOperationsProcessor().isReduceChunk()) {
-                voxelOctree.computeApplyCSGOperations(operations, clipmapNode);
-                voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size); // free the current octree to force a reconstruction
-                clipmapNode.invalidated = true;
-                clipmapNode.empty = false;
-            } else {
-                if (clipmapNode.active) {
-                    voxelOctree.computeApplyCSGOperations(operations, clipmapNode);
-                }
-                voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size); // free the current octree to force a reconstruction
-                clipmapNode.invalidated = true;
-                clipmapNode.empty = false;
+        for(ChunkNode node : touchedNodes) {
+            if(node.size == meshGen.clipmapLeafSize) {
+                voxelOctree.computeApplyCSGOperations(operations, node);
             }
+            voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
+            node.invalidated = true;
+            node.empty = false;
+
+            node.chunkIsEdited = true;
+            node.parentIsDirty = true;
         }
 
         for (CSGOperationInfo opInfo: operations) {
@@ -502,8 +498,7 @@ public class ChunkOctree {
         }
 
         // traversal order is arbitrary
-        if ((voxelOctree.getCsgOperationsProcessor().isReduceChunk() && node.size == meshGen.clipmapLeafSize)
-                || (!voxelOctree.getCsgOperationsProcessor().isReduceChunk() && node.size <= meshGen.LOD_MAX_NODE_SIZE)) {
+        if (node.size <= meshGen.LOD_MAX_NODE_SIZE) {
             nodes.add(node);
         }
     }

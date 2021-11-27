@@ -69,8 +69,6 @@ public class CpuCsgImpl implements ICSGOperations{
         if (numUpdatedPoints <= 0) {    // < 0 will be an error code
             return;
         }
-        node.chunkIsEdited = true;
-        node.parentIsDirty = true;
 
         Vec3i[] d_compactUpdatedPoints = new Vec3i[numUpdatedPoints];
         compactElements(d_updatedIndices, d_updatedPoints, d_compactUpdatedPoints);
