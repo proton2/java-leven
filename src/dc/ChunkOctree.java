@@ -455,7 +455,9 @@ public class ChunkOctree {
             touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
         }
         for(ChunkNode node : touchedNodes) {
-            if(node.size == meshGen.clipmapLeafSize) {
+            if((voxelOctree.getCsgOperationsProcessor().isReduceChunk() && node.size == meshGen.clipmapLeafSize) ||
+                    (!voxelOctree.getCsgOperationsProcessor().isReduceChunk() && node.active))
+            {
                 voxelOctree.computeApplyCSGOperations(operations, node);
             }
             voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
