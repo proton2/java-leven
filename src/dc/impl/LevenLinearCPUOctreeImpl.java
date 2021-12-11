@@ -185,7 +185,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
                 GPUDensityField srcField = densityFieldCache.get(key);
                 if(srcField!=null) {
-                    reduce(i, srcField, field, node, field.hermiteEdgesMap);
+                    reduce(i, srcField, field);
                     node.chunkIsEdited = true;
                     reducedChunks[i] = true;
                 }
@@ -325,14 +325,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 materials[meshGen.getMaterialIndex(pos.add(new Vec4i(0, 1, 0, 0)))],
                 materials[meshGen.getMaterialIndex(pos.add(new Vec4i(0, 0, 1, 0)))],
         };
-        int voxelIndex = pos.x | (pos.y << meshGen.getIndexShift()) | (pos.z << (meshGen.getIndexShift() * 2));
 
         for (int i = 0; i < 3; i++) {
             int e = 1 + i;
             boolean signChange = (CORNER_MATERIALS[0] != meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] == meshGen.MATERIAL_AIR) ||
                     (CORNER_MATERIALS[0] == meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] != meshGen.MATERIAL_AIR);
             if (signChange) {
-                normals.put((voxelIndex << 2) | i, calculateNorm(chunkMin, sampleScale, i, x, y, z));
+                normals.put(meshGen.getEdgeCodeByPosition(x,y,z, i), calculateNorm(chunkMin, sampleScale, i, x, y, z));
                 ++size;
             }
         }
@@ -348,14 +347,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return new Vec4f(normal.getVec3f(), p.w);
     }
 
-    private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField,
-                        ChunkNode node, Map<Integer, Vec4f> destNormals){
+    private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField){
         int NUM_AXES = 3;
         int size = meshGen.getHermiteIndexSize(); // ??????????????????????????????????????
         Vec3i dstOffset = new Vec3i(
-                (chunkOrder & (1<<(0))) > 0 ? node.size/2 : 0,
-                (chunkOrder & (1<<(1))) > 0 ? node.size/2 : 0,
-                (chunkOrder & (1<<(2))) > 0 ? node.size/2 : 0
+                (chunkOrder & (1<<(0))) > 0 ? size/2 : 0,
+                (chunkOrder & (1<<(1))) > 0 ? size/2 : 0,
+                (chunkOrder & (1<<(2))) > 0 ? size/2 : 0
         );
 
         for(int iSrcCellZ = 0; iSrcCellZ < size; iSrcCellZ += 2 ) {
@@ -368,19 +366,19 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                         int numIntersections = 0;
                         int[] iSrcEndPointVoxel = new int[]{iSrcCellX, iSrcCellY, iSrcCellZ};
                         iSrcEndPointVoxel[iAxis] += 2;
-                        int iSrcEndPointVoxelIndex = meshGen.getMaterialIndex(iSrcEndPointVoxel[0], iSrcEndPointVoxel[1], iSrcEndPointVoxel[2]);
 
                         Vec4f destNorm = new Vec4f();
                         if(iSrcEndPointVoxel[0] < meshGen.getFieldSize() && iSrcEndPointVoxel[1] < meshGen.getFieldSize() && iSrcEndPointVoxel[2] < meshGen.getFieldSize()) {
                             int[] iSrcMidPointVoxel = new int[]{iSrcCellX, iSrcCellY, iSrcCellZ};
                             iSrcMidPointVoxel[iAxis]++;
-                            int edgeCode = meshGen.getEdgeCodeByPosition(iSrcCellX, iSrcCellY, iSrcCellZ, iAxis);
-                            Vec4f startPointNorm = srcField.hermiteEdgesMap.get(edgeCode);
+                            int startPointEdgeCode = meshGen.getEdgeCodeByPosition(iSrcCellX, iSrcCellY, iSrcCellZ, iAxis);
+                            Vec4f startPointNorm = srcField.hermiteEdgesMap.get(startPointEdgeCode);
                             if (startPointNorm == null) {
                                 continue;
                             }
                             int iSrcMidPointVoxelIndex = meshGen.getMaterialIndex(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2]);
                             int midpoint_material = srcField.materialsCpu[iSrcMidPointVoxelIndex];
+                            int iSrcEndPointVoxelIndex = meshGen.getMaterialIndex(iSrcEndPointVoxel[0], iSrcEndPointVoxel[1], iSrcEndPointVoxel[2]);
                             int endpoint_material = srcField.materialsCpu[iSrcEndPointVoxelIndex];
 
                             if (startpoint_material != midpoint_material) {
@@ -392,8 +390,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                             }
 
                             if (midpoint_material != endpoint_material) {
-                                edgeCode = meshGen.getEdgeCodeByPosition(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2], iAxis);
-                                Vec4f srcEndPointNorm = srcField.hermiteEdgesMap.get(edgeCode);
+                                int midPointEdgeCode = meshGen.getEdgeCodeByPosition(iSrcMidPointVoxel[0], iSrcMidPointVoxel[1], iSrcMidPointVoxel[2], iAxis);
+                                Vec4f srcEndPointNorm = srcField.hermiteEdgesMap.get(midPointEdgeCode);
                                 if (srcEndPointNorm != null) {
                                     destNorm.x += srcEndPointNorm.x;
                                     destNorm.y += srcEndPointNorm.y;
@@ -410,11 +408,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                             destNorm = destNorm.normalize();
                             destNorm = destNorm.mul(invNum);
                             int destEdgeCode = meshGen.getEdgeCodeByPosition(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z, iAxis);
-                            destNormals.put(destEdgeCode, destNorm);
+                            dstField.hermiteEdgesMap.put(destEdgeCode, destNorm);
                         }
                     }
                     int dstMaterialIndex = meshGen.getMaterialIndex(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z);
-                    dstField.materialsCpu[dstMaterialIndex] = startpoint_material;
+                    dstField.materialsCpu[dstMaterialIndex] = startpoint_material; // save changed material for use when next lod level reduce
                 }
             }
         }
