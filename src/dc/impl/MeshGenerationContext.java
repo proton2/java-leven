@@ -102,7 +102,7 @@ public class MeshGenerationContext {
         return edgeIndex + axisNum;
     }
 
-    public int getEdgeCodeByPosition(int x, int y, int z, int axisNum){
+    public int getEdgeCodeByPos(int x, int y, int z, int axisNum){
         int voxelIndex = x | (y << indexShift) | (z << (indexShift * 2));
         return (voxelIndex << 2) | axisNum;
     }
