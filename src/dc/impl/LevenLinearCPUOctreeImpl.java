@@ -377,10 +377,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                             srcMidPoint[axis]++;
                             int midpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2])];
                             if (startpoint_material != midpoint_material) {
-                                destNorm.x += startPointNorm.x;
-                                destNorm.y += startPointNorm.y;
-                                destNorm.z += startPointNorm.z;
-                                destNorm.w += startPointNorm.w * 0.5f;
+                                destNorm = destNorm.add(startPointNorm.getVec3f(), startPointNorm.w * 0.5f);
                                 numIntersections++;
                             }
 
@@ -388,10 +385,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                             if (midpoint_material != endpoint_material) {
                                 Vec4f srcMidPointNorm = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPos(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2], axis));
                                 if (srcMidPointNorm != null) {
-                                    destNorm.x += srcMidPointNorm.x;
-                                    destNorm.y += srcMidPointNorm.y;
-                                    destNorm.z += srcMidPointNorm.z;
-                                    destNorm.w += 0.5f + srcMidPointNorm.w * 0.5f;
+                                    destNorm = destNorm.add(srcMidPointNorm.getVec3f(), 0.5f + srcMidPointNorm.w * 0.5f);
                                     numIntersections++;
                                 }
                             }
@@ -399,8 +393,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
                         if(numIntersections>0) {
                             float invNum = 1.0f / numIntersections;
-                            Vec3f d = destNorm.mul(invNum).getVec3f();
-                            d = d.normalize();
+                            Vec3f d = destNorm.getVec3f().mul(invNum).normalize();
                             float w = destNorm.w * invNum;
                             int destEdgeCode = meshGen.getEdgeCodeByPos(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z, axis);
                             dstField.hermiteEdgesMap.put(destEdgeCode, new Vec4f(d, w));
