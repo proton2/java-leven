@@ -186,6 +186,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 GPUDensityField srcField = densityFieldCache.get(key);
                 if(srcField!=null) {
                     reduce(i, srcField, field);
+                    StoreDensityField(field);
                     node.chunkIsEdited = true;
                     reducedChunks[i] = true;
                 }
@@ -369,14 +370,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
                         Vec4f destNorm = new Vec4f();
                         if(srcEndPoint[0] < meshGen.getFieldSize() && srcEndPoint[1] < meshGen.getFieldSize() && srcEndPoint[2] < meshGen.getFieldSize()) {
-                            Vec4f startPointNorm = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPos(srcCellX, srcCellY, srcCellZ, axis));
-                            if (startPointNorm == null) {
-                                continue;
-                            }
                             int[] srcMidPoint = new int[]{srcCellX, srcCellY, srcCellZ};
                             srcMidPoint[axis]++;
                             int midpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2])];
-                            if (startpoint_material != midpoint_material) {
+                            Vec4f startPointNorm = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPos(srcCellX, srcCellY, srcCellZ, axis));
+                            if (startPointNorm!=null && startpoint_material != midpoint_material) {
                                 destNorm = destNorm.add(startPointNorm.getVec3f(), startPointNorm.w * 0.5f);
                                 numIntersections++;
                             }
