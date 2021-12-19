@@ -160,6 +160,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 StoreDensityField(field);
             }
         }
+        if(node.parentIsDirty){
+            StoreDensityField(field);
+        }
 
         return field;
     }
@@ -186,7 +189,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 GPUDensityField srcField = densityFieldCache.get(key);
                 if(srcField!=null) {
                     reduce(i, srcField, field);
-                    StoreDensityField(field);
                     node.chunkIsEdited = true;
                     reducedChunks[i] = true;
                 }
