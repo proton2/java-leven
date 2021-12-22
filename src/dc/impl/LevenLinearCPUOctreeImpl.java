@@ -195,8 +195,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
         }
 
-        field.numEdges = FindFieldEdgesPerChild(field.min, field.size / meshGen.getVoxelsPerChunk(), field.materialsCpu, reducedChunks,
+        FindFieldEdgesPerChild(field.min, field.size / meshGen.getVoxelsPerChunk(), field.materialsCpu, reducedChunks,
                 field.hermiteEdgesMap);
+        field.numEdges = field.hermiteEdgesMap.size();
     }
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
@@ -272,12 +273,10 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             if(reducedChunks[child]) {
                 continue;
             }
-            Vec3i childOffset = new Vec3i(
-                    (child & (1 << (0))) > 0 ? childSize : 0,
-                    (child & (1 << (1))) > 0 ? childSize : 0,
-                    (child & (1 << (2))) > 0 ? childSize : 0
-            );
-
+            Vec3i childOffset = VoxelOctree.CHILD_MIN_OFFSETS[child].mul(childSize);
+//          new Vec3i((child & (1 << (0))) > 0 ? childSize : 0,
+//                    (child & (1 << (1))) > 0 ? childSize : 0,
+//                    (child & (1 << (2))) > 0 ? childSize : 0);
             tasks.add(() -> {
                 int size = 0;
                 for (int z = 0; z < (childOffset.z == 0 ? childSize : childSize + 1); z++) {
@@ -353,11 +352,10 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField){
         int NUM_AXES = 3;
         int size = meshGen.getHermiteIndexSize(); // ??????????????????????????????????????
-        Vec3i dstOffset = new Vec3i(
-                (chunkOrder & (1<<(0))) > 0 ? size/2 : 0,
-                (chunkOrder & (1<<(1))) > 0 ? size/2 : 0,
-                (chunkOrder & (1<<(2))) > 0 ? size/2 : 0
-        );
+        Vec3i dstOffset = VoxelOctree.CHILD_MIN_OFFSETS[chunkOrder].mul(size/2);
+//      new Vec3i((chunkOrder & (1<<(0))) > 0 ? size/2 : 0,
+//                (chunkOrder & (1<<(1))) > 0 ? size/2 : 0,
+//                (chunkOrder & (1<<(2))) > 0 ? size/2 : 0);
 
         for(int srcCellZ = 0; srcCellZ < size; srcCellZ += 2 ) {
             for (int srcCellY = 0; srcCellY < size; srcCellY += 2) {
