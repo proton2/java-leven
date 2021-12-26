@@ -468,13 +468,14 @@ public class ChunkOctree {
     }
 
     private void performCSGReduceOperations(ChunkNode node, Set<CSGOperationInfo> operations){
-        voxelOctree.computeApplyCSGOperations(operations, node);
+        node.parentIsDirty = true;
+        if (node.active || node.size == meshGen.clipmapLeafSize) {
+            node.chunkIsEdited = true;
+            voxelOctree.computeApplyCSGOperations(operations, node);
+        }
         voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
         node.invalidated = true;
         node.empty = false;
-
-        node.chunkIsEdited = true;
-        node.parentIsDirty = true;
     }
 
     private void performCSGQueueOperations(ChunkNode clipmapNode, Set<CSGOperationInfo> operations){

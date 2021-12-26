@@ -159,7 +159,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             if(GenerateDefaultDensityField(field)==0){
                 return null;
             }
-            FindDefaultEdges(field, node);
+            FindFieldEdgesPerChild(field, node);
         }
 
         if(!getCsgOperationsProcessor().isReduceChunk()) {
@@ -188,14 +188,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             field.materialsCpu = null;
         }
         return materialSize;
-    }
-
-    private void FindDefaultEdges(GPUDensityField field, ChunkNode node){
-        FindFieldEdgesPerChild(field, node);
-
-//        if(node.parentIsDirty){
-//            StoreDensityField(field);
-//        }
     }
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
