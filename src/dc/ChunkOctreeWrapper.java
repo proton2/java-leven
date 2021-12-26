@@ -200,6 +200,7 @@ public class ChunkOctreeWrapper extends GameObject {
         if (Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
             Vec3f rayPos = chunkOctree.getRayCollisionPos();
+            logger.log(Level.SEVERE, "rayCollisionPos X " + rayPos.X + " Y " + rayPos.Y + " Z " + rayPos.Z);
             camRayCmds.addWireCube(Constants.Yellow, 0.2f, rayPos, brushSize);
             //camRayCmds.addSphere(Constants.Red, 0.2f, chunkOctree.getRayCollisionPos(), 10);
             //camRayCmds.addLine(Constants.Green, 0.2f, Camera.getInstance().getPosition(), chunkOctree.getRayCollisionPos());

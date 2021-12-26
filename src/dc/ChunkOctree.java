@@ -455,22 +455,37 @@ public class ChunkOctree {
             touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
         }
         for(ChunkNode node : touchedNodes) {
-            if((voxelOctree.getCsgOperationsProcessor().isReduceChunk() && node.size == meshGen.clipmapLeafSize) ||
-                    (!voxelOctree.getCsgOperationsProcessor().isReduceChunk() && node.active))
-            {
-                voxelOctree.computeApplyCSGOperations(operations, node);
+            if(voxelOctree.getCsgOperationsProcessor().isReduceChunk()){
+                performCSGReduceOperations(node, operations);
+            } else {
+                performCSGQueueOperations(node, operations);
             }
-            voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
-            node.invalidated = true;
-            node.empty = false;
-
-            node.chunkIsEdited = true;
-            node.parentIsDirty = true;
         }
 
         for (CSGOperationInfo opInfo: operations) {
             voxelOctree.computeStoreCSGOperation(opInfo, calcCSGOperationBounds(opInfo));
         }
+    }
+
+    private void performCSGReduceOperations(ChunkNode node, Set<CSGOperationInfo> operations){
+        if(node.size == meshGen.clipmapLeafSize) {
+            voxelOctree.computeApplyCSGOperations(operations, node);
+        }
+        voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
+        node.invalidated = true;
+        node.empty = false;
+
+        node.chunkIsEdited = true;
+        node.parentIsDirty = true;
+    }
+
+    private void performCSGQueueOperations(ChunkNode clipmapNode, Set<CSGOperationInfo> operations){
+        if (clipmapNode.active) {
+            voxelOctree.computeApplyCSGOperations(operations, clipmapNode);
+        }
+        voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size); // free the current octree to force a reconstruction
+        clipmapNode.invalidated = true;
+        clipmapNode.empty = false;
     }
 
     private Aabb calcCSGOperationBounds(CSGOperationInfo opInfo) {
