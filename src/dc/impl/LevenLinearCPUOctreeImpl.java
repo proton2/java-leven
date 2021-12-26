@@ -121,7 +121,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(field==null){
             return null;
         }
-        if(field.numEdges>0){
+        if(field.hermiteEdgesMap.size()>0){
             octree = ConstructOctreeFromField(node.min, node.size, field);
             octreeCache.put(key, octree);
         }
@@ -160,9 +160,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 StoreDensityField(field);
             }
         }
-        if(node.parentIsDirty){
-            StoreDensityField(field);
-        }
 
         return field;
     }
@@ -178,26 +175,24 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private void FindDefaultEdges(GPUDensityField field, ChunkNode node){
-        boolean[] reducedChunks = new boolean[8];
-        for (int i=0; i<8; i++){
-            if(node.children[i]!=null && node.children[i].parentIsDirty){
+        FindFieldEdgesPerChild(field, node);
+
+        for (int i = 0; i < 8; i++) {
+            if (node.children[i] != null && node.children[i].parentIsDirty) {
                 node.children[i].parentIsDirty = false;
                 node.parentIsDirty = true;
             }
-            if(node.children[i]!=null && node.children[i].chunkIsEdited){
+            if (node.children[i] != null && node.children[i].chunkIsEdited) {
                 Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
                 GPUDensityField srcField = densityFieldCache.get(key);
-                if(srcField!=null) {
+                if (srcField != null) {
                     reduce(i, srcField, field);
-                    node.chunkIsEdited = true;
-                    reducedChunks[i] = true;
                 }
             }
         }
-
-        FindFieldEdgesPerChild(field.min, field.size / meshGen.getVoxelsPerChunk(), field.materialsCpu, reducedChunks,
-                field.hermiteEdgesMap);
-        field.numEdges = field.hermiteEdgesMap.size();
+//        if(node.parentIsDirty){
+//            StoreDensityField(field);
+//        }
     }
 
     private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
@@ -264,26 +259,23 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    private int FindFieldEdgesPerChild(Vec3i chunkMin, int sampleScale, int[] materials, boolean[] reducedChunks,
-                               Map<Integer, Vec4f> normals) {
+    private int FindFieldEdgesPerChild(GPUDensityField field, ChunkNode node) {
 
         int childSize = meshGen.getHermiteIndexSize()/2;
         List<Callable<Integer>> tasks = new ArrayList<>();
         for (int child = 0; child < 8; child++) {
-            if(reducedChunks[child]) {
+            if(node.children[child]!=null && node.children[child].chunkIsEdited) {
                 continue;
             }
             Vec3i childOffset = VoxelOctree.CHILD_MIN_OFFSETS[child].mul(childSize);
-//          new Vec3i((child & (1 << (0))) > 0 ? childSize : 0,
-//                    (child & (1 << (1))) > 0 ? childSize : 0,
-//                    (child & (1 << (2))) > 0 ? childSize : 0);
+
             tasks.add(() -> {
                 int size = 0;
                 for (int z = 0; z < (childOffset.z == 0 ? childSize : childSize + 1); z++) {
                     for (int y = 0; y < (childOffset.y == 0 ? childSize : childSize + 1); y++) {
                         for (int x = 0; x < (childOffset.x == 0 ? childSize : childSize + 1); x++) {
-                            size = processFindFieldEdges(chunkMin, sampleScale, materials, size,
-                                    z + childOffset.z, y + childOffset.y, x + childOffset.x, normals);
+                            size = processFindFieldEdges(field.min, field.size / meshGen.getVoxelsPerChunk(), field.materialsCpu, size,
+                                    z + childOffset.z, y + childOffset.y, x + childOffset.x, field.hermiteEdgesMap);
                         }
                     }
                 }
@@ -313,8 +305,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 return size;
             });
         }
-
-        field.numEdges = VoxelOctree.performIntCallableTask(tasks, service, logger);
+        VoxelOctree.performIntCallableTask(tasks, service, logger);
     }
 
     private int processFindFieldEdges(Vec3i chunkMin, int sampleScale, int[] materials,

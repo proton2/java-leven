@@ -79,17 +79,14 @@ public class CpuCsgImpl implements ICSGOperations{
         Set<Integer> d_invalidatedEdges = CompactIndexArray(d_generatedEdgeIndices, numCompactEdgeIndices);
         Map<Integer, Vec4f> createdEdges = FilterValidEdges(fieldOffset, opInfo, sampleScale, d_invalidatedEdges, field.materialsCpu);
 
-        if (d_invalidatedEdges.size() > 0 && field.numEdges > 0) {
+        if (d_invalidatedEdges.size() > 0 && field.hermiteEdgesMap.size() > 0) {
             field.hermiteEdgesMap.keySet().removeAll(d_invalidatedEdges);
-            field.numEdges = field.hermiteEdgesMap.size();
         }
 
         if (createdEdges.size() > 0) {
-            if (field.numEdges > 0) {
+            if (field.hermiteEdgesMap.size() > 0) {
                 field.hermiteEdgesMap.putAll(createdEdges);
-                field.numEdges = field.hermiteEdgesMap.size();
             } else {
-                field.numEdges = createdEdges.size();
                 field.hermiteEdgesMap = createdEdges;
             }
         }

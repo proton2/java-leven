@@ -14,7 +14,7 @@ public class GPUDensityField {
     public Vec3i min;
     public int size;
     public int lastCSGOperation = 0;
-    public int numEdges;
+    private int numEdges;
 
     public int[] materialsCpu;
     public Map<Integer, Vec4f> hermiteEdgesMap = new ConcurrentSkipListMap<>();
