@@ -61,8 +61,24 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(field==null){
             return null;
         }
-        getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
-        field.lastCSGOperation += opInfo.size();
+        if(node.size == meshGen.clipmapLeafSize) {
+            getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
+            field.lastCSGOperation += opInfo.size();
+        } else {
+            for (int i = 0; i < 8; i++) {
+                if (node.children[i] != null && node.children[i].parentIsDirty) {
+                    node.children[i].parentIsDirty = false;
+                    node.parentIsDirty = true;
+                }
+                if (node.children[i] != null && node.children[i].chunkIsEdited) {
+                    Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
+                    GPUDensityField srcField = densityFieldCache.get(key);
+                    if (srcField != null) {
+                        reduce(i, srcField, field);
+                    }
+                }
+            }
+        }
 
         StoreDensityField(field);
         return field;
@@ -177,19 +193,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private void FindDefaultEdges(GPUDensityField field, ChunkNode node){
         FindFieldEdgesPerChild(field, node);
 
-        for (int i = 0; i < 8; i++) {
-            if (node.children[i] != null && node.children[i].parentIsDirty) {
-                node.children[i].parentIsDirty = false;
-                node.parentIsDirty = true;
-            }
-            if (node.children[i] != null && node.children[i].chunkIsEdited) {
-                Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
-                GPUDensityField srcField = densityFieldCache.get(key);
-                if (srcField != null) {
-                    reduce(i, srcField, field);
-                }
-            }
-        }
 //        if(node.parentIsDirty){
 //            StoreDensityField(field);
 //        }
