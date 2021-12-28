@@ -49,6 +49,78 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     @Override
+    public void ApplyReduceOperations(ChunkNode node, GPUDensityField field, Map<Vec4i, GPUDensityField> densityFieldCache) {
+        for (int i = 0; i < 8; i++) {
+            if (node.children[i].parentIsDirty) {
+                node.children[i].parentIsDirty = false;
+                node.parentIsDirty = true;
+            }
+            if (node.children[i].chunkIsEdited) {
+                Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
+                GPUDensityField srcField = densityFieldCache.get(key);
+                if (srcField != null) {
+                    reduce(i, srcField, field);
+                }
+            }
+        }
+    }
+
+    private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField){
+        int NUM_AXES = 3;
+        int size = meshGen.getHermiteIndexSize(); // ??????????????????????????????????????
+        Vec3i dstOffset = VoxelOctree.CHILD_MIN_OFFSETS[chunkOrder].mul(size/2);
+//      new Vec3i((chunkOrder & (1<<(0))) > 0 ? size/2 : 0,
+//                (chunkOrder & (1<<(1))) > 0 ? size/2 : 0,
+//                (chunkOrder & (1<<(2))) > 0 ? size/2 : 0);
+
+        for(int srcCellZ = 0; srcCellZ < size; srcCellZ += 2 ) {
+            for (int srcCellY = 0; srcCellY < size; srcCellY += 2) {
+                for (int srcCellX = 0; srcCellX < size; srcCellX += 2) {
+                    Vec3i dstCellOffset = new Vec3i(srcCellX/2, srcCellY/2, srcCellZ/2).add(dstOffset);
+                    int startpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcCellX, srcCellY, srcCellZ)];
+
+                    for(int axis = 0; axis < NUM_AXES; axis++) {
+                        int numIntersections = 0;
+                        int[] srcEndPoint = new int[]{srcCellX, srcCellY, srcCellZ};
+                        srcEndPoint[axis] += 2;
+
+                        Vec4f destNorm = new Vec4f();
+                        if(srcEndPoint[0] < meshGen.getFieldSize() && srcEndPoint[1] < meshGen.getFieldSize() && srcEndPoint[2] < meshGen.getFieldSize()) {
+                            int[] srcMidPoint = new int[]{srcCellX, srcCellY, srcCellZ};
+                            srcMidPoint[axis]++;
+                            int midpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2])];
+                            Vec4f startPointNorm = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPos(srcCellX, srcCellY, srcCellZ, axis));
+                            if (startPointNorm!=null && startpoint_material != midpoint_material) {
+                                destNorm = destNorm.add(startPointNorm.getVec3f(), startPointNorm.w * 0.5f);
+                                numIntersections++;
+                            }
+
+                            int endpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcEndPoint[0], srcEndPoint[1], srcEndPoint[2])];
+                            if (midpoint_material != endpoint_material) {
+                                Vec4f srcMidPointNorm = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPos(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2], axis));
+                                if (srcMidPointNorm != null) {
+                                    destNorm = destNorm.add(srcMidPointNorm.getVec3f(), 0.5f + srcMidPointNorm.w * 0.5f);
+                                    numIntersections++;
+                                }
+                            }
+                        }
+
+                        if(numIntersections>0) {
+                            float invNum = 1.0f / numIntersections;
+                            Vec3f d = destNorm.getVec3f().mul(invNum).normalize();
+                            float w = destNorm.w * invNum;
+                            int destEdgeCode = meshGen.getEdgeCodeByPos(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z, axis);
+                            dstField.hermiteEdgesMap.put(destEdgeCode, new Vec4f(d, w));
+                        }
+                    }
+                    int dstMaterialIndex = meshGen.getMaterialIndex(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z);
+                    dstField.materialsCpu[dstMaterialIndex] = startpoint_material; // save changed material for use when next lod level reduce
+                }
+            }
+        }
+    }
+
+    @Override
     public void ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field){
         this.meshGen = meshGen;
         if (opInfo.isEmpty()) {
