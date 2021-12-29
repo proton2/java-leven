@@ -63,6 +63,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
         if(node.size == meshGen.clipmapLeafSize) {
             getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
+            node.chunkIsEdited = true;
             field.lastCSGOperation += opInfo.size();
         } else {
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
@@ -163,6 +164,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 getCsgOperationsProcessor().ApplyCSGOperations(meshGen, csgOperations, node, field);
                 StoreDensityField(field);
             }
+        } else {
+            getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
         }
 
         return field;

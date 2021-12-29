@@ -468,9 +468,7 @@ public class ChunkOctree {
     }
 
     private void performCSGReduceOperations(ChunkNode node, Set<CSGOperationInfo> operations){
-        node.parentIsDirty = true;
         if (node.active || node.size == meshGen.clipmapLeafSize) {
-            node.chunkIsEdited = true;
             voxelOctree.computeApplyCSGOperations(operations, node);
         }
         voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
