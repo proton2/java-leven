@@ -166,6 +166,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
         } else {
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
+            if (node.chunkIsEdited){
+                StoreDensityField(field);
+            }
         }
 
         return field;

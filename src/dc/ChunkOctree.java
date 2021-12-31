@@ -15,10 +15,7 @@ import dc.utils.RenderShape;
 import dc.utils.VoxelHelperUtils;
 
 import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -454,10 +451,11 @@ public class ChunkOctree {
         for (CSGOperationInfo opInfo: operations){
             touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
         }
-        for(ChunkNode node : touchedNodes) {
-            if(voxelOctree.getCsgOperationsProcessor().isReduceChunk()){
-                performCSGReduceOperations(node, operations);
-            } else {
+
+        if(voxelOctree.getCsgOperationsProcessor().isReduceChunk()) {
+            CSGReduceOperations(touchedNodes, operations);
+        } else{
+            for(ChunkNode node : touchedNodes) {
                 performCSGQueueOperations(node, operations);
             }
         }
@@ -467,10 +465,24 @@ public class ChunkOctree {
         }
     }
 
-    private void performCSGReduceOperations(ChunkNode node, Set<CSGOperationInfo> operations){
-        if (node.active || node.size == meshGen.clipmapLeafSize) {
-            voxelOctree.computeApplyCSGOperations(operations, node);
+    private void CSGReduceOperations(Set<ChunkNode> touchedNodes, Set<CSGOperationInfo> operations){
+        List<ChunkNode> nodes = new ArrayList<>(touchedNodes);
+        nodes.sort(Comparator.comparingInt((ChunkNode lhs) -> lhs.size));
+        int activeNodeNumber = 0;
+        for (int i=nodes.size()-1; i>-1; i--){
+            if(nodes.get(i).active){
+                activeNodeNumber = i;
+                break;
+            }
         }
+        List<ChunkNode> subList = nodes.subList(0, activeNodeNumber+1);
+        for(ChunkNode node : subList) {
+            performCSGReduceOperations(node, operations);
+        }
+    }
+
+    private void performCSGReduceOperations(ChunkNode node, Set<CSGOperationInfo> operations){
+        voxelOctree.computeApplyCSGOperations(operations, node);
         voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
         node.invalidated = true;
         node.empty = false;
