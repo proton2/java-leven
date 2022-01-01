@@ -476,15 +476,13 @@ public class ChunkOctree {
         }
         List<ChunkNode> subList = nodes.subList(0, activeNodeNumber+1);
         for(ChunkNode node : subList) {
-            performCSGReduceOperations(node, operations);
+            voxelOctree.computeApplyCSGOperations(operations, node);
         }
-    }
-
-    private void performCSGReduceOperations(ChunkNode node, Set<CSGOperationInfo> operations){
-        voxelOctree.computeApplyCSGOperations(operations, node);
-        voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
-        node.invalidated = true;
-        node.empty = false;
+        for(ChunkNode node : nodes) {
+            voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
+            node.invalidated = true;
+            node.empty = false;
+        }
     }
 
     private void performCSGQueueOperations(ChunkNode clipmapNode, Set<CSGOperationInfo> operations){
