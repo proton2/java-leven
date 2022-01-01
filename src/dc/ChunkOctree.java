@@ -435,7 +435,9 @@ public class ChunkOctree {
     }
 
     public void processCSGOperations() {
-        service.submit(this::processCSGOperationsImpl);
+        if (!g_operationQueue.isEmpty()) {
+            service.submit(this::processCSGOperationsImpl);
+        }
     }
 
     void processCSGOperationsImpl(){
