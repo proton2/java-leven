@@ -122,16 +122,13 @@ public class ChunkOctree {
         return count;
     }
 
-    private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
+    private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos){
         if (node.size <= meshGen.LOD_MAX_NODE_SIZE) {
             int size = node.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
             int distanceIndex = VoxelHelperUtils.log2(size);
             float d = LOD_ACTIVE_DISTANCES[distanceIndex];
             float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
-            if (nodeDistance >= d) {
-                selectedNodes.add(node);
-                return true;
-            }
+            return nodeDistance >= d;
         }
         return false;
     }
@@ -140,7 +137,9 @@ public class ChunkOctree {
         if (node==null || parentActive) {
             return;
         }
-        node.canBeSelected = checkNodeForSelection(node, camPos, selectedNodes);
+        if (node.canBeSelected = checkNodeForSelection(node, camPos)){
+            selectedNodes.add(node);
+        }
         for (int i = 0; i < 8; i++) {
             selectActiveChunkNodes(node.children[i], node.canBeSelected, camPos, selectedNodes);
         }
@@ -470,7 +469,7 @@ public class ChunkOctree {
         nodes.sort(Comparator.comparingInt((ChunkNode lhs) -> lhs.size));
         int activeNodeNumber = 0;
         for (int i=nodes.size()-1; i>-1; i--){
-            if(nodes.get(i).active || nodes.get(i).size==meshGen.clipmapLeafSize){
+            if(checkNodeForSelection(nodes.get(i), camera.getPosition())) {
                 activeNodeNumber = i;
                 break;
             }
