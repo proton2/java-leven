@@ -470,7 +470,7 @@ public class ChunkOctree {
         nodes.sort(Comparator.comparingInt((ChunkNode lhs) -> lhs.size));
         int activeNodeNumber = 0;
         for (int i=nodes.size()-1; i>-1; i--){
-            if(nodes.get(i).active){
+            if(nodes.get(i).active || nodes.get(i).size==meshGen.clipmapLeafSize){
                 activeNodeNumber = i;
                 break;
             }
