@@ -48,14 +48,14 @@ public class ChunkOctreeWrapper extends GameObject {
     private final ComputeContext ctx;
     private Physics physics;
     private boolean playerCollision = false;
-    private int brushSize = 8;
+    private int brushSize = 12;
     private RenderShape brushShape = RenderShape.RenderShape_Sphere;
     private boolean isAddOperation = false;
     //private ModelEntity actorCSGCube;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
-        meshGenCtx = new MeshGenerationContext(64);
+        meshGenCtx = new MeshGenerationContext(32);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = null;//OCLUtils.getOpenCLContext();
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
