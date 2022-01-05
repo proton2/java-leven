@@ -33,7 +33,6 @@ public class ChunkOctree {
     private ConcurrentLinkedDeque<CSGOperationInfo> g_operationQueue = new ConcurrentLinkedDeque<>();
     private final Physics physics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
-    private float[] LOD_ACTIVE_DISTANCES;
     private ArrayList<ChunkNode> prevSelectedNodes;
 
     public Vec3f getRayCollisionPos(){
@@ -47,15 +46,6 @@ public class ChunkOctree {
     public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
                        boolean enablePhysics) {
         this.meshGen = meshGen;
-         LOD_ACTIVE_DISTANCES = new float[] {0.f,
-                meshGen.clipmapLeafSize * 1.5f,
-                meshGen.clipmapLeafSize * 3.5f,
-                meshGen.clipmapLeafSize * 5.5f,
-                meshGen.clipmapLeafSize * 7.5f,
-                meshGen.clipmapLeafSize * 9.5f,
-                meshGen.clipmapLeafSize * 11.5f,
-                meshGen.clipmapLeafSize * 13.5f
-        };
         this.physics = physics;
         this.voxelOctree = voxelOctree;
         service = Executors.newSingleThreadExecutor();
@@ -122,15 +112,24 @@ public class ChunkOctree {
         return count;
     }
 
-    private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos){
-        if (node.size <= meshGen.LOD_MAX_NODE_SIZE) {
-            int size = node.size / (meshGen.getVoxelsPerChunk() * meshGen.leafSizeScale);
-            int distanceIndex = VoxelHelperUtils.log2(size);
-            float d = LOD_ACTIVE_DISTANCES[distanceIndex];
-            float nodeDistance = VoxelHelperUtils.DistanceToNode(node, camPos);
-            return nodeDistance >= d;
+    private float ChebyshevDistance(ChunkNode node, Vec3f eyePos) {
+        Aabb bounds = new Aabb(node.min, node.size);
+        // Get the closest distance between the camera and the AABB under 'max' norm:
+        float minX = Math.min( Math.abs( eyePos.X - bounds.min.x ), Math.abs( eyePos.X - bounds.max.x ) );
+        float minY = Math.min( Math.abs( eyePos.Y - bounds.min.y ), Math.abs( eyePos.Y - bounds.max.y ) );
+        float minZ = Math.min( Math.abs( eyePos.Z - bounds.min.z ), Math.abs( eyePos.Z - bounds.max.z ) );
+        return Math.max(minX, Math.max(minY, minZ));
+    }
+
+    private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos) {
+        float splitDistanceFactor = 1.5f;
+        float distance = ChebyshevDistance(node, camPos);
+        // чанк надо разбивать, если расстояние меньше, чем размер чанка, умноженный на split_distance_factor
+        boolean canBeSelected = distance > node.size * splitDistanceFactor;
+        if(node.size==meshGen.clipmapLeafSize && distance <= node.size * splitDistanceFactor){
+            return true;
         }
-        return false;
+        return canBeSelected;
     }
 
     private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
