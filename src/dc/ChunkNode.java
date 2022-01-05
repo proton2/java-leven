@@ -17,7 +17,7 @@ public class ChunkNode {
     public WorldCollisionNode worldNode;
     public boolean canBeSelected = false;
     public boolean chunkIsEdited = false;
-    public boolean reduceStored = true;
+    public boolean reduceStored = false;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);

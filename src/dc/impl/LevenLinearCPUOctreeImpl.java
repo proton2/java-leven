@@ -66,7 +66,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             node.chunkIsEdited = true;
             field.lastCSGOperation += opInfo.size();
         } else {
-            node.reduceStored = false;
+            node.reduceStored = true;
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
         }
 
@@ -127,7 +127,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(field==null){
             return null;
         }
-        if(!node.reduceStored) {
+        if(!node.chunkIsEdited && (isChildrenEdited(node))) {
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
             if (node.chunkIsEdited) {
                 StoreDensityField(field);
@@ -139,6 +139,17 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             octreeCache.put(key, octree);
         }
         return octree;
+    }
+
+    private boolean isChildrenEdited(ChunkNode node){
+        return node.children!=null && ((node.children[0]!=null && node.children[0].chunkIsEdited)
+                || (node.children[1]!=null && node.children[1].chunkIsEdited)
+                || (node.children[2]!=null && node.children[2].chunkIsEdited)
+                || (node.children[3]!=null && node.children[3].chunkIsEdited)
+                || (node.children[4]!=null && node.children[4].chunkIsEdited)
+                || (node.children[5]!=null && node.children[5].chunkIsEdited)
+                || (node.children[6]!=null && node.children[6].chunkIsEdited)
+                || (node.children[7]!=null && node.children[7].chunkIsEdited));
     }
 
     private void StoreDensityField(GPUDensityField field) {
