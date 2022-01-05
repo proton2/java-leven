@@ -66,6 +66,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             node.chunkIsEdited = true;
             field.lastCSGOperation += opInfo.size();
         } else {
+            node.reduceStored = false;
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
         }
 
@@ -126,6 +127,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(field==null){
             return null;
         }
+        if(!node.reduceStored) {
+            getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
+            if (node.chunkIsEdited) {
+                StoreDensityField(field);
+                node.reduceStored = !node.reduceStored;
+            }
+        }
         if(field.hermiteEdgesMap.size()>0){
             octree = ConstructOctreeFromField(node.min, node.size, field);
             octreeCache.put(key, octree);
@@ -162,11 +170,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             field.lastCSGOperation = storedOps.size();
             if (!csgOperations.isEmpty()) {
                 getCsgOperationsProcessor().ApplyCSGOperations(meshGen, csgOperations, node, field);
-                StoreDensityField(field);
-            }
-        } else {
-            getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
-            if (node.chunkIsEdited){
                 StoreDensityField(field);
             }
         }

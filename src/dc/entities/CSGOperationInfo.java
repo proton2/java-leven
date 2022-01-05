@@ -1,6 +1,5 @@
 package dc.entities;
 
-import core.math.Vec3f;
 import core.math.Vec4f;
 import dc.utils.RenderShape;
 

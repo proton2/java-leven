@@ -377,7 +377,11 @@ public class ChunkOctree {
 
     private boolean filterNodesForDebug(ChunkNode filteredNode){
         Aabb bbox = new Aabb(filteredNode.min, filteredNode.size);
-        if (bbox.pointIsInside(Camera.getInstance().getPosition())) {
+//        if (bbox.pointIsInside(Camera.getInstance().getPosition())) {
+//            return true;
+//        }
+        if((filteredNode.size==128 && filteredNode.min.equals(new Vec3i(-384,-128,-1664)))
+                || (filteredNode.size==512 && filteredNode.min.equals(new Vec3i(-512,-512,-1536)))){
             return true;
         }
         return false;

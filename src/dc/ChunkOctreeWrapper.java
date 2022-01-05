@@ -61,7 +61,9 @@ public class ChunkOctreeWrapper extends GameObject {
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 256, playerCollision);
         Camera camera = Camera.getInstance();
-        camera.setPosition(new Vec3f(-131.29f,-148.04f,-1921.52f));
+        camera.setPosition(new Vec3f(-144.05437f,49.39413f,-1894.7849f));
+        camera.setForward(new Vec3f(-0.05832729f,0.18052073f,0.9818402f));
+        camera.setUp(new Vec3f(0.011019673f,0.9835712f,-0.18018433f));
         if(playerCollision) {
             camera.setPhysics(physics);
         }
@@ -94,7 +96,6 @@ public class ChunkOctreeWrapper extends GameObject {
             Vec2f curPos = Input.getInstance().getCursorPosition();
             Ray ray = cam.getMousePickRay(curPos.X, curPos.Y);
             Vec3f rayTo = new Vec3f(ray.direction.scaleAdd(Constants.ZFAR, ray.origin));
-            chunkOctree.processCSGOperations();
             chunkOctree.update(cam, ray.origin, rayTo);
             renderMesh();
         }
@@ -223,6 +224,7 @@ public class ChunkOctreeWrapper extends GameObject {
 //            Vec3f offset = dir.mul(brushSizeV);
 //            Vec3f origin = offset.add(rayPos);
             chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), brushShape, meshGenCtx.MATERIAL_SOLID, isAddOperation);
+            chunkOctree.processCSGOperations();
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
