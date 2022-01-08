@@ -112,23 +112,11 @@ public class ChunkOctree {
         return count;
     }
 
-    private float ChebyshevDistance(ChunkNode node, Vec3f eyePos) {
-        Aabb bounds = new Aabb(node.min, node.size);
-        // Get the closest distance between the camera and the AABB under 'max' norm:
-        float minX = Math.min( Math.abs( eyePos.X - bounds.min.x ), Math.abs( eyePos.X - bounds.max.x ) );
-        float minY = Math.min( Math.abs( eyePos.Y - bounds.min.y ), Math.abs( eyePos.Y - bounds.max.y ) );
-        float minZ = Math.min( Math.abs( eyePos.Z - bounds.min.z ), Math.abs( eyePos.Z - bounds.max.z ) );
-        return Math.max(minX, Math.max(minY, minZ));
-    }
-
     private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos) {
         float splitDistanceFactor = 1.5f;
-        float distance = ChebyshevDistance(node, camPos);
+        float distance = VoxelHelperUtils.ChebyshevDistance(node, camPos);
         // чанк надо разбивать, если расстояние меньше, чем размер чанка, умноженный на split_distance_factor
         boolean canBeSelected = distance > node.size * splitDistanceFactor;
-        if(node.size==meshGen.clipmapLeafSize && distance <= node.size * splitDistanceFactor){
-            return true;
-        }
         return canBeSelected;
     }
 
@@ -136,7 +124,7 @@ public class ChunkOctree {
         if (node==null || parentActive) {
             return;
         }
-        if (node.canBeSelected = checkNodeForSelection(node, camPos)){
+        if (node.canBeSelected = checkNodeForSelection(node, camPos) || node.size==meshGen.clipmapLeafSize){
             selectedNodes.add(node);
         }
         for (int i = 0; i < 8; i++) {
@@ -474,7 +462,7 @@ public class ChunkOctree {
         nodes.sort(Comparator.comparingInt((ChunkNode lhs) -> lhs.size));
         int activeNodeNumber = 0;
         for (int i=nodes.size()-1; i>-1; i--){
-            if(checkNodeForSelection(nodes.get(i), camera.getPosition())) {
+            if(checkNodeForSelection(nodes.get(i), camera.getPosition()) || nodes.get(i).size==meshGen.clipmapLeafSize) {
                 activeNodeNumber = i;
                 break;
             }

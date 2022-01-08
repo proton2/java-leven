@@ -40,6 +40,15 @@ public class VoxelHelperUtils {
         return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
+    public static float ChebyshevDistance(ChunkNode node, Vec3f eyePos) {
+        Aabb bounds = new Aabb(node.min, node.size);
+        // Get the closest distance between the camera and the AABB under 'max' norm:
+        float minX = Math.min( Math.abs( eyePos.X - bounds.min.x ), Math.abs( eyePos.X - bounds.max.x ) );
+        float minY = Math.min( Math.abs( eyePos.Y - bounds.min.y ), Math.abs( eyePos.Y - bounds.max.y ) );
+        float minZ = Math.min( Math.abs( eyePos.Z - bounds.min.z ), Math.abs( eyePos.Z - bounds.max.z ) );
+        return Math.max(minX, Math.max(minY, minZ));
+    }
+
     float Distance3DToNode(ChunkNode node, Vec3f cameraPos) {
         Vec3f center = node.min.add(new Vec3i(node.size/2, node.size/2, node.size/2)).toVec3f();
         Vec3f p = center.sub(cameraPos);
