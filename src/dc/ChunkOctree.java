@@ -469,7 +469,7 @@ public class ChunkOctree {
         }
         for(ChunkNode node : nodes) {
             if(!node.active){
-                node.reduceStatus = ReduceStateEnum.MUST_REDUCE;
+                node.reduceStatus = ReduceStateEnum.NEED_TO_REDUCE;
             }
             voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
             node.invalidated = true;

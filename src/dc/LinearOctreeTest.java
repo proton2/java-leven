@@ -97,7 +97,7 @@ public class LinearOctreeTest {
         return pos;
     }
 
-    private static int codeForPosition(Vec3i p, int nodeDepth) {
+    public static int codeForPosition(Vec3i p, int nodeDepth) {
         int code = 1;
         for (int depth = meshGen.MAX_OCTREE_DEPTH - 1; depth >= (meshGen.MAX_OCTREE_DEPTH - nodeDepth); depth--) {
             int x = (p.x >> depth) & 1;

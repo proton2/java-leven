@@ -16,7 +16,8 @@ public class ChunkNode {
     public RenderMesh renderMesh, seamMesh;
     public WorldCollisionNode worldNode;
     public boolean canBeSelected = false;
-    public boolean chunkIsEdited = false;
+    public boolean chunkCSGEdited = false;
+    public boolean chunkIsChanged = false;
     public ReduceStateEnum reduceStatus = ReduceStateEnum.INITIAL;
 
     public ChunkNode(){

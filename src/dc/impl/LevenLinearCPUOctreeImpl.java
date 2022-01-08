@@ -108,17 +108,19 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 //            if(node.min.equals(new Vec3i(-320,-128,-1760))&&node.size==32){
 //                int t=3; // debug breakPoint
 //            }
-            getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
-            node.chunkIsEdited = true;
+            node.chunkIsChanged = getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
+            if(node.chunkIsChanged) {
+                node.chunkCSGEdited = true;
+            }
             field.lastCSGOperation += opInfo.size();
         } else {
 //            if(node.min.equals(new Vec3i(-320,-128,-1792))&&node.size==64){
 //                int t=3; // debug breakPoint
 //            }
-            node.reduceStatus = ReduceStateEnum.CSG_HAPPEND;
+            node.reduceStatus = ReduceStateEnum.CSG_TOUCHED;
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
         }
-        if(node.chunkIsEdited || node.reduceStatus.equals(ReduceStateEnum.CSG_HAPPEND)) {
+        if(node.chunkIsChanged || node.reduceStatus.equals(ReduceStateEnum.CSG_TOUCHED)) {
             StoreDensityField(field);
         }
         return field;
@@ -141,9 +143,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             return null;
         }
 
-        if(node.size > meshGen.clipmapLeafSize && node.reduceStatus.equals(ReduceStateEnum.MUST_REDUCE)) {
+        if(node.size > meshGen.clipmapLeafSize && node.reduceStatus.equals(ReduceStateEnum.NEED_TO_REDUCE)) {
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
-            if (node.chunkIsEdited) {
+            if (node.chunkCSGEdited) {
                 StoreDensityField(field);
                 node.reduceStatus = ReduceStateEnum.INITIAL;
             }
@@ -156,14 +158,14 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private boolean isChildrenEdited(ChunkNode node){
-        return node.children!=null && ((node.children[0]!=null && node.children[0].chunkIsEdited)
-                || (node.children[1]!=null && node.children[1].chunkIsEdited)
-                || (node.children[2]!=null && node.children[2].chunkIsEdited)
-                || (node.children[3]!=null && node.children[3].chunkIsEdited)
-                || (node.children[4]!=null && node.children[4].chunkIsEdited)
-                || (node.children[5]!=null && node.children[5].chunkIsEdited)
-                || (node.children[6]!=null && node.children[6].chunkIsEdited)
-                || (node.children[7]!=null && node.children[7].chunkIsEdited));
+        return node.children!=null && ((node.children[0]!=null && node.children[0].chunkCSGEdited)
+                || (node.children[1]!=null && node.children[1].chunkCSGEdited)
+                || (node.children[2]!=null && node.children[2].chunkCSGEdited)
+                || (node.children[3]!=null && node.children[3].chunkCSGEdited)
+                || (node.children[4]!=null && node.children[4].chunkCSGEdited)
+                || (node.children[5]!=null && node.children[5].chunkCSGEdited)
+                || (node.children[6]!=null && node.children[6].chunkCSGEdited)
+                || (node.children[7]!=null && node.children[7].chunkCSGEdited));
     }
 
     private void StoreDensityField(GPUDensityField field) {
@@ -281,7 +283,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int childSize = meshGen.getHermiteIndexSize()/2;
         List<Callable<Integer>> tasks = new ArrayList<>();
         for (int child = 0; child < 8; child++) {
-            if(node.children[child]!=null && node.children[child].chunkIsEdited) {
+            if(node.children[child]!=null && node.children[child].chunkCSGEdited) {
                 continue;
             }
             Vec3i childOffset = VoxelOctree.CHILD_MIN_OFFSETS[child].mul(childSize);

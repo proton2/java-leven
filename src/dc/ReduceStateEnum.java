@@ -2,6 +2,6 @@ package dc;
 
 public enum ReduceStateEnum {
     INITIAL,
-    CSG_HAPPEND,
-    MUST_REDUCE
+    CSG_TOUCHED,
+    NEED_TO_REDUCE
 }

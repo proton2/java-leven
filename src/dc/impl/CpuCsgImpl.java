@@ -51,12 +51,12 @@ public class CpuCsgImpl implements ICSGOperations{
     @Override
     public void ApplyReduceOperations(ChunkNode node, GPUDensityField field, Map<Vec4i, GPUDensityField> densityFieldCache) {
         for (int i = 0; i < 8; i++) {
-            if (node.children[i]!=null && node.children[i].chunkIsEdited) {
+            if (node.children[i]!=null && node.children[i].chunkCSGEdited) {
                 Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
                 GPUDensityField srcField = densityFieldCache.get(key);
                 if (srcField != null) {
                     reduce(i, srcField, field);
-                    node.chunkIsEdited = true;
+                    node.chunkCSGEdited = true;
                 }
             }
         }
