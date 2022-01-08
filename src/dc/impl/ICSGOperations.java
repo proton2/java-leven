@@ -8,7 +8,7 @@ import java.util.Collection;
 import java.util.Map;
 
 public interface ICSGOperations {
-    void ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field);
+    boolean ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field);
     boolean isReduceChunk();
     void ApplyReduceOperations(ChunkNode node, GPUDensityField field, Map<Vec4i, GPUDensityField> densityFieldCache);
 }

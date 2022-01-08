@@ -117,15 +117,15 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     @Override
-    public void ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field){
+    public boolean ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field){
         this.meshGen = meshGen;
         if (opInfo.isEmpty()) {
-            return;
+            return false;
         }
-        processCSG(meshGen, opInfo, node, field);
+        return processCSG(meshGen, opInfo, node, field);
     }
 
-    private void processCSG(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field) {
+    private boolean processCSG(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field) {
         Vec4i fieldOffset = LeafScaleVec(node.min);
         int sampleScale = node.size / (meshGen.leafSizeScale * meshGen.getVoxelsPerChunk());
         int fieldBufferSize = meshGen.fieldSize * meshGen.fieldSize * meshGen.fieldSize;
@@ -135,7 +135,7 @@ public class CpuCsgImpl implements ICSGOperations{
         int numUpdatedPoints = CSG_HermiteIndicesMultiThread(fieldOffset, opInfo, sampleScale, field.materialsCpu,
                     d_updatedIndices, d_updatedPoints);
         if (numUpdatedPoints <= 0) {    // < 0 will be an error code
-            return;
+            return false;
         }
 
         Vec3i[] d_compactUpdatedPoints = new Vec3i[numUpdatedPoints];
@@ -158,6 +158,7 @@ public class CpuCsgImpl implements ICSGOperations{
                 field.hermiteEdgesMap = createdEdges;
             }
         }
+        return true;
     }
 
     private int CSG_HermiteIndicesMultiThread(Vec4i worldspaceOffset, Collection<CSGOperationInfo> operations, int sampleScale, int[] field_materials,

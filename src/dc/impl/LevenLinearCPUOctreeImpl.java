@@ -56,25 +56,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
-        GPUDensityField field = LoadDensityField(node);
-        if(field==null){
-            return null;
-        }
-        if(node.size == meshGen.clipmapLeafSize) {
-            getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
-            node.chunkIsEdited = true;
-            field.lastCSGOperation += opInfo.size();
-        } else {
-            node.reduceStored = true;
-            getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
-        }
-
-        StoreDensityField(field);
-        return field;
-    }
-
-    @Override
     public boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer buffer) {
         GpuOctree octree = LoadOctree(node);
         if(octree==null){
@@ -115,6 +96,25 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             seamNodes.addAll(addedNodes);
         }
         return true;
+    }
+
+    @Override
+    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
+        GPUDensityField field = LoadDensityField(node);
+        if(field==null)
+            return null;
+
+        if(node.size == meshGen.clipmapLeafSize) {
+            node.chunkIsEdited = getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
+            field.lastCSGOperation += opInfo.size();
+        } else {
+            node.reduceStored = true;
+            getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
+        }
+        if(node.chunkIsEdited || node.reduceStored) {
+            StoreDensityField(field);
+        }
+        return field;
     }
 
     private GpuOctree LoadOctree(ChunkNode node){
