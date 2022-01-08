@@ -467,14 +467,17 @@ public class ChunkOctree {
                 break;
             }
         }
-        List<ChunkNode> subList = nodes.subList(0, activeNodeNumber+1);
-        for(ChunkNode node : subList) {
-            voxelOctree.computeApplyCSGOperations(operations, node);
-        }
         for(ChunkNode node : nodes) {
+            if(!node.active){
+                node.reduceStatus = ReduceStateEnum.MUST_REDUCE;
+            }
             voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
             node.invalidated = true;
             node.empty = false;
+        }
+        List<ChunkNode> subList = nodes.subList(0, activeNodeNumber+1);
+        for(ChunkNode node : subList) {
+            voxelOctree.computeApplyCSGOperations(operations, node);
         }
     }
 

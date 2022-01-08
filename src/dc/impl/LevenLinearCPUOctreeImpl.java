@@ -105,13 +105,20 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             return null;
 
         if(node.size == meshGen.clipmapLeafSize) {
-            node.chunkIsEdited = getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
+//            if(node.min.equals(new Vec3i(-320,-128,-1760))&&node.size==32){
+//                int t=3; // debug breakPoint
+//            }
+            getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
+            node.chunkIsEdited = true;
             field.lastCSGOperation += opInfo.size();
         } else {
-            node.reduceStored = true;
+//            if(node.min.equals(new Vec3i(-320,-128,-1792))&&node.size==64){
+//                int t=3; // debug breakPoint
+//            }
+            node.reduceStatus = ReduceStateEnum.CSG_HAPPEND;
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
         }
-        if(node.chunkIsEdited || node.reduceStored) {
+        if(node.chunkIsEdited || node.reduceStatus.equals(ReduceStateEnum.CSG_HAPPEND)) {
             StoreDensityField(field);
         }
         return field;
@@ -120,6 +127,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private GpuOctree LoadOctree(ChunkNode node){
         Vec4i key = new Vec4i(node.min, node.size);
         GpuOctree octree = octreeCache.get(key);
+//        if(node.min.equals(new Vec3i(-320,-128,-1760))&&node.size==32 && node.chunkIsEdited){
+//            int t=3; // debug breakPoint
+//        }
+//        if(node.min.equals(new Vec3i(-320,-128,-1792))&&node.size==64){
+//            int t=3; // debug breakPoint
+//        }
         if (octree!=null){
             return octree;
         }
@@ -127,12 +140,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(field==null){
             return null;
         }
-        //if(node.reduceStored || (!node.chunkIsEdited && (isChildrenEdited(node))))
-        {
+
+        if(node.size > meshGen.clipmapLeafSize && node.reduceStatus.equals(ReduceStateEnum.MUST_REDUCE)) {
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
             if (node.chunkIsEdited) {
                 StoreDensityField(field);
-                node.reduceStored = !node.reduceStored;
+                node.reduceStatus = ReduceStateEnum.INITIAL;
             }
         }
         if(field.hermiteEdgesMap.size()>0){

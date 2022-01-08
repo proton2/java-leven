@@ -12,12 +12,12 @@ public class ChunkNode {
     boolean	active = false;
     boolean	invalidated = false;
     boolean	empty = false;
-    List<OctreeNode> chunkBorderNodes;
+    public List<OctreeNode> chunkBorderNodes;
     public RenderMesh renderMesh, seamMesh;
     public WorldCollisionNode worldNode;
     public boolean canBeSelected = false;
     public boolean chunkIsEdited = false;
-    public boolean reduceStored = false;
+    public ReduceStateEnum reduceStatus = ReduceStateEnum.INITIAL;
 
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);
