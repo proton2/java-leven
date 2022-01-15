@@ -9,6 +9,7 @@ import core.physics.WorldCollisionNode;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.impl.MeshGenerationContext;
+import dc.impl.Morton3D;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
 import dc.utils.RenderShape;
@@ -34,7 +35,7 @@ public class ChunkOctree {
     private final Physics physics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private ArrayList<ChunkNode> prevSelectedNodes;
-
+    private final Map<Long, ChunkNode> chunks;
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
     }
@@ -44,7 +45,8 @@ public class ChunkOctree {
     }
 
     public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
-                       boolean enablePhysics) {
+                       boolean enablePhysics, Map<Long, ChunkNode> chunks) {
+        this.chunks = chunks;
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
@@ -91,6 +93,8 @@ public class ChunkOctree {
         root.min = boundsCentre.sub(new Vec3i(root.size / 2));
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
         root.worldNode = new WorldCollisionNode();
+        root.chunkCode = Morton3D.codeForPosition(root.min, root.size, meshGen.worldSizeXZ/2);
+        chunks.put(root.chunkCode, root);
         int count = constructChildrens(root);
     }
 
@@ -101,13 +105,28 @@ public class ChunkOctree {
         for (int i = 0; i < 8; i++) {
             ChunkNode child = new ChunkNode();
             child.size = node.size / 2;
-            child.min = node.min.add(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(child.size));
+            child.min = node.min.add(meshGen.offset(i, child.size));
             child.worldNode = new WorldCollisionNode();
-            node.children[i] = child;
+            //node.children[i] = child;
+            child.chunkCode = Morton3D.codeForPosition(child.min, child.size, meshGen.worldSizeXZ/2);
+            ChunkNode v = chunks.put(child.chunkCode, child);
+            if(v!=null){
+                throw new IllegalStateException("Incorrect linear three state - Morton code collision!");
+            }
         }
         int count = 1;
         for (int i = 0; i < 8; i++) {
-            count += constructChildrens(node.children[i]);
+            long locCodeChild = (node.chunkCode<<3)|i;
+            ChunkNode child = chunks.get(locCodeChild);
+            if(child==null){
+                throw new IllegalStateException("Incorrect linear three state - children not found!");
+            }
+            long parentCode = child.chunkCode>>3;
+            ChunkNode parent = chunks.get(parentCode);
+            if(!node.equals(parent)){
+                throw new IllegalStateException("Incorrect linear three state - parent not found!");
+            }
+            count += constructChildrens(child);
         }
         return count;
     }
@@ -128,7 +147,9 @@ public class ChunkOctree {
             selectedNodes.add(node);
         }
         for (int i = 0; i < 8; i++) {
-            selectActiveChunkNodes(node.children[i], node.canBeSelected, camPos, selectedNodes);
+            long locCodeChild = (node.chunkCode<<3)|i;
+            ChunkNode child = chunks.get(locCodeChild);
+            selectActiveChunkNodes(child, node.canBeSelected, camPos, selectedNodes);
         }
     }
 
@@ -245,8 +266,9 @@ public class ChunkOctree {
         // 1. for each constructed Node make list of neighbour active Nodes (or neighbour child's) - make list nodes for seam update
         for (ChunkNode constructedNode : constructedNodes) {
             for (int i = 0; i < 8; i++) {
-                Vec3i neighbourMin = constructedNode.min.sub(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(constructedNode.size));
-                ChunkNode candidateNeighbour = findNode(root, constructedNode.size, neighbourMin);
+                Vec3i neighbourMin = constructedNode.min.sub(meshGen.offset(i, constructedNode.size));
+                long neighbourMortonCode = Morton3D.codeForPosition(neighbourMin, constructedNode.size, meshGen.worldSizeXZ/2);
+                ChunkNode candidateNeighbour = chunks.get(neighbourMortonCode); //findNode(root, constructedNode.size, neighbourMin);
                 if (candidateNeighbour!=null){
                     List<ChunkNode> neighbourActiveNodes = new ArrayList<>();
                     findActiveNodes(root, candidateNeighbour, neighbourActiveNodes);
@@ -272,7 +294,9 @@ public class ChunkOctree {
         Set<OctreeNode> seamNodes = new HashSet<>(2048);
         for (int i = 0; i < 8; i++) {
             Vec3i neighbourMin = node.min.add(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(node.size));
-            ChunkNode candidateNeighbour = findNode(root, node.size, neighbourMin);
+            //Vec3i neighbourMin = node.min.add(meshGen.offset(i, node.size));
+            long neighbourMortonCode = Morton3D.codeForPosition(neighbourMin, node.size, meshGen.worldSizeXZ/2);
+            ChunkNode candidateNeighbour = chunks.get(neighbourMortonCode);//findNode(root, node.size, neighbourMin);
             if (candidateNeighbour==null) {
                 continue;
             }
@@ -325,25 +349,6 @@ public class ChunkOctree {
         return false;
     }
 
-    private ChunkNode findNode(ChunkNode node, int size, Vec3i min) {
-        if (node==null) {
-            return null;
-        }
-        if (node.size == size && node.min.equals(min)) {
-            return node;
-        }
-        Aabb bbox = new Aabb(node.min, node.size);
-        if (bbox.pointIsInside(min)) {
-            for (int i = 0; i < 8; i++) {
-                ChunkNode n = findNode(node.children[i], size, min);
-                if (n!=null){
-                    return n;
-                }
-            }
-        }
-        return null;
-    }
-
     private void findActiveNodes(ChunkNode node, ChunkNode referenceNode, List<ChunkNode> neighbourActiveNodes){
         if (node == null || referenceNode == null) {
             return;
@@ -356,7 +361,9 @@ public class ChunkOctree {
             }
             else if (node.size > meshGen.clipmapLeafSize) {
                 for (int i = 0; i < 8; i++) {
-                    findActiveNodes(node.children[i], referenceNode, neighbourActiveNodes);
+                    long locCodeChild = (node.chunkCode<<3)|i;
+                    ChunkNode child = chunks.get(locCodeChild);
+                    findActiveNodes(child, referenceNode, neighbourActiveNodes);
                 }
             }
         }
@@ -410,7 +417,9 @@ public class ChunkOctree {
         }
         node.empty = true;
         for (int i = 0; i < 8; i++) {
-            propagateEmptyStateDownward(node.children[i]);
+            long locCodeChild = (node.chunkCode<<3)|i;
+            ChunkNode child = chunks.get(locCodeChild);
+            propagateEmptyStateDownward(child);
         }
     }
 
@@ -513,7 +522,9 @@ public class ChunkOctree {
         }
 
         for (int i = 0; i < 8; i++) {
-            findNodesInsideAABB(node.children[i], aabb, nodes);
+            long locCodeChild = (node.chunkCode<<3)|i;
+            ChunkNode child = chunks.get(locCodeChild);
+            findNodesInsideAABB(child, aabb, nodes);
         }
 
         // traversal order is arbitrary

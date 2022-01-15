@@ -25,7 +25,8 @@ public class CpuCsgImpl implements ICSGOperations{
     final public static Logger logger = Logger.getLogger(CpuCsgImpl.class.getName());
     private MeshGenerationContext meshGen;
     private final ExecutorService service;
-    int availableProcessors;
+    private final int availableProcessors;
+    private final Map<Long, ChunkNode> chunksMap;
 
     @Override
     public boolean isReduceChunk() {
@@ -34,8 +35,9 @@ public class CpuCsgImpl implements ICSGOperations{
 
     final private boolean reduceChunk;
 
-    public CpuCsgImpl(boolean reduce) {
+    public CpuCsgImpl(boolean reduce, Map<Long, ChunkNode> chunks) {
         this.reduceChunk = reduce;
+        this.chunksMap = chunks;
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
             private final AtomicInteger count = new AtomicInteger();
@@ -51,8 +53,10 @@ public class CpuCsgImpl implements ICSGOperations{
     @Override
     public void ApplyReduceOperations(ChunkNode node, GPUDensityField field, Map<Vec4i, GPUDensityField> densityFieldCache) {
         for (int i = 0; i < 8; i++) {
-            if (node.children[i]!=null && node.children[i].chunkCSGEdited) {
-                Vec4i key = new Vec4i(node.children[i].min, node.children[i].size);
+            long locCodeChild = (node.chunkCode<<3)|i;
+            ChunkNode child = chunksMap.get(locCodeChild);
+            if (child!=null && child.chunkCSGEdited) {
+                Vec4i key = new Vec4i(child.min, child.size);
                 GPUDensityField srcField = densityFieldCache.get(key);
                 if (srcField != null) {
                     reduce(i, srcField, field);
@@ -64,7 +68,7 @@ public class CpuCsgImpl implements ICSGOperations{
 
     private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField){
         int size = meshGen.getHermiteIndexSize();
-        Vec3i dstOffset = VoxelOctree.CHILD_MIN_OFFSETS[chunkOrder].mul(size/2);
+        Vec3i dstOffset = meshGen.offset(chunkOrder, size/2);
         for(int srcCellZ = 0; srcCellZ < size; srcCellZ += 2 ) {
             for (int srcCellY = 0; srcCellY < size; srcCellY += 2) {
                 for (int srcCellX = 0; srcCellX < size; srcCellX += 2) {

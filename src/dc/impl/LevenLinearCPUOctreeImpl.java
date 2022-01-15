@@ -39,8 +39,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private final ExecutorService childsService;
 
     public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                    Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
+                                    Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache,
+                                    Map<Long, ChunkNode> chunks) {
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache, chunks);
 
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
@@ -157,17 +158,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return octree;
     }
 
-    private boolean isChildrenEdited(ChunkNode node){
-        return node.children!=null && ((node.children[0]!=null && node.children[0].chunkCSGEdited)
-                || (node.children[1]!=null && node.children[1].chunkCSGEdited)
-                || (node.children[2]!=null && node.children[2].chunkCSGEdited)
-                || (node.children[3]!=null && node.children[3].chunkCSGEdited)
-                || (node.children[4]!=null && node.children[4].chunkCSGEdited)
-                || (node.children[5]!=null && node.children[5].chunkCSGEdited)
-                || (node.children[6]!=null && node.children[6].chunkCSGEdited)
-                || (node.children[7]!=null && node.children[7].chunkCSGEdited));
-    }
-
     private void StoreDensityField(GPUDensityField field) {
 	    Vec4i key = new Vec4i(field.min, field.size);
         densityFieldCache.put(key, field);
@@ -282,12 +272,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
         int childSize = meshGen.getHermiteIndexSize()/2;
         List<Callable<Integer>> tasks = new ArrayList<>();
-        for (int child = 0; child < 8; child++) {
-            if(node.children[child]!=null && node.children[child].chunkCSGEdited) {
+        for (int i = 0; i < 8; i++) {
+            long locCodeChild = (node.chunkCode<<3)|i;
+            ChunkNode child = getChunksMap().get(locCodeChild);
+            if(child!=null && child.chunkCSGEdited) {
                 continue;
             }
-            Vec3i childOffset = VoxelOctree.CHILD_MIN_OFFSETS[child].mul(childSize);
-
+            Vec3i childOffset = meshGen.offset(i, childSize);
             tasks.add(() -> {
                 int size = 0;
                 for (int z = 0; z < (childOffset.z == 0 ? childSize : childSize + 1); z++) {

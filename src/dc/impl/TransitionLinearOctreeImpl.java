@@ -25,7 +25,7 @@ import static dc.utils.SimplexNoise.getNoise;
 public class TransitionLinearOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     public TransitionLinearOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                       Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache, null);
     }
 
     @Override

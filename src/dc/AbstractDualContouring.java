@@ -31,17 +31,22 @@ public abstract class AbstractDualContouring implements DualContouring{
     protected Map<Vec4i, GpuOctree> octreeCache;
     protected List<Aabb> storedOpAABBs = new ArrayList<>();
     protected List<CSGOperationInfo> storedOps = new ArrayList<>();
+    private final Map<Long, ChunkNode> chunksMap;
+    public Map<Long, ChunkNode> getChunksMap() {
+        return chunksMap;
+    }
 
     public ICSGOperations getCsgOperationsProcessor() {
         return csgOperationsProcessor;
     }
 
     public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                  Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
+                                  Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache, Map<Long, ChunkNode> chunks) {
         this.meshGen = meshGenerationContext;
         this.csgOperationsProcessor = csgOperations;
         this.densityFieldCache = densityFieldCache;
         this.octreeCache = octreeCache;
+        this.chunksMap = chunks;
     }
 
     private List<OctreeNode> constructParents(List<OctreeNode> nodes, Vec3i rootMin, int parentSize) {

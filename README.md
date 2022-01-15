@@ -97,10 +97,16 @@ Oreon Engine (Java - OpenGL/Vulkan) https://github.com/fynnfluegge/oreon-engine
 
 <br>
 
-## Other interesting implementations for research:
+## interesting for research:
 
 - Nick Gildea Dual Contouring
 https://github.com/nickgildea/leven
 
 - Dual contouring chunks<br>
 https://github.com/yixinxie/TestDC/
+
+- Dual contouring by SVD
+  https://github.com/S-V/DualContouringTest
+  
+- SVD dissertation
+  https://www.vstu.ru/upload/iblock/d6b/d6b39e94a85205ec02495af30f94605e.pdf

@@ -36,7 +36,6 @@ public class MeshGenerationContext {
 // think that requires removal of LEAF_SIZE_SCALE from the compute_ files (i.e.
 // the compute module should have no knowledge of the sizing, which can be handled
 // separately by the calling code)
-    public final int COLLISION_VOXELS_PER_CHUNK = 128 / 2;
     public final int COLLISION_NODE_SIZE;
 
     public Vec3i worldSize;
@@ -59,6 +58,14 @@ public class MeshGenerationContext {
         this.worldSizeY = worldBrickCountXZ * BRICK_SIZE * clipmapLeafSize;
         this.worldSize = new Vec3i(worldSizeXZ, worldSizeY, worldSizeXZ);
         this.worldBounds = new Aabb(worldOrigin.sub(worldSize.div(2)), worldOrigin.add(worldSize.div(2)));
+    }
+
+    public Vec3i offset(int i, int size){
+        return new Vec3i(
+                (i & (1 << (0))) > 0 ? size : 0,
+                (i & (1 << (1))) > 0 ? size : 0,
+                (i & (1 << (2))) > 0 ? size : 0
+        );
     }
 
     public int getVoxelsPerChunk() {

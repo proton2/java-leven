@@ -27,7 +27,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
 
     public PointerBasedOctreeImpl(boolean multiThreadCalculation, MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                   Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache, null);
         this.multiThreadCalculation = multiThreadCalculation;
     }
 

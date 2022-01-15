@@ -1,14 +1,15 @@
 package dc.impl;
 
-import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
-import dc.*;
+import dc.AbstractDualContouring;
+import dc.ChunkNode;
+import dc.OctreeNode;
+import dc.VoxelOctree;
 import dc.entities.MeshBuffer;
 import dc.impl.opencl.*;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,7 +26,7 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
     public LevenLinearGPUOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext,
                                     ComputeContext ctx, ICSGOperations csgOperations,
                                     Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache);
+        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache, null);
         this.kernels = kernels;
         this.ctx = ctx;
     }

@@ -70,6 +70,7 @@ public class ChunkOctreeWrapper extends GameObject {
         VoxelOctree voxelOctree;
         Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
         Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
+        Map<Long, ChunkNode> chunks = new HashMap<>();
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
             kernelHolder = new KernelsHolder(ctx);
@@ -78,15 +79,15 @@ public class ChunkOctreeWrapper extends GameObject {
             kernelHolder.buildKernel(KernelNames.SCAN, null);
             kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
             kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
-            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx, new CpuCsgImpl(false), densityFieldCache, octreeCache);
+            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx, new CpuCsgImpl(false, chunks), densityFieldCache, octreeCache);
         } else{
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx, null, densityFieldCache, octreeCache);
             //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
             //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx, null, densityFieldCache, octreeCache);
-            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(true), densityFieldCache, octreeCache);
+            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(true, chunks), densityFieldCache, octreeCache, chunks);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         }
-        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, playerCollision);
+        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, playerCollision, chunks);
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
     }
 
