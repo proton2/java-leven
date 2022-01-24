@@ -12,6 +12,8 @@ CPU and OpenCL GPU implementations.
 - no double call to generate mesh for rendering and mesh for collisions - mesh is generated only once
 - CPU multi-threaded implementation, which made it possible to improve performance in the CPU realization
 - faster selectActiveChunkNodes and ReleaseInvalidatedNodes (no need to recursively traverse the whole tree to invalidate chunks - which improved performance)
+- Linear chunk's octree instead of Pointer Based octree. It used Morton codes.
+- Chunks reduce instead of queue of CSG operations. Only the leaf chunk is edited. Rougher chunks have a simplification of the voxel lattice with Hermitian data.
 
 
 ## Features:
@@ -55,11 +57,10 @@ public class ChunkOctreeWrapper extends GameObject {
 
 <img src="res/logo/screens/screen-01.png" width="800" />
 <img src="res/logo/screens/screen-02.png" width="800" />
-OpenCL GPU implementation:
-<img src="res/logo/screens/screen-03-opencl.png" width="800" />
 CSG operations:
 <img src="res/logo/screens/screen-04-csg.png" width="800" />
 <img src="res/logo/screens/screen-05-csg.png" width="800" />
+<img src="res/logo/screens/screen-06.png" width="800" />
 
 W/S/A/D - forward, backward, left, right
 
