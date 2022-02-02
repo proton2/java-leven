@@ -28,6 +28,16 @@ Given two halves of a key we can exclusive or them together to find the position
 */
 
 public class Morton3D {
+
+    /// These masks allow to manipulate coordinates without unpacking Morton codes.
+    long ISOLATE_X = 0x9249249249249249L; //!< 0b1001...01001001
+    long ISOLATE_Y = 0x2492492492492492L; //!< 0b0010...10010010
+    long ISOLATE_Z = 0x4924924924924924L; //!< 0b0100...00100100
+
+    long ISOLATE_XY = ISOLATE_X | ISOLATE_Y;
+    long ISOLATE_XZ = ISOLATE_X | ISOLATE_Z;
+    long ISOLATE_YZ = ISOLATE_Y | ISOLATE_Z;
+
     // from http://www.forceflow.be/2012/07/24/out-of-core-construction-of-sparse-voxel-octrees/
     // method to separate bits from a given integer 3 positions apart
     private static long Morton64_SpreadBits3(int n) {
@@ -84,7 +94,7 @@ public class Morton3D {
         return x;
     }
 
-    public static long Morton32_Encode(int _x, int _y, int _z) {
+    public static int Morton32_Encode(int _x, int _y, int _z) {
         if ((_x > 1023) || ( _y > 1023 ) || ( _z > 1023)){
             throw new IllegalArgumentException("supports a maximum 3D resolution of 2^10 = 1024");
         }
@@ -111,12 +121,58 @@ public class Morton3D {
         return 0;
     }
 
+    private static int getMsb(int value) {
+        for (int i = 0, maxBits = 31, test = ~(~0 >>> 1); 0 != test; ++i, test >>>= 1) {
+            if (test == (value & test)) {
+                return (maxBits - i);
+            }
+        }
+        return -1;
+    }
+
+    public static int Morton32_getCellDepth(int cell_address){
+        return getMsb(cell_address)/3;
+    }
+
+    public int[] Morton32_DecodeOctreeCode( int _cellAddress ) {
+        int cellDepth = Morton32_getCellDepth( _cellAddress );
+        int depthMask = (1 << (cellDepth * 3));// the index of the depth bit
+        int getBitsBelowDepthBit = depthMask - 1; // mask to extract bits below the depth bit
+        int cellAddressWithoutDepth = _cellAddress & getBitsBelowDepthBit;
+        int[] cellCoords = Morton32_Decode( cellAddressWithoutDepth );
+        return new int[]{cellCoords[0], cellCoords[1], cellCoords[2], cellDepth};
+    }
+
+    /* add two morton keys (xyz interleaving)
+    morton3(4,5,6) + morton3(1,2,3) == morton3(5,7,9);*/
+    /// Dilated integer addition.
+    public int Morton32_Add(int a, int b ) {
+        int xxx = (int) (( a | ISOLATE_YZ ) + ( b & ISOLATE_X ));
+        int yyy = (int) (( a | ISOLATE_XZ ) + ( b & ISOLATE_Y ));
+        int zzz = (int) (( a | ISOLATE_XY ) + ( b & ISOLATE_Z ));
+        // Masked merge bits https://graphics.stanford.edu/~seander/bithacks.html#MaskedMerge
+        return (int) ((xxx & ISOLATE_X) | (yyy & ISOLATE_Y) | (zzz & ISOLATE_Z)); // masked merge bits
+    }
+
+    /// Dilated integer subtraction.
+    public int Morton32_Sub(int a, int b) {
+	    int xxx = (int) (( a & ISOLATE_X ) - ( b & ISOLATE_X ));
+	    int yyy = (int) (( a & ISOLATE_Y ) - ( b & ISOLATE_Y ));
+	    int zzz = (int) (( a & ISOLATE_Z ) - ( b & ISOLATE_Z ));
+        // Masked merge bits https://graphics.stanford.edu/~seander/bithacks.html#MaskedMerge
+        return (int) ((xxx & ISOLATE_X) | (yyy & ISOLATE_Y) | (zzz & ISOLATE_Z));
+    }
+
+
     public static long codeForPosition(Vec3i pos, int size, int halfWorldSize) {
         Vec3i localPos = pos.add(halfWorldSize).div(size);
-        long M = Morton32_Encode(localPos.x, localPos.y, localPos.z);
+        if(localPos.x<0 || localPos.y<0 || localPos.z<0){
+            return -1;
+        }
+        int M = Morton32_Encode(localPos.x, localPos.y, localPos.z);
         int depth = getNodeDepth(size);
         int indexOfDepthBit = depth * 3;
-        long depthBitMask = (1L << indexOfDepthBit);
+        int depthBitMask = (1 << indexOfDepthBit);
         return M | depthBitMask;
     }
 }
