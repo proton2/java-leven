@@ -37,11 +37,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private final int availableProcessors;
     private final boolean enableQefClamping = true;
     private final ExecutorService childsService;
+    private Map<Vec4i, CPUDensityField> densityFieldCache;
 
     public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                    Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache,
+                                    Map<Vec4i, CPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache,
                                     Map<Long, ChunkNode> chunks) {
-        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache, chunks);
+        super(meshGenerationContext, csgOperations, octreeCache, chunks);
 
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
@@ -54,6 +55,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
         });
         childsService = Executors.newFixedThreadPool(8);
+        this.densityFieldCache = densityFieldCache;
     }
 
     @Override
@@ -100,8 +102,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public GPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
-        GPUDensityField field = LoadDensityField(node);
+    public CPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
+        CPUDensityField field = LoadDensityField(node);
         if(field==null)
             return null;
 
@@ -139,7 +141,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if (octree!=null){
             return octree;
         }
-        GPUDensityField field = LoadDensityField(node);
+        CPUDensityField field = LoadDensityField(node);
         if(field==null){
             return null;
         }
@@ -158,16 +160,16 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return octree;
     }
 
-    private void StoreDensityField(GPUDensityField field) {
+    private void StoreDensityField(CPUDensityField field) {
 	    Vec4i key = new Vec4i(field.min, field.size);
         densityFieldCache.put(key, field);
     }
 
-    private GPUDensityField LoadDensityField(ChunkNode node){
+    private CPUDensityField LoadDensityField(ChunkNode node){
         Vec4i key = new Vec4i(node.min, node.size);
-        GPUDensityField field = densityFieldCache.get(key);
+        CPUDensityField field = densityFieldCache.get(key);
         if(field==null) {
-            field = new GPUDensityField();
+            field = new CPUDensityField();
             field.min = node.min;
             field.size = node.size;
             if(GenerateDefaultDensityField(field)==0){
@@ -194,7 +196,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return field;
     }
 
-    private int GenerateDefaultDensityField(GPUDensityField field){
+    private int GenerateDefaultDensityField(CPUDensityField field){
         field.materialsCpu = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
         int materialSize = GenerateDefaultFieldMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
                     field.materialsCpu);
@@ -204,7 +206,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return materialSize;
     }
 
-    private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, GPUDensityField field){
+    private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, CPUDensityField field){
         GpuOctree octree = new GpuOctree();
         int voxelCount = meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk();
         int[] d_leafOccupancy = new int [voxelCount];
@@ -268,7 +270,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return size;
     }
 
-    private int FindFieldEdgesPerChild(GPUDensityField field, ChunkNode node) {
+    private int FindFieldEdgesPerChild(CPUDensityField field, ChunkNode node) {
 
         int childSize = meshGen.getHermiteIndexSize()/2;
         List<Callable<Integer>> tasks = new ArrayList<>();
@@ -295,7 +297,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return VoxelOctree.performIntCallableTask(tasks, childsService, logger);
     }
 
-    private void FindFieldEdgesMultiThread(GPUDensityField field) {
+    private void FindFieldEdgesMultiThread(CPUDensityField field) {
         int bound = meshGen.getHermiteIndexSize();
         int threadBound = (bound * bound * bound) / availableProcessors;
         List<Callable<Integer>> tasks = new ArrayList<>();

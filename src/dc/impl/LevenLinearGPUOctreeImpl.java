@@ -24,9 +24,8 @@ public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements 
     private final ComputeContext ctx;
 
     public LevenLinearGPUOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext,
-                                    ComputeContext ctx, ICSGOperations csgOperations,
-                                    Map<Vec4i, GPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, densityFieldCache, octreeCache, null);
+                                    ComputeContext ctx, ICSGOperations csgOperations, Map<Vec4i, GpuOctree> octreeCache) {
+        super(meshGenerationContext, csgOperations, octreeCache, null);
         this.kernels = kernels;
         this.ctx = ctx;
     }

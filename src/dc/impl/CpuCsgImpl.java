@@ -51,13 +51,13 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     @Override
-    public void ApplyReduceOperations(ChunkNode node, GPUDensityField field, Map<Vec4i, GPUDensityField> densityFieldCache) {
+    public void ApplyReduceOperations(ChunkNode node, CPUDensityField field, Map<Vec4i, CPUDensityField> densityFieldCache) {
         for (int i = 0; i < 8; i++) {
             long locCodeChild = (node.chunkCode<<3)|i;
             ChunkNode child = chunksMap.get(locCodeChild);
             if (child!=null && child.chunkCSGEdited) {
                 Vec4i key = new Vec4i(child.min, child.size);
-                GPUDensityField srcField = densityFieldCache.get(key);
+                CPUDensityField srcField = densityFieldCache.get(key);
                 if (srcField != null) {
                     reduce(i, srcField, field);
                     node.chunkCSGEdited = true;
@@ -66,7 +66,7 @@ public class CpuCsgImpl implements ICSGOperations{
         }
     }
 
-    private void reduce(int chunkOrder, GPUDensityField srcField, GPUDensityField dstField){
+    private void reduce(int chunkOrder, CPUDensityField srcField, CPUDensityField dstField){
         int size = meshGen.getHermiteIndexSize();
         Vec3i dstOffset = meshGen.offset(chunkOrder, size/2);
         for(int srcCellZ = 0; srcCellZ < size; srcCellZ += 2 ) {
@@ -79,7 +79,7 @@ public class CpuCsgImpl implements ICSGOperations{
         }
     }
 
-    private void reduceCell(GPUDensityField srcField, GPUDensityField dstField, Vec3i dstCellOffset, int srcCellZ, int srcCellY, int srcCellX) {
+    private void reduceCell(CPUDensityField srcField, CPUDensityField dstField, Vec3i dstCellOffset, int srcCellZ, int srcCellY, int srcCellX) {
         int startpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcCellX, srcCellY, srcCellZ)];
         int NUM_AXES = 3;
         for(int axis = 0; axis < NUM_AXES; axis++) {
@@ -121,7 +121,7 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     @Override
-    public boolean ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field){
+    public boolean ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, CPUDensityField field){
         this.meshGen = meshGen;
         if (opInfo.isEmpty()) {
             return false;
@@ -129,7 +129,7 @@ public class CpuCsgImpl implements ICSGOperations{
         return processCSG(meshGen, opInfo, node, field);
     }
 
-    private boolean processCSG(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, GPUDensityField field) {
+    private boolean processCSG(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, CPUDensityField field) {
         Vec4i fieldOffset = LeafScaleVec(node.min);
         int sampleScale = node.size / (meshGen.leafSizeScale * meshGen.getVoxelsPerChunk());
         int fieldBufferSize = meshGen.fieldSize * meshGen.fieldSize * meshGen.fieldSize;
