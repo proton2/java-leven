@@ -25,12 +25,6 @@ import java.util.logging.Logger;
 import static dc.utils.SimplexNoise.getNoise;
 import static java.lang.Math.max;
 
-/*
-    Nick Gildea Leven OpenCL kernels Dual contouring implementation translated to java CPU
-    Some holes in seams is not fixed.
-    The first raw version will still improve.
- */
-
 public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     final public static Logger logger = Logger.getLogger(LevenLinearCPUOctreeImpl.class.getName());
     private final ExecutorService service;
@@ -78,7 +72,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int[] d_indexBuffer = new int[indexBufferSize];
             int trianglesValidSize = octree.numNodes * 3;
             int[] d_trianglesValid = new int[trianglesValidSize];
-            int trianglesValidCount = generateMeshMultiThread(octree.d_nodeCodesCpu.length, octree.octreeNodes, octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu,
+            int trianglesValidCount = generateMeshMultiThread(octree.nodeCodes.length, octree.octreeNodes, octree.nodeCodes, octree.nodeMaterials,
                     d_indexBuffer, d_trianglesValid);
 
             int numTriangles = trianglesValidCount * 2;
@@ -88,7 +82,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
             MeshVertex[] d_vertexBuffer = new MeshVertex[octree.numNodes];
             //////////////////////////////
-            GenerateMeshVertexBuffer(octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, octree.d_nodeMaterialsCpu,
+            GenerateMeshVertexBuffer(octree.vertexPositions, octree.vertexNormals, octree.nodeMaterials,
                     VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.clipmapLeafSize), d_vertexBuffer);
             buffer.setVertices(BufferUtil.createDcFlippedBufferAOS(d_vertexBuffer));
             buffer.setNumVertices(octree.numNodes);
@@ -97,11 +91,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
 
             int[] isSeamNode = new int[octree.numNodes];
             // ToDo return seamNodes which size have seamSize from method
-            int seamSize = findSeamNodes(octree.d_nodeCodesCpu, isSeamNode, 0, octree.numNodes);
+            int seamSize = findSeamNodes(octree.nodeCodes, isSeamNode, 0, octree.numNodes);
             Set<Integer> seamNodeCodes = new HashSet<>(seamSize);
             extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
                     node.size / meshGen.getVoxelsPerChunk(), node.min, 0, octree.numNodes,
-                    octree.d_nodeCodesCpu, octree.d_nodeMaterialsCpu, octree.d_vertexPositionsCpu, octree.d_vertexNormalsCpu, seamNodes, seamNodeCodes);
+                    octree.nodeCodes, octree.nodeMaterials, octree.vertexPositions, octree.vertexNormals, seamNodes, seamNodeCodes);
 
             List<OctreeNode> addedNodes = findAndCreateBorderNodes(seamNodeCodes, node.min, node.size / meshGen.getVoxelsPerChunk());
             seamNodes.addAll(addedNodes);
@@ -116,18 +110,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             return null;
 
         if(node.size == meshGen.clipmapLeafSize) {
-//            if(node.min.equals(new Vec3i(-320,-128,-1760))&&node.size==32){
-//                int t=3; // debug breakPoint
-//            }
             node.chunkIsChanged = getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
             if(node.chunkIsChanged) {
                 node.chunkCSGEdited = true;
             }
             field.lastCSGOperation += opInfo.size();
         } else {
-//            if(node.min.equals(new Vec3i(-320,-128,-1792))&&node.size==64){
-//                int t=3; // debug breakPoint
-//            }
             node.reduceStatus = ReduceStateEnum.CSG_TOUCHED;
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
         }
@@ -155,7 +143,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 node.reduceStatus = ReduceStateEnum.INITIAL;
             }
         }
-        if(field.hermiteEdgesMap.size()>0){
+        if(field.hermiteEdges.size()>0){
             octree = ConstructOctreeFromField(node.min, node.size, field);
             octreeCache.put(key, octree);
         }
@@ -199,11 +187,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private int GenerateDefaultDensityField(CPUDensityField field){
-        field.materialsCpu = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
+        field.materials = new int[meshGen.getFieldSize() * meshGen.getFieldSize() * meshGen.getFieldSize()];
         int materialSize = GenerateDefaultFieldMultiThread(field.min, field.size / meshGen.getVoxelsPerChunk(), meshGen.MATERIAL_SOLID,
-                    field.materialsCpu);
+                    field.materials);
         if(materialSize==0){
-            field.materialsCpu = null;
+            field.materials = null;
         }
         return materialSize;
     }
@@ -216,27 +204,27 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int[] d_leafCodes = new int [voxelCount];
         int[] d_leafMaterials = new int [voxelCount];
 
-        octree.numNodes = FindActiveVoxelsMultiThread(field.materialsCpu,
+        octree.numNodes = FindActiveVoxelsMultiThread(field.materials,
                 d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
         if (octree.numNodes<=0){
             return null;
         }
 
-        octree.d_nodeCodesCpu = new int[octree.numNodes];
+        octree.nodeCodes = new int[octree.numNodes];
         int[] d_compactLeafEdgeInfo = new int[octree.numNodes];
-        octree.d_nodeMaterialsCpu = new int[octree.numNodes];
+        octree.nodeMaterials = new int[octree.numNodes];
         //////////////////////////////
         octree.octreeNodes = compactVoxels(d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials,
-                octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, octree.d_nodeMaterialsCpu, octree.numNodes);
+                octree.nodeCodes, d_compactLeafEdgeInfo, octree.nodeMaterials, octree.numNodes);
 
         QEFData[] qefs = new QEFData[octree.numNodes];
-        octree.d_vertexNormalsCpu = new Vec4f[octree.numNodes];
-        createLeafNodesMultiThread(octree.numNodes, octree.d_nodeCodesCpu, d_compactLeafEdgeInfo, field.hermiteEdgesMap,
-                qefs, octree.d_vertexNormalsCpu);
+        octree.vertexNormals = new Vec4f[octree.numNodes];
+        createLeafNodesMultiThread(octree.numNodes, octree.nodeCodes, d_compactLeafEdgeInfo, field.hermiteEdges,
+                qefs, octree.vertexNormals);
 
-        octree.d_vertexPositionsCpu = new Vec4f[octree.numNodes];
-        solveQEFsMultiThread(octree.d_nodeCodesCpu, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin,
-                qefs, octree.d_vertexPositionsCpu, octree.numNodes);
+        octree.vertexPositions = new Vec4f[octree.numNodes];
+        solveQEFsMultiThread(octree.nodeCodes, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin,
+                qefs, octree.vertexPositions, octree.numNodes);
         return octree;
     }
 
@@ -288,8 +276,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 for (int z = 0; z < (childOffset.z == 0 ? childSize : childSize + 1); z++) {
                     for (int y = 0; y < (childOffset.y == 0 ? childSize : childSize + 1); y++) {
                         for (int x = 0; x < (childOffset.x == 0 ? childSize : childSize + 1); x++) {
-                            size = processFindFieldEdges(field.min, field.size / meshGen.getVoxelsPerChunk(), field.materialsCpu, size,
-                                    z + childOffset.z, y + childOffset.y, x + childOffset.x, field.hermiteEdgesMap);
+                            size = processFindFieldEdges(field.min, field.size / meshGen.getVoxelsPerChunk(), field.materials, size,
+                                    z + childOffset.z, y + childOffset.y, x + childOffset.x, field.hermiteEdges);
                         }
                     }
                 }
@@ -314,7 +302,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                     int y = (it / bound) % bound;
                     int z = (it / bound / bound);
                     size = processFindFieldEdges(field.min, field.size / meshGen.getVoxelsPerChunk(),
-                            field.materialsCpu, size, z, y, x, field.hermiteEdgesMap);
+                            field.materials, size, z, y, x, field.hermiteEdges);
                 }
                 return size;
             });

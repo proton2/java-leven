@@ -80,7 +80,7 @@ public class CpuCsgImpl implements ICSGOperations{
     }
 
     private void reduceCell(CPUDensityField srcField, CPUDensityField dstField, Vec3i dstCellOffset, int srcCellZ, int srcCellY, int srcCellX) {
-        int startpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcCellX, srcCellY, srcCellZ)];
+        int startpoint_material = srcField.materials[meshGen.getMaterialIndex(srcCellX, srcCellY, srcCellZ)];
         int NUM_AXES = 3;
         for(int axis = 0; axis < NUM_AXES; axis++) {
             int numIntersections = 0;
@@ -91,16 +91,16 @@ public class CpuCsgImpl implements ICSGOperations{
             if(srcEndPoint[0] < meshGen.getFieldSize() && srcEndPoint[1] < meshGen.getFieldSize() && srcEndPoint[2] < meshGen.getFieldSize()) {
                 int[] srcMidPoint = new int[]{srcCellX, srcCellY, srcCellZ};
                 srcMidPoint[axis]++;
-                int midpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2])];
-                Vec4f startPointNorm = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPos(srcCellX, srcCellY, srcCellZ, axis));
+                int midpoint_material = srcField.materials[meshGen.getMaterialIndex(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2])];
+                Vec4f startPointNorm = srcField.hermiteEdges.get(meshGen.getEdgeCodeByPos(srcCellX, srcCellY, srcCellZ, axis));
                 if (startPointNorm!=null && startpoint_material != midpoint_material) {
                     destNorm = destNorm.add(startPointNorm.getVec3f(), startPointNorm.w * 0.5f);
                     numIntersections++;
                 }
 
-                int endpoint_material = srcField.materialsCpu[meshGen.getMaterialIndex(srcEndPoint[0], srcEndPoint[1], srcEndPoint[2])];
+                int endpoint_material = srcField.materials[meshGen.getMaterialIndex(srcEndPoint[0], srcEndPoint[1], srcEndPoint[2])];
                 if (midpoint_material != endpoint_material) {
-                    Vec4f srcMidPointNorm = srcField.hermiteEdgesMap.get(meshGen.getEdgeCodeByPos(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2], axis));
+                    Vec4f srcMidPointNorm = srcField.hermiteEdges.get(meshGen.getEdgeCodeByPos(srcMidPoint[0], srcMidPoint[1], srcMidPoint[2], axis));
                     if (srcMidPointNorm != null) {
                         destNorm = destNorm.add(srcMidPointNorm.getVec3f(), 0.5f + srcMidPointNorm.w * 0.5f);
                         numIntersections++;
@@ -113,11 +113,11 @@ public class CpuCsgImpl implements ICSGOperations{
                 Vec3f d = destNorm.getVec3f().mul(invNum).normalize();
                 float w = destNorm.w * invNum;
                 int destEdgeCode = meshGen.getEdgeCodeByPos(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z, axis);
-                dstField.hermiteEdgesMap.put(destEdgeCode, new Vec4f(d, w));
+                dstField.hermiteEdges.put(destEdgeCode, new Vec4f(d, w));
             }
         }
         int dstMaterialIndex = meshGen.getMaterialIndex(dstCellOffset.x, dstCellOffset.y, dstCellOffset.z);
-        dstField.materialsCpu[dstMaterialIndex] = startpoint_material; // save changed material for use when next lod level reduce
+        dstField.materials[dstMaterialIndex] = startpoint_material; // save changed material for use when next lod level reduce
     }
 
     @Override
@@ -136,7 +136,7 @@ public class CpuCsgImpl implements ICSGOperations{
         int[] d_updatedIndices = new int[fieldBufferSize];
         Vec3i[] d_updatedPoints = new Vec3i[fieldBufferSize];
 
-        int numUpdatedPoints = CSG_HermiteIndicesMultiThread(fieldOffset, opInfo, sampleScale, field.materialsCpu,
+        int numUpdatedPoints = CSG_HermiteIndicesMultiThread(fieldOffset, opInfo, sampleScale, field.materials,
                     d_updatedIndices, d_updatedPoints);
         if (numUpdatedPoints <= 0) {    // < 0 will be an error code
             return false;
@@ -149,17 +149,17 @@ public class CpuCsgImpl implements ICSGOperations{
         int numCompactEdgeIndices = FindUpdatedEdgesMultiThread(d_compactUpdatedPoints, d_generatedEdgeIndices);
 
         Set<Integer> d_invalidatedEdges = CompactIndexArray(d_generatedEdgeIndices, numCompactEdgeIndices);
-        Map<Integer, Vec4f> createdEdges = FilterValidEdges(fieldOffset, opInfo, sampleScale, d_invalidatedEdges, field.materialsCpu);
+        Map<Integer, Vec4f> createdEdges = FilterValidEdges(fieldOffset, opInfo, sampleScale, d_invalidatedEdges, field.materials);
 
-        if (d_invalidatedEdges.size() > 0 && field.hermiteEdgesMap.size() > 0) {
-            field.hermiteEdgesMap.keySet().removeAll(d_invalidatedEdges);
+        if (d_invalidatedEdges.size() > 0 && field.hermiteEdges.size() > 0) {
+            field.hermiteEdges.keySet().removeAll(d_invalidatedEdges);
         }
 
         if (createdEdges.size() > 0) {
-            if (field.hermiteEdgesMap.size() > 0) {
-                field.hermiteEdgesMap.putAll(createdEdges);
+            if (field.hermiteEdges.size() > 0) {
+                field.hermiteEdges.putAll(createdEdges);
             } else {
-                field.hermiteEdgesMap = createdEdges;
+                field.hermiteEdges = createdEdges;
             }
         }
         return true;

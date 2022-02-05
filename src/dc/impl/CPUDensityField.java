@@ -10,6 +10,6 @@ public class CPUDensityField {
     public Vec3i min;
     public int size;
     public int lastCSGOperation = 0;
-    public int[] materialsCpu;
-    public Map<Integer, Vec4f> hermiteEdgesMap = new ConcurrentSkipListMap<>();
+    public int[] materials;
+    public Map<Integer, Vec4f> hermiteEdges = new ConcurrentSkipListMap<>();
 }
