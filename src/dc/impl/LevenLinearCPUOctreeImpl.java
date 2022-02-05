@@ -11,7 +11,6 @@ import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
-import dc.utils.Aabb;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
@@ -31,13 +30,15 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private final int availableProcessors;
     private final boolean enableQefClamping = true;
     private final ExecutorService childsService;
+
     private Map<Vec4i, CPUDensityField> densityFieldCache;
-    protected Map<Vec4i, CpuOctree> octreeCache;
+    private Map<Vec4i, CpuOctree> octreeCache;
+    private final Map<Long, ChunkNode> mortonCodesChunksMap;
 
     public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
                                     Map<Vec4i, CPUDensityField> densityFieldCache, Map<Vec4i, CpuOctree> octreeCache,
                                     Map<Long, ChunkNode> chunks) {
-        super(meshGenerationContext, csgOperations, chunks);
+        super(meshGenerationContext, csgOperations);
 
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
@@ -52,6 +53,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         childsService = Executors.newFixedThreadPool(8);
         this.densityFieldCache = densityFieldCache;
         this.octreeCache = octreeCache;
+        this.mortonCodesChunksMap = chunks;
     }
 
     @Override
@@ -104,17 +106,16 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public CPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
+    public void computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
         CPUDensityField field = LoadDensityField(node);
         if(field==null)
-            return null;
+            return;
 
         if(node.size == meshGen.clipmapLeafSize) {
             node.chunkIsChanged = getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
             if(node.chunkIsChanged) {
                 node.chunkCSGEdited = true;
             }
-            field.lastCSGOperation += opInfo.size();
         } else {
             node.reduceStatus = ReduceStateEnum.CSG_TOUCHED;
             getCsgOperationsProcessor().ApplyReduceOperations(node, field, densityFieldCache);
@@ -122,7 +123,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(node.chunkIsChanged || node.reduceStatus.equals(ReduceStateEnum.CSG_TOUCHED)) {
             StoreDensityField(field);
         }
-        return field;
     }
 
     private CpuOctree LoadOctree(ChunkNode node){
@@ -167,22 +167,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
             FindFieldEdgesPerChild(field, node);
         }
-
-        if(!getCsgOperationsProcessor().isReduceChunk()) {
-            Aabb fieldBB = new Aabb(field.min, field.size);
-            Set<CSGOperationInfo> csgOperations = new HashSet<>();
-            for (int i = field.lastCSGOperation; i < storedOps.size(); i++) {
-                if (fieldBB.overlaps(storedOpAABBs.get(i))) {
-                    csgOperations.add(storedOps.get(i));
-                }
-            }
-            field.lastCSGOperation = storedOps.size();
-            if (!csgOperations.isEmpty()) {
-                getCsgOperationsProcessor().ApplyCSGOperations(meshGen, csgOperations, node, field);
-                StoreDensityField(field);
-            }
-        }
-
         return field;
     }
 
@@ -266,7 +250,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         List<Callable<Integer>> tasks = new ArrayList<>();
         for (int i = 0; i < 8; i++) {
             long locCodeChild = (node.chunkCode<<3)|i;
-            ChunkNode child = getChunksMap().get(locCodeChild);
+            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
             if(child!=null && child.chunkCSGEdited) {
                 continue;
             }

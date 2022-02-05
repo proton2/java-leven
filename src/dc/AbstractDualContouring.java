@@ -8,10 +8,8 @@ import core.utils.Constants;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.impl.CPUDensityField;
 import dc.impl.ICSGOperations;
 import dc.impl.MeshGenerationContext;
-import dc.utils.Aabb;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
@@ -26,22 +24,13 @@ public abstract class AbstractDualContouring implements DualContouring{
     protected MeshGenerationContext meshGen;
     private final ICSGOperations csgOperationsProcessor;
 
-    protected List<Aabb> storedOpAABBs = new ArrayList<>();
-    protected List<CSGOperationInfo> storedOps = new ArrayList<>();
-    private final Map<Long, ChunkNode> chunksMap;
-    public Map<Long, ChunkNode> getChunksMap() {
-        return chunksMap;
-    }
-
     public ICSGOperations getCsgOperationsProcessor() {
         return csgOperationsProcessor;
     }
 
-    public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                  Map<Long, ChunkNode> chunks) {
+    public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations) {
         this.meshGen = meshGenerationContext;
         this.csgOperationsProcessor = csgOperations;
-        this.chunksMap = chunks;
     }
 
     private List<OctreeNode> constructParents(List<OctreeNode> nodes, Vec3i rootMin, int parentSize) {
@@ -469,8 +458,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         return chunkScaleSize * meshGen.leafSizeScale;
     }
 
-    public CPUDensityField computeApplyCSGOperations(Collection<CSGOperationInfo> operations, ChunkNode node){
-        return null;
+    public void computeApplyCSGOperations(Collection<CSGOperationInfo> operations, ChunkNode node){
     }
 
     private final Vec3i[] BORDER_EDGE_OFFSETS = {
@@ -550,15 +538,5 @@ public abstract class AbstractDualContouring implements DualContouring{
             }
         }
         return null;
-    }
-
-    public void computeStoreCSGOperation(CSGOperationInfo opInfo, Aabb aabb) {
-        storedOps.add(opInfo);
-        storedOpAABBs.add(aabb);
-    }
-
-    public void computeClearCSGOperations() {
-        storedOps.clear();
-        storedOpAABBs.clear();
     }
 }

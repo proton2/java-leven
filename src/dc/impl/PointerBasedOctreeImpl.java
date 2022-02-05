@@ -25,7 +25,7 @@ public class PointerBasedOctreeImpl extends AbstractDualContouring implements Vo
     private final boolean multiThreadCalculation;
 
     public PointerBasedOctreeImpl(boolean multiThreadCalculation, MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations) {
-        super(meshGenerationContext, csgOperations, null);
+        super(meshGenerationContext, csgOperations);
         this.multiThreadCalculation = multiThreadCalculation;
     }
 

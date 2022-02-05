@@ -35,7 +35,7 @@ public class ChunkOctree {
     private final Physics physics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private ArrayList<ChunkNode> prevSelectedNodes;
-    private final Map<Long, ChunkNode> chunks;
+    private final Map<Long, ChunkNode> mortonCodesChunksMap;
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
     }
@@ -46,7 +46,7 @@ public class ChunkOctree {
 
     public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
                        boolean enablePhysics, Map<Long, ChunkNode> chunks) {
-        this.chunks = chunks;
+        this.mortonCodesChunksMap = chunks;
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
@@ -94,7 +94,7 @@ public class ChunkOctree {
         root.min.set(root.min.x & ~(factor), root.min.y & ~(factor), root.min.z & ~(factor));
         root.worldNode = new WorldCollisionNode();
         root.chunkCode = Morton3D.codeForPosition(root.min, root.size, meshGen.worldSizeXZ/2);
-        chunks.put(root.chunkCode, root);
+        mortonCodesChunksMap.put(root.chunkCode, root);
         int count = constructChildrens(root);
     }
 
@@ -107,9 +107,8 @@ public class ChunkOctree {
             child.size = node.size / 2;
             child.min = node.min.add(meshGen.offset(i, child.size));
             child.worldNode = new WorldCollisionNode();
-            //node.children[i] = child;
             child.chunkCode = Morton3D.codeForPosition(child.min, child.size, meshGen.worldSizeXZ/2);
-            ChunkNode v = chunks.put(child.chunkCode, child);
+            ChunkNode v = mortonCodesChunksMap.put(child.chunkCode, child);
             if(v!=null){
                 throw new IllegalStateException("Incorrect linear three state - Morton code collision!");
             }
@@ -117,12 +116,12 @@ public class ChunkOctree {
         int count = 1;
         for (int i = 0; i < 8; i++) {
             long locCodeChild = (node.chunkCode<<3)|i;
-            ChunkNode child = chunks.get(locCodeChild);
+            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
             if(child==null){
                 throw new IllegalStateException("Incorrect linear three state - children not found!");
             }
             long parentCode = child.chunkCode>>3;
-            ChunkNode parent = chunks.get(parentCode);
+            ChunkNode parent = mortonCodesChunksMap.get(parentCode);
             if(!node.equals(parent)){
                 throw new IllegalStateException("Incorrect linear three state - parent not found!");
             }
@@ -148,7 +147,7 @@ public class ChunkOctree {
         }
         for (int i = 0; i < 8; i++) {
             long locCodeChild = (node.chunkCode<<3)|i;
-            ChunkNode child = chunks.get(locCodeChild);
+            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
             selectActiveChunkNodes(child, node.canBeSelected, camPos, selectedNodes);
         }
     }
@@ -204,7 +203,6 @@ public class ChunkOctree {
     public void clean(){
         service.shutdown();
         physics.Physics_Shutdown();
-        voxelOctree.computeClearCSGOperations();
     }
 
     public void update(Camera camera) {
@@ -268,7 +266,7 @@ public class ChunkOctree {
             for (int i = 0; i < 8; i++) {
                 Vec3i neighbourMin = constructedNode.min.sub(meshGen.offset(i, constructedNode.size));
                 long neighbourMortonCode = Morton3D.codeForPosition(neighbourMin, constructedNode.size, meshGen.worldSizeXZ/2);
-                ChunkNode candidateNeighbour = chunks.get(neighbourMortonCode); //findNode(root, constructedNode.size, neighbourMin);
+                ChunkNode candidateNeighbour = mortonCodesChunksMap.get(neighbourMortonCode); //findNode(root, constructedNode.size, neighbourMin);
                 if (candidateNeighbour!=null){
                     List<ChunkNode> neighbourActiveNodes = new ArrayList<>();
                     findActiveNodes(root, candidateNeighbour, neighbourActiveNodes);
@@ -296,7 +294,7 @@ public class ChunkOctree {
             Vec3i neighbourMin = node.min.add(VoxelOctree.CHILD_MIN_OFFSETS[i].mul(node.size));
             //Vec3i neighbourMin = node.min.add(meshGen.offset(i, node.size));
             long neighbourMortonCode = Morton3D.codeForPosition(neighbourMin, node.size, meshGen.worldSizeXZ/2);
-            ChunkNode candidateNeighbour = chunks.get(neighbourMortonCode);//findNode(root, node.size, neighbourMin);
+            ChunkNode candidateNeighbour = mortonCodesChunksMap.get(neighbourMortonCode);//findNode(root, node.size, neighbourMin);
             if (candidateNeighbour==null) {
                 continue;
             }
@@ -362,7 +360,7 @@ public class ChunkOctree {
             else if (node.size > meshGen.clipmapLeafSize) {
                 for (int i = 0; i < 8; i++) {
                     long locCodeChild = (node.chunkCode<<3)|i;
-                    ChunkNode child = chunks.get(locCodeChild);
+                    ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
                     findActiveNodes(child, referenceNode, neighbourActiveNodes);
                 }
             }
@@ -418,7 +416,7 @@ public class ChunkOctree {
         node.empty = true;
         for (int i = 0; i < 8; i++) {
             long locCodeChild = (node.chunkCode<<3)|i;
-            ChunkNode child = chunks.get(locCodeChild);
+            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
             propagateEmptyStateDownward(child);
         }
     }
@@ -443,7 +441,6 @@ public class ChunkOctree {
     void processCSGOperationsImpl(){
         Set<CSGOperationInfo> operations = new HashSet<>(g_operationQueue);
         g_operationQueue.clear();
-
         if (operations.isEmpty()) {
             return;
         }
@@ -452,18 +449,7 @@ public class ChunkOctree {
         for (CSGOperationInfo opInfo: operations){
             touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
         }
-
-        if(voxelOctree.getCsgOperationsProcessor().isReduceChunk()) {
-            CSGReduceOperations(touchedNodes, operations);
-        } else{
-            for(ChunkNode node : touchedNodes) {
-                performCSGQueueOperations(node, operations);
-            }
-        }
-
-        for (CSGOperationInfo opInfo: operations) {
-            voxelOctree.computeStoreCSGOperation(opInfo, calcCSGOperationBounds(opInfo));
-        }
+        CSGReduceOperations(touchedNodes, operations);
     }
 
     private void CSGReduceOperations(Set<ChunkNode> touchedNodes, Set<CSGOperationInfo> operations){
@@ -490,15 +476,6 @@ public class ChunkOctree {
         }
     }
 
-    private void performCSGQueueOperations(ChunkNode clipmapNode, Set<CSGOperationInfo> operations){
-        if (clipmapNode.active) {
-            voxelOctree.computeApplyCSGOperations(operations, clipmapNode);
-        }
-        voxelOctree.computeFreeChunkOctree(clipmapNode.min, clipmapNode.size); // free the current octree to force a reconstruction
-        clipmapNode.invalidated = true;
-        clipmapNode.empty = false;
-    }
-
     private Aabb calcCSGOperationBounds(CSGOperationInfo opInfo) {
         Vec3i boundsHalfSize = (opInfo.getDimensions().mul3f(meshGen.leafSizeScale)).add(meshGen.CSG_BOUNDS_FUDGE);
         Vec3i scaledOrigin = (opInfo.getOrigin().sub(meshGen.CSG_OFFSET)).mul3i((float)meshGen.leafSizeScale);
@@ -523,7 +500,7 @@ public class ChunkOctree {
 
         for (int i = 0; i < 8; i++) {
             long locCodeChild = (node.chunkCode<<3)|i;
-            ChunkNode child = chunks.get(locCodeChild);
+            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
             findNodesInsideAABB(child, aabb, nodes);
         }
 

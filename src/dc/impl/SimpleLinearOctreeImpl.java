@@ -31,7 +31,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     int availableProcessors;
 
     public SimpleLinearOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations) {
-        super(meshGenerationContext, csgOperations, null);
+        super(meshGenerationContext, csgOperations);
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
             private final AtomicInteger count = new AtomicInteger();
@@ -531,7 +531,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         MeshGenerationContext meshGen = new MeshGenerationContext(64);
         Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
         Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
-        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGen, new CpuCsgImpl(false, null));
+        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGen, new CpuCsgImpl(null));
 
         Set<Integer> seamNodeCodes = new HashSet<>();
         PointerBasedOctreeNode n0 = new PointerBasedOctreeNode(new Vec3i(20,30,40), 1, OctreeNodeType.Node_Leaf);

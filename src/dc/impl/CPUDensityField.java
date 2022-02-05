@@ -9,7 +9,6 @@ import java.util.concurrent.ConcurrentSkipListMap;
 public class CPUDensityField {
     public Vec3i min;
     public int size;
-    public int lastCSGOperation = 0;
     public int[] materials;
     public Map<Integer, Vec4f> hermiteEdges = new ConcurrentSkipListMap<>();
 }

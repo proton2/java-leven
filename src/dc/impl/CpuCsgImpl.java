@@ -26,18 +26,10 @@ public class CpuCsgImpl implements ICSGOperations{
     private MeshGenerationContext meshGen;
     private final ExecutorService service;
     private final int availableProcessors;
-    private final Map<Long, ChunkNode> chunksMap;
+    private final Map<Long, ChunkNode> mortonCodesChunksMap;
 
-    @Override
-    public boolean isReduceChunk() {
-        return reduceChunk;
-    }
-
-    final private boolean reduceChunk;
-
-    public CpuCsgImpl(boolean reduce, Map<Long, ChunkNode> chunks) {
-        this.reduceChunk = reduce;
-        this.chunksMap = chunks;
+    public CpuCsgImpl(Map<Long, ChunkNode> chunks) {
+        this.mortonCodesChunksMap = chunks;
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
             private final AtomicInteger count = new AtomicInteger();
@@ -54,7 +46,7 @@ public class CpuCsgImpl implements ICSGOperations{
     public void ApplyReduceOperations(ChunkNode node, CPUDensityField field, Map<Vec4i, CPUDensityField> densityFieldCache) {
         for (int i = 0; i < 8; i++) {
             long locCodeChild = (node.chunkCode<<3)|i;
-            ChunkNode child = chunksMap.get(locCodeChild);
+            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
             if (child!=null && child.chunkCSGEdited) {
                 Vec4i key = new Vec4i(child.min, child.size);
                 CPUDensityField srcField = densityFieldCache.get(key);

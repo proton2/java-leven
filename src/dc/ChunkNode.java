@@ -6,7 +6,6 @@ import core.physics.WorldCollisionNode;
 import java.util.List;
 
 public class ChunkNode {
-    //public ChunkNode[] children;
     public Vec3i min;
     public int size;
     boolean	active = false;
@@ -24,10 +23,6 @@ public class ChunkNode {
     public ChunkNode(){
         min = new Vec3i(0, 0, 0);
         size = 0;
-//        children = new ChunkNode[8];
-//        for (int i = 0; i < 8; i++) {
-//            children[i] = null;
-//        }
         worldNode = new WorldCollisionNode();
     }
 

@@ -9,6 +9,5 @@ import java.util.Map;
 
 public interface ICSGOperations {
     boolean ApplyCSGOperations(MeshGenerationContext meshGen, Collection<CSGOperationInfo> opInfo, ChunkNode node, CPUDensityField field);
-    boolean isReduceChunk();
     void ApplyReduceOperations(ChunkNode node, CPUDensityField field, Map<Vec4i, CPUDensityField> densityFieldCache);
 }
