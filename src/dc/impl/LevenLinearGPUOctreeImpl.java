@@ -1,5 +1,6 @@
 package dc.impl;
 
+import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
@@ -22,12 +23,20 @@ import java.util.Map;
 public class LevenLinearGPUOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     private final KernelsHolder kernels;
     private final ComputeContext ctx;
+    protected Map<Vec4i, GpuOctree> octreeCache;
 
     public LevenLinearGPUOctreeImpl(KernelsHolder kernels, MeshGenerationContext meshGenerationContext,
                                     ComputeContext ctx, ICSGOperations csgOperations, Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, octreeCache, null);
+        super(meshGenerationContext, csgOperations, null);
         this.kernels = kernels;
         this.ctx = ctx;
+        this.octreeCache = octreeCache;
+    }
+
+    @Override
+    public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) {
+        Vec4i key = new Vec4i(min, clipmapNodeSize);
+        octreeCache.remove(key);
     }
 
     @Override

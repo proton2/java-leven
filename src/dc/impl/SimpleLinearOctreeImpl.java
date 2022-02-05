@@ -30,9 +30,8 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
     private final ExecutorService service;
     int availableProcessors;
 
-    public SimpleLinearOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                  Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, octreeCache, null);
+    public SimpleLinearOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations) {
+        super(meshGenerationContext, csgOperations, null);
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
             private final AtomicInteger count = new AtomicInteger();
@@ -44,6 +43,9 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
             }
         });
     }
+
+    @Override
+    public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) { }
 
     @Override
     public boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer buffer) {
@@ -529,7 +531,7 @@ public class SimpleLinearOctreeImpl extends AbstractDualContouring implements Vo
         MeshGenerationContext meshGen = new MeshGenerationContext(64);
         Map<Vec4i, GPUDensityField> densityFieldCache = new HashMap<>();
         Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
-        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGen, new CpuCsgImpl(false, null), octreeCache);
+        SimpleLinearOctreeImpl voxelOctree = new SimpleLinearOctreeImpl(meshGen, new CpuCsgImpl(false, null));
 
         Set<Integer> seamNodeCodes = new HashSet<>();
         PointerBasedOctreeNode n0 = new PointerBasedOctreeNode(new Vec3i(20,30,40), 1, OctreeNodeType.Node_Leaf);

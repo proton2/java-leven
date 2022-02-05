@@ -70,6 +70,7 @@ public class ChunkOctreeWrapper extends GameObject {
         VoxelOctree voxelOctree;
         Map<Vec4i, CPUDensityField> cpuDensityFieldCache = new HashMap<>();
         Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
+        Map<Vec4i, CpuOctree> cpuOctreeCache = new HashMap<>();
         Map<Long, ChunkNode> chunks = new HashMap<>();
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
@@ -84,7 +85,7 @@ public class ChunkOctreeWrapper extends GameObject {
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx, null, densityFieldCache, octreeCache);
             //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
             //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx, null, densityFieldCache, octreeCache);
-            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(true, chunks), cpuDensityFieldCache, octreeCache, chunks);
+            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(true, chunks), cpuDensityFieldCache, cpuOctreeCache, chunks);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         }
         chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, playerCollision, chunks);

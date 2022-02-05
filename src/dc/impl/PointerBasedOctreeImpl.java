@@ -3,7 +3,6 @@ package dc.impl;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
-import core.math.Vec4i;
 import core.utils.Constants;
 import dc.*;
 import dc.entities.MeshBuffer;
@@ -25,11 +24,13 @@ import static java.lang.Math.max;
 public class PointerBasedOctreeImpl extends AbstractDualContouring implements VoxelOctree {
     private final boolean multiThreadCalculation;
 
-    public PointerBasedOctreeImpl(boolean multiThreadCalculation, MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                  Map<Vec4i, GpuOctree> octreeCache) {
-        super(meshGenerationContext, csgOperations, octreeCache, null);
+    public PointerBasedOctreeImpl(boolean multiThreadCalculation, MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations) {
+        super(meshGenerationContext, csgOperations, null);
         this.multiThreadCalculation = multiThreadCalculation;
     }
+
+    @Override
+    public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) { }
 
     private boolean nodeIsSeam(int zi, int yi, int xi) {
         //return (leafMin.x==1016 || leafMin.x==1024) && (leafMin.z < -395 && leafMin.z >-433); //show path of seams to debug

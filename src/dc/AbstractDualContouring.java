@@ -3,14 +3,12 @@ package dc;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.math.Vec4f;
-import core.math.Vec4i;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.impl.CPUDensityField;
-import dc.impl.GpuOctree;
 import dc.impl.ICSGOperations;
 import dc.impl.MeshGenerationContext;
 import dc.utils.Aabb;
@@ -27,7 +25,7 @@ import static dc.utils.SimplexNoise.getNoise;
 public abstract class AbstractDualContouring implements DualContouring{
     protected MeshGenerationContext meshGen;
     private final ICSGOperations csgOperationsProcessor;
-    protected Map<Vec4i, GpuOctree> octreeCache;
+
     protected List<Aabb> storedOpAABBs = new ArrayList<>();
     protected List<CSGOperationInfo> storedOps = new ArrayList<>();
     private final Map<Long, ChunkNode> chunksMap;
@@ -40,10 +38,9 @@ public abstract class AbstractDualContouring implements DualContouring{
     }
 
     public AbstractDualContouring(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                  Map<Vec4i, GpuOctree> octreeCache, Map<Long, ChunkNode> chunks) {
+                                  Map<Long, ChunkNode> chunks) {
         this.meshGen = meshGenerationContext;
         this.csgOperationsProcessor = csgOperations;
-        this.octreeCache = octreeCache;
         this.chunksMap = chunks;
     }
 
@@ -563,10 +560,5 @@ public abstract class AbstractDualContouring implements DualContouring{
     public void computeClearCSGOperations() {
         storedOps.clear();
         storedOpAABBs.clear();
-    }
-
-    public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) {
-        Vec4i key = new Vec4i(min, clipmapNodeSize);
-        octreeCache.remove(key);
     }
 }

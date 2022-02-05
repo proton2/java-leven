@@ -38,11 +38,12 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     private final boolean enableQefClamping = true;
     private final ExecutorService childsService;
     private Map<Vec4i, CPUDensityField> densityFieldCache;
+    protected Map<Vec4i, CpuOctree> octreeCache;
 
     public LevenLinearCPUOctreeImpl(MeshGenerationContext meshGenerationContext, ICSGOperations csgOperations,
-                                    Map<Vec4i, CPUDensityField> densityFieldCache, Map<Vec4i, GpuOctree> octreeCache,
+                                    Map<Vec4i, CPUDensityField> densityFieldCache, Map<Vec4i, CpuOctree> octreeCache,
                                     Map<Long, ChunkNode> chunks) {
-        super(meshGenerationContext, csgOperations, octreeCache, chunks);
+        super(meshGenerationContext, csgOperations, chunks);
 
         availableProcessors = max(1, Runtime.getRuntime().availableProcessors() / 2);
         service = Executors.newFixedThreadPool(availableProcessors, new ThreadFactory() {
@@ -56,11 +57,18 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         });
         childsService = Executors.newFixedThreadPool(8);
         this.densityFieldCache = densityFieldCache;
+        this.octreeCache = octreeCache;
+    }
+
+    @Override
+    public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) {
+        Vec4i key = new Vec4i(min, clipmapNodeSize);
+        octreeCache.remove(key);
     }
 
     @Override
     public boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer buffer) {
-        GpuOctree octree = LoadOctree(node);
+        CpuOctree octree = LoadOctree(node);
         if(octree==null){
             return false;
         }
@@ -129,15 +137,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return field;
     }
 
-    private GpuOctree LoadOctree(ChunkNode node){
+    private CpuOctree LoadOctree(ChunkNode node){
         Vec4i key = new Vec4i(node.min, node.size);
-        GpuOctree octree = octreeCache.get(key);
-//        if(node.min.equals(new Vec3i(-320,-128,-1760))&&node.size==32 && node.chunkIsEdited){
-//            int t=3; // debug breakPoint
-//        }
-//        if(node.min.equals(new Vec3i(-320,-128,-1792))&&node.size==64){
-//            int t=3; // debug breakPoint
-//        }
+        CpuOctree octree = octreeCache.get(key);
         if (octree!=null){
             return octree;
         }
@@ -206,8 +208,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return materialSize;
     }
 
-    private GpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, CPUDensityField field){
-        GpuOctree octree = new GpuOctree();
+    private CpuOctree ConstructOctreeFromField(Vec3i chunkMin, int chunkSize, CPUDensityField field){
+        CpuOctree octree = new CpuOctree();
         int voxelCount = meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk()*meshGen.getVoxelsPerChunk();
         int[] d_leafOccupancy = new int [voxelCount];
         int[] d_leafEdgeInfo = new int [voxelCount];
