@@ -18,6 +18,8 @@ import core.renderer.RenderInfo;
 import core.renderer.Renderer;
 import core.scene.GameObject;
 import core.utils.Constants;
+import dc.csg.CSGOperationsProcessor;
+import dc.csg.CpuCsgImpl;
 import dc.entities.DebugDrawBuffer;
 import dc.impl.*;
 import dc.impl.opencl.ComputeContext;
@@ -30,6 +32,8 @@ import dc.utils.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,6 +45,7 @@ public class ChunkOctreeWrapper extends GameObject {
     final public static Logger logger = Logger.getLogger(ChunkOctreeWrapper.class.getName());
 
     private final ChunkOctree chunkOctree;
+    private final CSGOperationsProcessor csgProcessor;
     private KernelsHolder kernelHolder;
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
@@ -51,10 +56,12 @@ public class ChunkOctreeWrapper extends GameObject {
     private int brushSize = 12;
     private RenderShape brushShape = RenderShape.RenderShape_Sphere;
     private boolean isAddOperation = false;
+    private final ExecutorService service;
     //private ModelEntity actorCSGCube;
 
     // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
+        service = Executors.newSingleThreadExecutor();
         meshGenCtx = new MeshGenerationContext(32);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = null;//OCLUtils.getOpenCLContext();
@@ -71,7 +78,7 @@ public class ChunkOctreeWrapper extends GameObject {
         Map<Vec4i, CPUDensityField> cpuDensityFieldCache = new HashMap<>();
         Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
         Map<Vec4i, CpuOctree> cpuOctreeCache = new HashMap<>();
-        Map<Long, ChunkNode> chunks = new HashMap<>();
+        Map<Long, ChunkNode> mortonCodesChunksMap = new HashMap<>();
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
             kernelHolder = new KernelsHolder(ctx);
@@ -80,15 +87,16 @@ public class ChunkOctreeWrapper extends GameObject {
             kernelHolder.buildKernel(KernelNames.SCAN, null);
             kernelHolder.buildKernel(KernelNames.OCTREE, kernelBuildOptions);
             kernelHolder.buildKernel(KernelNames.CUCKOO, kernelBuildOptions);
-            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx, new CpuCsgImpl(chunks), octreeCache);
+            voxelOctree = new LevenLinearGPUOctreeImpl(kernelHolder, meshGenCtx, ctx, new CpuCsgImpl(mortonCodesChunksMap), octreeCache);
         } else{
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx, null, densityFieldCache, octreeCache);
             //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
             //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx, null, densityFieldCache, octreeCache);
-            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(chunks), cpuDensityFieldCache, cpuOctreeCache, chunks);
+            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(mortonCodesChunksMap), cpuDensityFieldCache, cpuOctreeCache, mortonCodesChunksMap);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         }
-        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, playerCollision, chunks);
+        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, playerCollision, mortonCodesChunksMap);
+        csgProcessor = new CSGOperationsProcessor(voxelOctree, meshGenCtx, camera, mortonCodesChunksMap);
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
     }
 
@@ -98,7 +106,14 @@ public class ChunkOctreeWrapper extends GameObject {
             Vec2f curPos = Input.getInstance().getCursorPosition();
             Ray ray = cam.getMousePickRay(curPos.X, curPos.Y);
             Vec3f rayTo = new Vec3f(ray.direction.scaleAdd(Constants.ZFAR, ray.origin));
-            chunkOctree.update(cam, ray.origin, rayTo);
+            service.submit(() -> {
+                try {
+                    chunkOctree.update();
+                } catch (Throwable e){
+                    e.printStackTrace();
+                }
+            });
+            physics.Physics_CastRay(ray.origin, rayTo);
             renderMesh();
         }
 
@@ -154,6 +169,7 @@ public class ChunkOctreeWrapper extends GameObject {
             kernelHolder.destroyContext();
         }
         chunkOctree.clean();
+        service.shutdown();
     }
 
     private Renderer getRenderer(RenderMesh node){
@@ -225,8 +241,14 @@ public class ChunkOctreeWrapper extends GameObject {
 //            Vec3f brushSizeV = new Vec3f(brushSize);
 //            Vec3f offset = dir.mul(brushSizeV);
 //            Vec3f origin = offset.add(rayPos);
-            chunkOctree.queueCSGOperation(rayPos, new Vec3f(brushSize), brushShape, meshGenCtx.MATERIAL_SOLID, isAddOperation);
-            chunkOctree.processCSGOperations();
+            csgProcessor.queueCSGOperation(rayPos, new Vec3f(brushSize), brushShape, meshGenCtx.MATERIAL_SOLID, isAddOperation);
+            service.submit(() -> {
+                try {
+                    csgProcessor.processCSGOperations();
+                } catch (Throwable e){
+                    e.printStackTrace();
+                }
+            });
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();

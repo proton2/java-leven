@@ -8,9 +8,9 @@ import java.util.List;
 public class ChunkNode {
     public Vec3i min;
     public int size;
-    boolean	active = false;
-    boolean	invalidated = false;
-    boolean	empty = false;
+    public boolean	active = false;
+    public boolean	invalidated = false;
+    public boolean	empty = false;
     public List<OctreeNode> chunkBorderNodes;
     public RenderMesh renderMesh, seamMesh;
     public WorldCollisionNode worldNode;

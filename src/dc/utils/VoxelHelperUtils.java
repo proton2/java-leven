@@ -49,6 +49,14 @@ public class VoxelHelperUtils {
         return Math.max(minX, Math.max(minY, minZ));
     }
 
+    public static boolean checkNodeForSelection(ChunkNode node, Vec3f camPos) {
+        float splitDistanceFactor = 1.5f;
+        float distance = VoxelHelperUtils.ChebyshevDistance(node, camPos);
+        // чанк надо разбивать, если расстояние меньше, чем размер чанка, умноженный на split_distance_factor
+        boolean canBeSelected = distance > node.size * splitDistanceFactor;
+        return canBeSelected;
+    }
+
     float Distance3DToNode(ChunkNode node, Vec3f cameraPos) {
         Vec3f center = node.min.add(new Vec3i(node.size/2, node.size/2, node.size/2)).toVec3f();
         Vec3f p = center.sub(cameraPos);

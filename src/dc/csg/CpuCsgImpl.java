@@ -1,4 +1,4 @@
-package dc.impl;
+package dc.csg;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
@@ -7,6 +7,8 @@ import core.math.Vec4i;
 import dc.ChunkNode;
 import dc.VoxelOctree;
 import dc.entities.CSGOperationInfo;
+import dc.impl.CPUDensityField;
+import dc.impl.MeshGenerationContext;
 import dc.utils.SimplexNoise;
 import dc.utils.VoxelHelperUtils;
 
@@ -21,7 +23,7 @@ import java.util.stream.Collectors;
 
 import static java.lang.Math.max;
 
-public class CpuCsgImpl implements ICSGOperations{
+public class CpuCsgImpl implements ICSGOperations {
     final public static Logger logger = Logger.getLogger(CpuCsgImpl.class.getName());
     private MeshGenerationContext meshGen;
     private final ExecutorService service;

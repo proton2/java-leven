@@ -1,8 +1,10 @@
-package dc.impl;
+package dc.csg;
 
 import core.math.Vec4i;
 import dc.ChunkNode;
 import dc.entities.CSGOperationInfo;
+import dc.impl.CPUDensityField;
+import dc.impl.MeshGenerationContext;
 
 import java.util.Collection;
 import java.util.Map;

@@ -3,35 +3,29 @@ package dc;
 import core.kernel.Camera;
 import core.math.Vec3f;
 import core.math.Vec3i;
-import core.math.Vec4f;
 import core.physics.Physics;
 import core.physics.WorldCollisionNode;
-import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.impl.MeshGenerationContext;
 import dc.impl.Morton3D;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
-import dc.utils.RenderShape;
 import dc.utils.VoxelHelperUtils;
 
 import java.text.NumberFormat;
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.logging.Logger;
+
+import static dc.utils.VoxelHelperUtils.checkNodeForSelection;
 
 public class ChunkOctree {
     final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
-    private final ExecutorService service;
     private ChunkNode root;
     private Camera camera;
     private final VoxelOctree voxelOctree;
     private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
     private List<RenderMesh> invalidateMeshes;
-    private ConcurrentLinkedDeque<CSGOperationInfo> g_operationQueue = new ConcurrentLinkedDeque<>();
     private final Physics physics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private ArrayList<ChunkNode> prevSelectedNodes;
@@ -50,9 +44,9 @@ public class ChunkOctree {
         this.meshGen = meshGen;
         this.physics = physics;
         this.voxelOctree = voxelOctree;
-        service = Executors.newSingleThreadExecutor();
+        this.camera = cam;
         buildChunkOctree();
-        update(cam);
+        update();
         if(enablePhysics) {
             physics.Physics_SpawnPlayer(cam.getPosition());
         }
@@ -130,14 +124,6 @@ public class ChunkOctree {
         return count;
     }
 
-    private boolean checkNodeForSelection(ChunkNode node, Vec3f camPos) {
-        float splitDistanceFactor = 1.5f;
-        float distance = VoxelHelperUtils.ChebyshevDistance(node, camPos);
-        // чанк надо разбивать, если расстояние меньше, чем размер чанка, умноженный на split_distance_factor
-        boolean canBeSelected = distance > node.size * splitDistanceFactor;
-        return canBeSelected;
-    }
-
     private void selectActiveChunkNodes(ChunkNode node, boolean parentActive, Vec3f camPos, ArrayList<ChunkNode> selectedNodes){
         if (node==null || parentActive) {
             return;
@@ -188,24 +174,11 @@ public class ChunkOctree {
         return invalidatedMeshes;
     }
 
-    public void update(Camera cam, Vec3f rayStart, Vec3f rayEnd){
-        this.camera = cam;
-        service.submit(() -> {
-            try {
-                update(camera);
-            } catch (Throwable e){
-                e.printStackTrace();
-            }
-        });
-        physics.Physics_CastRay(rayStart, rayEnd);
-    }
-
     public void clean(){
-        service.shutdown();
         physics.Physics_Shutdown();
     }
 
-    public void update(Camera camera) {
+    public void update() {
         ArrayList<ChunkNode> selectedNodes = new ArrayList<>();
         selectActiveChunkNodes(root, false, camera.getPosition(), selectedNodes);
         ArrayList<RenderMesh> invalidatedMeshes = ReleaseInvalidatedNodes(prevSelectedNodes);
@@ -418,95 +391,6 @@ public class ChunkOctree {
             long locCodeChild = (node.chunkCode<<3)|i;
             ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
             propagateEmptyStateDownward(child);
-        }
-    }
-
-    public void queueCSGOperation(Vec3f origin, Vec3f brushSize, RenderShape brushShape, int brushMaterial, boolean isAddOperation) {
-        CSGOperationInfo opInfo = new CSGOperationInfo();
-        opInfo.setOrigin(new Vec4f(origin.div((float)meshGen.leafSizeScale).add(meshGen.CSG_OFFSET), 0.f));
-        opInfo.setDimensions(new Vec4f(brushSize.div(2.f), 0.f).div((float)meshGen.leafSizeScale));
-        opInfo.setBrushShape(brushShape);
-        opInfo.setMaterial(isAddOperation ? brushMaterial : meshGen.MATERIAL_AIR);
-        opInfo.setType(isAddOperation ? 0 : 1);
-
-        g_operationQueue.addLast(opInfo);
-    }
-
-    public void processCSGOperations() {
-        if (!g_operationQueue.isEmpty()) {
-            service.submit(this::processCSGOperationsImpl);
-        }
-    }
-
-    void processCSGOperationsImpl(){
-        Set<CSGOperationInfo> operations = new HashSet<>(g_operationQueue);
-        g_operationQueue.clear();
-        if (operations.isEmpty()) {
-            return;
-        }
-
-        Set<ChunkNode> touchedNodes = new HashSet<>();
-        for (CSGOperationInfo opInfo: operations){
-            touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
-        }
-        CSGReduceOperations(touchedNodes, operations);
-    }
-
-    private void CSGReduceOperations(Set<ChunkNode> touchedNodes, Set<CSGOperationInfo> operations){
-        List<ChunkNode> nodes = new ArrayList<>(touchedNodes);
-        nodes.sort(Comparator.comparingInt((ChunkNode lhs) -> lhs.size));
-        int activeNodeNumber = 0;
-        for (int i=nodes.size()-1; i>-1; i--){
-            if(checkNodeForSelection(nodes.get(i), camera.getPosition()) || nodes.get(i).size==meshGen.clipmapLeafSize) {
-                activeNodeNumber = i;
-                break;
-            }
-        }
-        for(ChunkNode node : nodes) {
-            if(!node.active){
-                node.reduceStatus = ReduceStateEnum.NEED_TO_REDUCE;
-            }
-            voxelOctree.computeFreeChunkOctree(node.min, node.size); // free the current octree to force a reconstruction
-            node.invalidated = true;
-            node.empty = false;
-        }
-        List<ChunkNode> subList = nodes.subList(0, activeNodeNumber+1);
-        for(ChunkNode node : subList) {
-            voxelOctree.computeApplyCSGOperations(operations, node);
-        }
-    }
-
-    private Aabb calcCSGOperationBounds(CSGOperationInfo opInfo) {
-        Vec3i boundsHalfSize = (opInfo.getDimensions().mul3f(meshGen.leafSizeScale)).add(meshGen.CSG_BOUNDS_FUDGE);
-        Vec3i scaledOrigin = (opInfo.getOrigin().sub(meshGen.CSG_OFFSET)).mul3i((float)meshGen.leafSizeScale);
-        return new Aabb(scaledOrigin.sub(boundsHalfSize), scaledOrigin.add(boundsHalfSize));
-    }
-
-    private List<ChunkNode> findNodesInsideAABB(Aabb aabb) {
-        ArrayList<ChunkNode> nodes = new ArrayList<>();
-        findNodesInsideAABB(root, aabb, nodes);
-        return nodes;
-    }
-
-    void findNodesInsideAABB(ChunkNode node, Aabb aabb, List<ChunkNode> nodes) {
-        if (node==null) {
-            return;
-        }
-
-        Aabb nodeBB = new Aabb(node.min, node.size);
-        if (!aabb.overlaps(nodeBB)) {
-            return;
-        }
-
-        for (int i = 0; i < 8; i++) {
-            long locCodeChild = (node.chunkCode<<3)|i;
-            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
-            findNodesInsideAABB(child, aabb, nodes);
-        }
-
-        // traversal order is arbitrary
-        if (node.size <= meshGen.LOD_MAX_NODE_SIZE) {
-            nodes.add(node);
         }
     }
 }

@@ -7,6 +7,8 @@ import core.math.Vec4i;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.*;
+import dc.csg.CpuCsgImpl;
+import dc.csg.ICSGOperations;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.LevenQefSolver;

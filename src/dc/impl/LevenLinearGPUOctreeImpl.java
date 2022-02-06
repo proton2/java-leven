@@ -8,6 +8,7 @@ import dc.AbstractDualContouring;
 import dc.ChunkNode;
 import dc.OctreeNode;
 import dc.VoxelOctree;
+import dc.csg.ICSGOperations;
 import dc.entities.MeshBuffer;
 import dc.impl.opencl.*;
 

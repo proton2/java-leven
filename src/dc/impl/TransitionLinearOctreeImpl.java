@@ -6,6 +6,7 @@ import core.math.Vec4f;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.*;
+import dc.csg.ICSGOperations;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
 import dc.solver.LevenQefSolver;

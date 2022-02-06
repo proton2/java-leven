@@ -5,10 +5,10 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.utils.BufferUtil;
 import core.utils.Constants;
+import dc.csg.ICSGOperations;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.impl.ICSGOperations;
 import dc.impl.MeshGenerationContext;
 import dc.utils.VoxelHelperUtils;
 

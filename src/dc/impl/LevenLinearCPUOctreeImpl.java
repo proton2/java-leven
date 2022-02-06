@@ -6,6 +6,7 @@ import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
 import dc.*;
+import dc.csg.ICSGOperations;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
