@@ -167,6 +167,7 @@ public class ChunkOctree {
         if(chunkNodes!=null) {
             for (ChunkNode node : chunkNodes) {
                 if (node.invalidated || (node.active && !node.canBeSelected)) {
+                    voxelOctree.computeFreeChunkOctree(node.min, node.size);
                     ReleaseClipmapNodeData(node, invalidatedMeshes);
                     node.invalidated = false;
                 }
