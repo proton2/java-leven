@@ -21,7 +21,7 @@ import static dc.utils.VoxelHelperUtils.checkNodeForSelection;
 public class ChunkOctree {
     final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
     private ChunkNode root;
-    private Camera camera;
+    private final Camera camera;
     private final VoxelOctree voxelOctree;
     private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
@@ -38,11 +38,11 @@ public class ChunkOctree {
         return invalidateMeshes;
     }
 
-    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics physics, Camera cam,
+    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics ph, Camera cam,
                        boolean enablePhysics, Map<Long, ChunkNode> chunks) {
         this.mortonCodesChunksMap = chunks;
         this.meshGen = meshGen;
-        this.physics = physics;
+        this.physics = ph;
         this.voxelOctree = voxelOctree;
         this.camera = cam;
         buildChunkOctree();
@@ -128,7 +128,8 @@ public class ChunkOctree {
         if (node==null || parentActive) {
             return;
         }
-        if (node.canBeSelected = checkNodeForSelection(node, camPos) || node.size==meshGen.clipmapLeafSize){
+        node.canBeSelected = checkNodeForSelection(node, camPos) || node.size==meshGen.clipmapLeafSize;
+        if (node.canBeSelected){
             selectedNodes.add(node);
         }
         for (int i = 0; i < 8; i++) {
@@ -345,11 +346,8 @@ public class ChunkOctree {
 //        if (bbox.pointIsInside(Camera.getInstance().getPosition())) {
 //            return true;
 //        }
-        if((filteredNode.size==128 && filteredNode.min.equals(new Vec3i(-384,-128,-1664)))
-                || (filteredNode.size==512 && filteredNode.min.equals(new Vec3i(-512,-512,-1536)))){
-            return true;
-        }
-        return false;
+        return (filteredNode.size == 128 && filteredNode.min.equals(new Vec3i(-384, -128, -1664)))
+                || (filteredNode.size == 512 && filteredNode.min.equals(new Vec3i(-512, -512, -1536)));
     }
 
     private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){
