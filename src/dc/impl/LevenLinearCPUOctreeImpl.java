@@ -516,14 +516,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                            QEFData[] qefs, Vec4f[] solvedPositions){
         for (int index = from; index < to; index++) {
             int leafSize = (chunkSize / voxelsPerChunk);
-
-            Vec4f solvedPos;
-            if(leafSize == meshGen.leafSizeScale) {
-                solvedPos = qefs[index].solve();       // run solver only for LOD 0
-            } else {
-                solvedPos = qefs[index].getMasspoint();// for other LOD's get masspoint - to increase performance
-            }
-
+            Vec4f solvedPos = qefs[index].solve();       // run solver only for LOD 0
             solvedPos = solvedPos.mul(leafSize).add(chunkMin);
             if(enableQefClamping) {
                 Vec3i leaf = meshGen.positionForCode(d_nodeCodes[index]).mul(leafSize).add(chunkMin);
