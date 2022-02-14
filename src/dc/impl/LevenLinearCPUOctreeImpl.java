@@ -61,7 +61,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) {
         Vec4i key = new Vec4i(min, clipmapNodeSize);
         CpuOctree octree = octreeCache.remove(key);
-        System.out.println("octreeCache size " + octreeCache.size());
+        //System.out.println("octreeCache size " + octreeCache.size());
         if(octree!=null) {
             octree.octreeNodes.clear();
             octree.nodeCodes = null;
@@ -155,7 +155,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if(field.hermiteEdges.size()>0){
             octree = ConstructOctreeFromField(node.min, node.size, field);
             octreeCache.put(key, octree);
-            System.out.println("octreeCache size " + octreeCache.size());
+            //System.out.println("octreeCache size " + octreeCache.size());
         }
         return octree;
     }

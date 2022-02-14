@@ -1,6 +1,7 @@
 package dc;
 
 import core.kernel.Camera;
+import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.physics.Physics;
@@ -10,6 +11,7 @@ import dc.impl.MeshGenerationContext;
 import dc.impl.Morton3D;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
+import dc.utils.Ray;
 import dc.utils.VoxelHelperUtils;
 
 import java.text.NumberFormat;
@@ -26,6 +28,7 @@ public class ChunkOctree {
     private final MeshGenerationContext meshGen;
     private List<RenderMesh> renderMeshes;
     private List<RenderMesh> invalidateMeshes;
+    private List<ChunkNode> currActiveNodes;
     private final Physics physics;
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private ArrayList<ChunkNode> prevSelectedNodes;
@@ -261,6 +264,17 @@ public class ChunkOctree {
         }
         this.renderMeshes = getRenderMeshes(activeNodes);
         this.invalidateMeshes = invalidatedMeshes;
+        this.currActiveNodes = activeNodes;
+    }
+
+    public List<ChunkNode> getRayIntersected(Ray ray){
+        ArrayList<ChunkNode> selectedChunks = new ArrayList<>();
+        for(ChunkNode chunk : currActiveNodes){
+            if(chunk.active && VoxelHelperUtils.intersectRayAab(ray, new Aabb(chunk.min, chunk.size), new Vec2f())){
+                selectedChunks.add(chunk);
+            }
+        }
+        return selectedChunks;
     }
 
     private void generateClipmapSeamMesh(ChunkNode node, ChunkNode root){
@@ -354,7 +368,7 @@ public class ChunkOctree {
     private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){
         List<RenderMesh> renderMeshes = new ArrayList<>(chunkNodes.size());
         for(ChunkNode node : chunkNodes){
-            if(!node.empty) {
+            if(!node.empty && node.active) {
                 if(node.renderMesh!=null) {
                     renderMeshes.add(node.renderMesh);
                 }

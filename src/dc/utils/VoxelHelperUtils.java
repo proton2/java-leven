@@ -147,11 +147,16 @@ public class VoxelHelperUtils {
         }
     }
 
+    public static boolean intersectRayAab(Ray ray, Aabb aabb, Vec2f result) {
+        return intersectRayAab(ray.origin.X, ray.origin.Y, ray.origin.Z, ray.direction.X, ray.direction.Y, ray.direction.Z,
+                aabb.min.x, aabb.min.y, aabb.min.z, aabb.max.x, aabb.max.y, aabb.max.z, result);
+    }
+
     public static boolean intersectRayAab(Vec3f origin, Vec3f dir, Vec3f min, Vec3f max, Vec2f result) {
         return intersectRayAab(origin.X, origin.Y, origin.Z, dir.X, dir.Y, dir.Z, min.X, min.Y, min.Z, max.X, max.Y, max.Z, result);
     }
 
-    public static boolean intersectRayAab(float originX, float originY, float originZ, float dirX, float dirY, float dirZ,
+    private static boolean intersectRayAab(float originX, float originY, float originZ, float dirX, float dirY, float dirZ,
                                           float minX, float minY, float minZ, float maxX, float maxY, float maxZ, Vec2f result) {
         float invDirX = 1.0f / dirX, invDirY = 1.0f / dirY, invDirZ = 1.0f / dirZ;
         float tNear, tFar, tymin, tymax, tzmin, tzmax;

@@ -114,7 +114,7 @@ public class ChunkOctreeWrapper extends GameObject {
                 }
             });
             physics.Physics_CastRay(ray.origin, rayTo);
-            renderMesh();
+            renderMesh(ray);
         }
 
         if (Input.getInstance().isKeyHold(GLFW_KEY_F1)) {
@@ -188,7 +188,7 @@ public class ChunkOctreeWrapper extends GameObject {
         }
     }
 
-    private void renderMesh() {
+    private void renderMesh(Ray ray) {
         getComponents().clear();
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
         List<RenderMesh> invalidateMeshes = chunkOctree.getInvalidateMeshes();
@@ -202,7 +202,7 @@ public class ChunkOctreeWrapper extends GameObject {
         int i=0;
         for (RenderMesh node : renderNodes) {
             if(drawNodeBounds) {
-                renderCmds.addWireCube(node.size == meshGenCtx.clipmapLeafSize ? Constants.Blue : Constants.Green, 0.2f, node.min.toVec3f(), node.size);
+                renderCmds.addWireCube(node.size == meshGenCtx.clipmapLeafSize ? Constants.Blue : Constants.Green, 1f, node.min.toVec3f(), node.size);
             }
             addComponent("mesh " + (++i), getRenderer(node));
         }
@@ -216,11 +216,27 @@ public class ChunkOctreeWrapper extends GameObject {
             addComponent("node_bounds", debugRenderer);
         }
 
+        if (Input.getInstance().isButtonHolding(0)) { //select visible chunks for debug
+            List<ChunkNode> nodes = chunkOctree.getRayIntersected(ray);
+            RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
+            System.out.println("selected " + nodes.size() + " chunks");
+            for(ChunkNode node : nodes) {
+                camRayCmds.addWireCube(Constants.White, 1f, node.min.toVec3f(), node.size);
+                System.out.println("selected chunk min (" + node.min.x + ", " + node.min.y + ", " + node.min.z + ") size " + node.size);
+            }
+            DebugDrawBuffer buf = camRayCmds.UpdateDebugDrawBuffer();
+            DebugMeshVBO camRayBuff = new DebugMeshVBO();
+            camRayBuff.addData(buf);
+            Renderer debugRenderer = new Renderer(camRayBuff);
+            debugRenderer.setRenderInfo(new RenderInfo(new CW(), RenderDebugShader.getInstance()));
+            addComponent(Constants.RENDERER_COMPONENT, debugRenderer);
+        }
+
         if (Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
             Vec3f rayPos = chunkOctree.getRayCollisionPos();
             logger.log(Level.SEVERE, "rayCollisionPos X " + rayPos.X + " Y " + rayPos.Y + " Z " + rayPos.Z);
-            camRayCmds.addWireCube(Constants.Yellow, 0.2f, rayPos, brushSize);
+            camRayCmds.addWireCube(Constants.Yellow, 1f, rayPos, brushSize);
             //camRayCmds.addSphere(Constants.Red, 0.2f, chunkOctree.getRayCollisionPos(), 10);
             //camRayCmds.addLine(Constants.Green, 0.2f, Camera.getInstance().getPosition(), chunkOctree.getRayCollisionPos());
 
@@ -252,7 +268,7 @@ public class ChunkOctreeWrapper extends GameObject {
         }
 
         RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
-        camRayCmds.addWireCubeArrayCoords(Constants.Yellow, 0.2f, Frustum.getFrustum().getFrustumCorners());
+        camRayCmds.addWireCubeArrayCoords(Constants.Yellow, 1f, Frustum.getFrustum().getFrustumCorners());
         DebugDrawBuffer buf = camRayCmds.UpdateDebugDrawBuffer();
         DebugMeshVBO camRayBuff = new DebugMeshVBO();
         camRayBuff.addData(buf);
