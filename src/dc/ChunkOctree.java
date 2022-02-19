@@ -4,11 +4,14 @@ import core.kernel.Camera;
 import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
+import core.math.Vec4i;
 import core.physics.Physics;
 import core.physics.WorldCollisionNode;
 import dc.entities.MeshBuffer;
 import dc.impl.MeshGenerationContext;
 import dc.impl.Morton3D;
+import dc.impl.simplifier.MeshSimplificationOptions;
+import dc.impl.simplifier.NgMeshSimplify;
 import dc.utils.Aabb;
 import dc.utils.Frustum;
 import dc.utils.Ray;
@@ -33,6 +36,8 @@ public class ChunkOctree {
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private ArrayList<ChunkNode> prevSelectedNodes;
     private final Map<Long, ChunkNode> mortonCodesChunksMap;
+    private final boolean useMeshSimplifier = false;
+
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
     }
@@ -356,13 +361,10 @@ public class ChunkOctree {
         }
     }
 
-    private boolean filterNodesForDebug(ChunkNode filteredNode){
-        Aabb bbox = new Aabb(filteredNode.min, filteredNode.size);
-//        if (bbox.pointIsInside(Camera.getInstance().getPosition())) {
-//            return true;
-//        }
-        return (filteredNode.size == 128 && filteredNode.min.equals(new Vec3i(-384, -128, -1664)))
-                || (filteredNode.size == 512 && filteredNode.min.equals(new Vec3i(-512, -512, -1536)));
+    private boolean filterNodesForDebug(ChunkNode node){
+        return  //(node.size == 32 && node.min.equals(new Vec3i(32, 0, -1408))) ||
+                (node.size == 64 && node.min.equals(new Vec3i(0,-64,-1408))) || // родитель чанка под дырой
+                (node.size == 32 && node.min.equals(new Vec3i(32, -32, -1408)));// || // чанк 32 под дырой
     }
 
     private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){
@@ -387,6 +389,17 @@ public class ChunkOctree {
         chunk.chunkBorderNodes = seamNodes;
         if(!chunk.active){
             return false;
+        }
+
+        if(useMeshSimplifier) {
+            Vec4i centrePos = new Vec4i(chunk.min.add(new Vec3i(chunk.size / 2)), 0);
+            float leafSize = meshGen.leafSizeScale * (chunk.size / meshGen.clipmapLeafSize);
+            MeshSimplificationOptions options = new MeshSimplificationOptions();
+            options.maxError = 5.f * leafSize;
+            options.maxEdgeSize = 2.5f * leafSize;
+            options.minAngleCosine = 0.7f;
+            NgMeshSimplify simplifyer = new NgMeshSimplify();
+            simplifyer.ngMeshSimplifier(meshBuffer, centrePos, options);
         }
 
         if (meshBuffer.getNumIndicates() > 0) {

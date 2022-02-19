@@ -32,7 +32,6 @@ public class NgMeshSimplify {
             MeshTriangle meshTriangle = new MeshTriangle(i1, i2, i3);
             triangles.add(meshTriangle);
         }
-        mesh.getIndicates().flip();
         return triangles;
     }
 
@@ -43,6 +42,12 @@ public class NgMeshSimplify {
             float x = mesh.getVertices().get(index + 0);
             float y = mesh.getVertices().get(index + 1);
             float z = mesh.getVertices().get(index + 2);
+            float normX = mesh.getVertices().get(index + 3);
+            float normY = mesh.getVertices().get(index + 4);
+            float normZ = mesh.getVertices().get(index + 5);
+            float colorX = mesh.getVertices().get(index + 6);
+            float colorY = mesh.getVertices().get(index + 7);
+            float colorZ = mesh.getVertices().get(index + 8);
 
             x -= worldSpaceOffset.x;
             y -= worldSpaceOffset.y;
@@ -50,9 +55,10 @@ public class NgMeshSimplify {
 
             MeshVertex meshVertex = new MeshVertex();
             meshVertex.setPos(new Vec3f(x, y, z));
+            meshVertex.setNormal(new Vec3f(normX, normY, normZ));
+            meshVertex.setColor(new Vec3f(colorX, colorY, colorZ));
             vertices.add(meshVertex);
         }
-        mesh.getVertices().flip();
         return vertices;
     }
 
@@ -117,7 +123,7 @@ public class NgMeshSimplify {
 //            mesh->triangles[mesh->numTriangles].indices_[2] = triangles[i].indices_[2];
 //            mesh->numTriangles++;
 //        }
-        for (int i = 0; i < triangles.size(); i++) {
+        for (int i = 0; i < triangles.size()/3; i++) {
             int index = i * 3;
             mesh.getIndicates().put(index + 0, triangles.get(index + 0).indices[0]);
             mesh.getIndicates().put(index + 1, triangles.get(index + 1).indices[1]);
@@ -345,7 +351,7 @@ public class NgMeshSimplify {
     }
 
     static void CompactVertices(ArrayList<MeshVertex> vertices, MeshBuffer meshBuffer) {
-        ArrayList<Boolean> vertexUsed = new ArrayList<>(vertices.size());
+        boolean[] vertexUsed = new boolean[vertices.size()];
 
 //        for (int i = 0; i < meshBuffer->numTriangles; i++) {
 //            MeshTriangle tri = meshBuffer->triangles[i];
@@ -356,19 +362,16 @@ public class NgMeshSimplify {
 
         for (int i = 0; i < meshBuffer.getNumIndicates(); i++) {
             int tri = meshBuffer.getIndicates().get(i);
-            vertexUsed.set(tri, true);
+            vertexUsed[tri]= true;
         }
 
         ArrayList<MeshVertex> compactVertices = new ArrayList<>(vertices.size());
-        ArrayList<Integer> remappedVertexIndices = new ArrayList<>(vertices.size());
-        for(int i=0; i<vertices.size(); i++){
-            remappedVertexIndices.set(i, -1);
-        }
+        int[] remappedVertexIndices = new int [vertices.size()];
+        Arrays.fill(remappedVertexIndices, -1);
 
         for (int i = 0; i < vertices.size(); i++) {
-            if (vertexUsed.get(i)) {
-                remappedVertexIndices.set(i, compactVertices.size());
-                //vertices[i].normal = vertices.get(i).getNormal();
+            if (vertexUsed[i]) {
+                remappedVertexIndices[i] = compactVertices.size();
                 compactVertices.add(vertices.get(i));
             }
         }
@@ -381,7 +384,7 @@ public class NgMeshSimplify {
 //        }
 
         for (int i = 0; i < meshBuffer.getNumIndicates(); i++) {
-            meshBuffer.getIndicates().put(i, remappedVertexIndices.get(meshBuffer.getIndicates().get(i)));
+            meshBuffer.getIndicates().put(i, remappedVertexIndices[meshBuffer.getIndicates().get(i)]);
         }
 
         swap(vertices, compactVertices);
