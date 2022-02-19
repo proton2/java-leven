@@ -22,11 +22,21 @@ public class NgMeshSimplify {
 
     static QEFData qef = new QEFData(new LevenQefSolver());
 
-    public void ngMeshSimplifier(MeshBuffer mesh, Vec4i worldSpaceOffset, MeshSimplificationOptions options) {
-        if (mesh.getNumIndicates()/3 < 100 || mesh.getNumVertices() < 100) {
-            return;
+    private ArrayList<MeshTriangle> copyTriangles(MeshBuffer mesh){
+        ArrayList<MeshTriangle> triangles = new ArrayList<>(mesh.getNumIndicates()/3);
+        for (int i = 0; i < mesh.getNumIndicates()/3; i++) {
+            int index = i * 3;
+            int i1 = mesh.getIndicates().get(index + 0);
+            int i2 = mesh.getIndicates().get(index + 1);
+            int i3 = mesh.getIndicates().get(index + 2);
+            MeshTriangle meshTriangle = new MeshTriangle(i1, i2, i3);
+            triangles.add(meshTriangle);
         }
+        mesh.getIndicates().flip();
+        return triangles;
+    }
 
+    private ArrayList<MeshVertex> copyVertices(MeshBuffer mesh, Vec4i worldSpaceOffset){
         ArrayList<MeshVertex> vertices = new ArrayList<>(mesh.getNumVertices());
         for (int i = 0; i < mesh.getNumVertices(); i++) {
             int index = i * 9;
@@ -43,18 +53,15 @@ public class NgMeshSimplify {
             vertices.add(meshVertex);
         }
         mesh.getVertices().flip();
+        return vertices;
+    }
 
-        ArrayList<MeshTriangle> triangles = new ArrayList<>(mesh.getNumIndicates()/3);
-        for (int i = 0; i < mesh.getNumIndicates(); i++) {
-            int index = i * 3;
-            int i1 = mesh.getIndicates().get(index + 0);
-            int i2 = mesh.getIndicates().get(index + 1);
-            int i3 = mesh.getIndicates().get(index + 2);
-            MeshTriangle meshTriangle = new MeshTriangle(i1, i2, i3);
-            triangles.add(meshTriangle);
+    public void ngMeshSimplifier(MeshBuffer mesh, Vec4i worldSpaceOffset, MeshSimplificationOptions options) {
+        if (mesh.getNumIndicates()/3 < 100 || mesh.getNumVertices() < 100) {
+            return;
         }
-        mesh.getIndicates().flip();
-
+        ArrayList<MeshVertex> vertices = copyVertices(mesh, worldSpaceOffset);
+        ArrayList<MeshTriangle> triangles = copyTriangles(mesh);
         mesh.setNumVertices(0);
         mesh.setNumIndicates(0);
 
@@ -64,31 +71,27 @@ public class NgMeshSimplify {
         ArrayList<Vec3f> collapsePosition = new ArrayList<>(edges.size());
         ArrayList<Vec3f> collapseNormal = new ArrayList<>(edges.size());
         ArrayList<Integer> collapseValid = new ArrayList<>(edges.size());
-        ArrayList<Integer> collapseEdgeID = new ArrayList<>(vertices.size());
-        ArrayList<Integer> collapseTarget = new ArrayList<>(vertices.size());
+        int[] collapseEdgeID = new int[vertices.size()];
+        int[] collapseTarget = new int[vertices.size()];
 
         ArrayList<Edge> edgeBuffer = new ArrayList<>(edges.size());
         ArrayList<MeshTriangle> triBuffer = new ArrayList<>(triangles.size());
 
         // per vertex
-        ArrayList<Integer> vertexTriangleCounts = new ArrayList<>(vertices.size());
+        int[] vertexTriangleCounts = new int[vertices.size()];
         for (MeshTriangle triangle : triangles) {
-            int[] indices = triangle.indices;
             for (int index = 0; index < 3; index++) {
-                vertexTriangleCounts.set(indices[index], vertexTriangleCounts.get(indices[index]) + 1);
+                vertexTriangleCounts[triangle.indices[index]] += 1;
             }
         }
 
         int targetTriangleCount = (int) (triangles.size() * options.targetPercentage);
         int iterations = 0;
 
-        while (triangles.size() > targetTriangleCount && iterations++ < options.maxIterations) {
-            for(int i=0; i<vertices.size(); i++){
-                collapseEdgeID.set(i, -1);
-            }
-            for(int i=0; i<vertices.size(); i++){
-                collapseTarget.set(i, -1);
-            }
+        while (triangles.size() > targetTriangleCount &&
+                iterations++ < options.maxIterations) {
+            Arrays.fill(collapseEdgeID, -1);
+            Arrays.fill(collapseTarget, -1);
 
             collapseValid.clear();
 		    int countValidCollapse = FindValidCollapses(
@@ -167,17 +170,17 @@ public class NgMeshSimplify {
     }
 
     private static int RemoveTriangles(ArrayList<MeshVertex> vertices,
-                                       ArrayList<Integer> collapseTarget,
+                                       int[] collapseTarget,
                                        ArrayList<MeshTriangle> tris,
                                        ArrayList<MeshTriangle> triBuffer,
-                                       ArrayList<Integer> vertexTriangleCounts) {
+                                       int[] vertexTriangleCounts) {
         int removedCount = 0;
-        vertexTriangleCounts.clear();
+        Arrays.fill(vertexTriangleCounts, 0);
         triBuffer.clear();
 
         for (MeshTriangle tri: tris) {
             for (int j = 0; j < 3; j++) {
-			    int t = collapseTarget.get(tri.indices[j]);
+                int t = collapseTarget[tri.indices[j]];
                 if (t != -1) {
                     tri.indices[j] = t;
                 }
@@ -190,7 +193,7 @@ public class NgMeshSimplify {
             }
 		    int[] indices = tri.indices;
             for (int index = 0; index < 3; index++) {
-                vertexTriangleCounts.set(indices[index], vertexTriangleCounts.get(indices[index]) +1);
+                vertexTriangleCounts[indices[index]] += 1;
             }
             triBuffer.add(tri);
         }
@@ -206,15 +209,15 @@ public class NgMeshSimplify {
         list2.addAll(tmpList);
     }
 
-    private static void RemoveEdges(ArrayList<Integer> collapseTarget, ArrayList<Edge> edges, ArrayList<Edge> edgeBuffer) {
+    private static void RemoveEdges(int[] collapseTarget, ArrayList<Edge> edges, ArrayList<Edge> edgeBuffer) {
         edgeBuffer.clear();
         for (Edge edge: edges) {
-            int t = collapseTarget.get(edge.min);
+            int t = collapseTarget[edge.min];
             if (t != -1) {
                 edge.min = t;
             }
 
-            t = collapseTarget.get(edge.max);
+            t = collapseTarget[edge.max];
             if (t != -1) {
                 edge.max = t;
             }
@@ -230,19 +233,19 @@ public class NgMeshSimplify {
     static void CollapseEdges(
             ArrayList<Integer> collapseValid,
             ArrayList<Edge> edges,
-            ArrayList<Integer> collapseEdgeID,
+            int[] collapseEdgeID,
             ArrayList<Vec3f> collapsePositions,
             ArrayList<Vec3f> collapseNormal,
             ArrayList<MeshVertex> vertices,
-            ArrayList<Integer> collapseTarget)
+            int[] collapseTarget)
     {
         int countCollapsed = 0, countCandidates = 0;
         for (int i: collapseValid) {
             countCandidates++;
 		    Edge edge = edges.get(i);
-            if (collapseEdgeID.get(edge.min) == i && collapseEdgeID.get(edge.max) == i) {
+            if (collapseEdgeID[edge.min] == i && collapseEdgeID[edge.max] == i){
                 countCollapsed++;
-                collapseTarget.set(edge.max, edge.min);
+                collapseTarget[edge.max] = edge.min;
                 vertices.get(edge.min).setPos(collapsePositions.get(i));
                 vertices.get(edge.min).setNormal(collapseNormal.get(i));
             }
@@ -260,9 +263,9 @@ public class NgMeshSimplify {
         ArrayList<Edge> edges,
         ArrayList<MeshVertex> vertices,
         ArrayList<MeshTriangle> tris,
-        ArrayList<Integer> vertexTriangleCounts,
+        int[] vertexTriangleCounts,
         ArrayList<Integer> collapseValid,
-        ArrayList<Integer> collapseEdgeID,
+        int[] collapseEdgeID,
         ArrayList<Vec3f> collapsePosition,
         ArrayList<Vec3f> collapseNormal)
     {
@@ -276,10 +279,8 @@ public class NgMeshSimplify {
         }
         Collections.sort(randomEdges);
 
-        ArrayList<Float> minEdgeCost = new ArrayList<>(vertices.size());
-        for (int i=0; i<vertices.size(); i++){
-            minEdgeCost.set(i, Float.MAX_VALUE);
-        }
+        float[] minEdgeCost = new float[vertices.size()];
+        Arrays.fill(minEdgeCost, Float.MAX_VALUE);
 
         for (int i: randomEdges) {
 		    Edge edge = edges.get(i);
@@ -301,7 +302,7 @@ public class NgMeshSimplify {
                 continue;
             }
 
-		    int degree = vertexTriangleCounts.get(edge.min) + vertexTriangleCounts.get(edge.max);
+		    int degree = vertexTriangleCounts[edge.min] + vertexTriangleCounts[edge.max];
             if (degree > COLLAPSE_MAX_DEGREE) {
                 continue;
             }
@@ -329,14 +330,14 @@ public class NgMeshSimplify {
             collapseNormal.set(i, vMin.getNormal().sub(vMax.getNormal())).mul(0.5f);
             collapsePosition.set(i, new Vec3f(pos[0], pos[1], pos[2]));
 
-            if (error < minEdgeCost.get(edge.min)) {
-                minEdgeCost.set(edge.min, error);
-                collapseEdgeID.set(edge.min, i);
+            if (error < minEdgeCost[edge.min]){
+                minEdgeCost[edge.min] = error;
+                collapseEdgeID[edge.min] = i;
             }
 
-            if (error < minEdgeCost.get(edge.max)) {
-                minEdgeCost.set(edge.max, error);
-                collapseEdgeID.set(edge.max, i);
+            if (error < minEdgeCost[edge.max]){
+                minEdgeCost[edge.max] = error;
+                collapseEdgeID[edge.max] = i;
             }
             validCollapses++;
         }

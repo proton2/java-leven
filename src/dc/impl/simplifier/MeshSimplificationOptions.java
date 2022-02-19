@@ -14,11 +14,11 @@ public class MeshSimplificationOptions {
     float targetPercentage = 0.05f;
 
     // The maximum allowed error when collapsing an edge (error is calculated as 1.0/qef_error)
-    float maxError = 5.f;
+    public float maxError = 5.f;
 
     // Useful for controlling how uniform the mesh is (or isn't)
-    float maxEdgeSize = 2.5f;
+    public float maxEdgeSize = 2.5f;
 
     // If the mesh has sharp edges this can used to prevent collapses which would otherwise be used
-    float minAngleCosine = 0.8f;
+    public float minAngleCosine = 0.8f;
 }
