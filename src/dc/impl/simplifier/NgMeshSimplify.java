@@ -74,8 +74,8 @@ public class NgMeshSimplify {
         ArrayList<Edge> edges = new ArrayList<>(triangles.size() * 3);
         BuildCandidateEdges(vertices, triangles, edges);
 
-        ArrayList<Vec3f> collapsePosition = new ArrayList<>(edges.size());
-        ArrayList<Vec3f> collapseNormal = new ArrayList<>(edges.size());
+        Vec4f[] collapsePosition = new Vec4f[edges.size()];
+        Vec3f[] collapseNormal = new Vec3f[edges.size()];
         ArrayList<Integer> collapseValid = new ArrayList<>(edges.size());
         int[] collapseEdgeID = new int[vertices.size()];
         int[] collapseTarget = new int[vertices.size()];
@@ -240,8 +240,8 @@ public class NgMeshSimplify {
             ArrayList<Integer> collapseValid,
             ArrayList<Edge> edges,
             int[] collapseEdgeID,
-            ArrayList<Vec3f> collapsePositions,
-            ArrayList<Vec3f> collapseNormal,
+            Vec4f[] collapsePositions,
+            Vec3f[] collapseNormal,
             ArrayList<MeshVertex> vertices,
             int[] collapseTarget)
     {
@@ -252,8 +252,8 @@ public class NgMeshSimplify {
             if (collapseEdgeID[edge.min] == i && collapseEdgeID[edge.max] == i){
                 countCollapsed++;
                 collapseTarget[edge.max] = edge.min;
-                vertices.get(edge.min).setPos(collapsePositions.get(i));
-                vertices.get(edge.min).setNormal(collapseNormal.get(i));
+                vertices.get(edge.min).getPos().set(collapsePositions[i].x, collapsePositions[i].y, collapsePositions[i].z);
+                vertices.get(edge.min).setNormal(collapseNormal[i]);
             }
         }
     }
@@ -272,8 +272,8 @@ public class NgMeshSimplify {
         int[] vertexTriangleCounts,
         ArrayList<Integer> collapseValid,
         int[] collapseEdgeID,
-        ArrayList<Vec3f> collapsePosition,
-        ArrayList<Vec3f> collapseNormal)
+        Vec4f[] collapsePosition,
+        Vec3f[] collapseNormal)
     {
         int validCollapses = 0;
         int numRandomEdges = edges.size();
@@ -317,14 +317,12 @@ public class NgMeshSimplify {
             Vec4f[] normals = {new Vec4f(vMin.getNormal()), new Vec4f(vMax.getNormal())};
             qef.qef_create_from_points(positions, normals, 2);
             Vec4f solvedPos = qef.solve();
-            float[] pos = solvedPos.to1dArray();
             float error = qef.getError();
             if (error > 0.f) {
                 error = 1.f / error;
             }
 
-            // avoid vertices becoming a 'hub' for lots of edges by penalising collapses
-            // which will lead to a vertex with degree > 10
+            // avoid vertices becoming a 'hub' for lots of edges by penalising collapses which will lead to a vertex with degree > 10
 		    int penalty = Math.max(0, degree - 10);
             error += penalty * (options.maxError * 0.1f);
             if (error > options.maxError) {
@@ -333,8 +331,8 @@ public class NgMeshSimplify {
 
             collapseValid.add(i);
 
-            collapseNormal.set(i, vMin.getNormal().sub(vMax.getNormal())).mul(0.5f);
-            collapsePosition.set(i, new Vec3f(pos[0], pos[1], pos[2]));
+            collapseNormal[i] = vMin.getNormal().sub(vMax.getNormal()).mul(0.5f);
+            collapsePosition[i] = new Vec4f(solvedPos.x, solvedPos.y, solvedPos.z, 1.f);
 
             if (error < minEdgeCost[edge.min]){
                 minEdgeCost[edge.min] = error;
