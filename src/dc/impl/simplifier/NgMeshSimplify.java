@@ -123,13 +123,13 @@ public class NgMeshSimplify {
 //            mesh->triangles[mesh->numTriangles].indices_[2] = triangles[i].indices_[2];
 //            mesh->numTriangles++;
 //        }
-        for (int i = 0; i < triangles.size()/3; i++) {
+        for (int i = 0; i < triangles.size(); i++) {
             int index = i * 3;
-            mesh.getIndicates().put(index + 0, triangles.get(index + 0).indices[0]);
-            mesh.getIndicates().put(index + 1, triangles.get(index + 1).indices[1]);
-            mesh.getIndicates().put(index + 2, triangles.get(index + 2).indices[2]);
+            mesh.getIndicates().put(index + 0, triangles.get(i).indices[0]);
+            mesh.getIndicates().put(index + 1, triangles.get(i).indices[1]);
+            mesh.getIndicates().put(index + 2, triangles.get(i).indices[2]);
         }
-        mesh.setNumIndicates(triangles.size());
+        mesh.setNumIndicates(triangles.size()*3);
         CompactVertices(vertices, mesh);
 
         mesh.setNumVertices(vertices.size());
