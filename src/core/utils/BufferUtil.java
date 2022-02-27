@@ -2,7 +2,6 @@ package core.utils;
 
 import core.math.Matrix4f;
 import core.math.Vec3i;
-import core.math.Vec4i;
 import core.model.Vertex;
 import dc.entities.DebugDrawBuffer;
 import dc.entities.MeshVertex;
@@ -129,7 +128,7 @@ public class BufferUtil {
 		return buffer;
 	}
 
-	public static FloatBuffer createDcFlippedBufferAOS(List<MeshVertex> vertices, Vec4i worldSpaceOffset) {
+	public static FloatBuffer createDcFlippedBufferAOS(List<MeshVertex> vertices, Vec3i worldSpaceOffset) {
 		FloatBuffer buffer = createFloatBuffer(vertices.size() * 9);
 		for (Vertex vertice : vertices) {
 			buffer.put(vertice.getPos().getX() + worldSpaceOffset.x);
