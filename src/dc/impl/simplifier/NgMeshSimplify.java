@@ -15,52 +15,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 
 public class NgMeshSimplify {
-
     private static final int COLLAPSE_MAX_DEGREE = 16;
-    private static final int MAX_TRIANGLES_PER_VERTEX = COLLAPSE_MAX_DEGREE;
-    private static final int QEF_MAX_INPUT_COUNT = 12;
-
-    static QEFData qef = new QEFData(new LevenQefSolver());
-
-    private ArrayList<MeshTriangle> copyTriangles(MeshBuffer mesh){
-        ArrayList<MeshTriangle> triangles = new ArrayList<>(mesh.getNumIndicates()/3);
-        for (int i = 0; i < mesh.getNumIndicates()/3; i++) {
-            int index = i * 3;
-            int i1 = mesh.getIndicates().get(index + 0);
-            int i2 = mesh.getIndicates().get(index + 1);
-            int i3 = mesh.getIndicates().get(index + 2);
-            MeshTriangle meshTriangle = new MeshTriangle(i1, i2, i3);
-            triangles.add(meshTriangle);
-        }
-        return triangles;
-    }
-
-    private ArrayList<MeshVertex> copyVertices(MeshBuffer mesh, Vec3i worldSpaceOffset){
-        ArrayList<MeshVertex> vertices = new ArrayList<>(mesh.getNumVertices());
-        for (int i = 0; i < mesh.getNumVertices(); i++) {
-            int index = i * 9;
-            float x = mesh.getVertices().get(index + 0);
-            float y = mesh.getVertices().get(index + 1);
-            float z = mesh.getVertices().get(index + 2);
-            float normX = mesh.getVertices().get(index + 3);
-            float normY = mesh.getVertices().get(index + 4);
-            float normZ = mesh.getVertices().get(index + 5);
-            float colorX = mesh.getVertices().get(index + 6);
-            float colorY = mesh.getVertices().get(index + 7);
-            float colorZ = mesh.getVertices().get(index + 8);
-
-            x -= worldSpaceOffset.x;
-            y -= worldSpaceOffset.y;
-            z -= worldSpaceOffset.z;
-
-            MeshVertex meshVertex = new MeshVertex();
-            meshVertex.setPos(new Vec3f(x, y, z));
-            meshVertex.setNormal(new Vec3f(normX, normY, normZ));
-            meshVertex.setColor(new Vec3f(colorX, colorY, colorZ));
-            vertices.add(meshVertex);
-        }
-        return vertices;
-    }
 
     public void ngMeshSimplifier(MeshBuffer mesh, Vec3i worldSpaceOffset, MeshSimplificationOptions options) {
         if (mesh.getNumIndicates()/3 < 100 || mesh.getNumVertices() < 100) {
@@ -117,12 +72,6 @@ public class NgMeshSimplify {
         }
 
         mesh.setNumIndicates(0);
-//        for (int i = 0; i < triangles.size(); i++) {
-//            mesh->triangles[mesh->numTriangles].indices_[0] = triangles[i].indices_[0];
-//            mesh->triangles[mesh->numTriangles].indices_[1] = triangles[i].indices_[1];
-//            mesh->triangles[mesh->numTriangles].indices_[2] = triangles[i].indices_[2];
-//            mesh->numTriangles++;
-//        }
         for (int i = 0; i < triangles.size(); i++) {
             int index = i * 3;
             mesh.getIndicates().put(index + 0, triangles.get(i).indices[0]);
@@ -143,7 +92,7 @@ public class NgMeshSimplify {
             edges.add(new Edge(min(indices[1], indices[2]), max(indices[1], indices[2])));
             edges.add(new Edge(min(indices[0], indices[2]), max(indices[0], indices[2])));
         }
-        edges.sort(Comparator.comparingLong(lhs -> lhs.getIdx()));
+        edges.sort(Comparator.comparingLong(Edge::getIdx));
 
         ArrayList<Edge> filteredEdges = new ArrayList<>(edges.size());
         boolean[] boundaryVerts = new boolean[vertices.size()];
@@ -171,6 +120,111 @@ public class NgMeshSimplify {
         for (Edge edge: filteredEdges) {
             if (!boundaryVerts[edge.getMin()] && !boundaryVerts[edge.getMax()]){
                 edges.add(edge);
+            }
+        }
+    }
+
+    static int FindValidCollapses(
+            MeshSimplificationOptions options,
+            ArrayList<Edge> edges,
+            ArrayList<MeshVertex> vertices,
+            ArrayList<MeshTriangle> tris,
+            int[] vertexTriangleCounts,
+            ArrayList<Integer> collapseValid,
+            int[] collapseEdgeID,
+            Vec4f[] collapsePosition,
+            Vec3f[] collapseNormal)
+    {
+        int validCollapses = 0;
+        int numRandomEdges = edges.size();
+        Random r = new Random(42);
+        ArrayList<Integer> randomEdges = new ArrayList<>(numRandomEdges);
+        for (int i = 0; i < numRandomEdges; i++) {
+            int randomIdx = randomGet(r, 0, (edges.size() - 1));
+            randomEdges.add(randomIdx);
+        }
+        Collections.sort(randomEdges);
+
+        float[] minEdgeCost = new float[vertices.size()];
+        Arrays.fill(minEdgeCost, Float.MAX_VALUE);
+
+        for (int i: randomEdges) {
+            Edge edge = edges.get(i);
+            MeshVertex vMin = vertices.get(edge.getMin());
+            MeshVertex vMax = vertices.get(edge.getMax());
+
+            // prevent collapses along edges
+            float cosAngle = vMin.getNormal().dot(vMax.getNormal());
+            if (cosAngle < options.minAngleCosine) {
+                continue;
+            }
+
+            float edgeSize = vMax.getPos().sub(vMin.getPos()).lengthSquared();
+            if (edgeSize > (options.maxEdgeSize * options.maxEdgeSize)) {
+                continue;
+            }
+
+            if (Math.abs(vMin.getColor().Z - vMax.getColor().getZ()) > 1e-3) { // [ToDo] color.w ???
+                continue;
+            }
+
+            int degree = vertexTriangleCounts[edge.getMin()] + vertexTriangleCounts[edge.getMax()];
+            if (degree > COLLAPSE_MAX_DEGREE) {
+                continue;
+            }
+
+            Vec4f[] positions = {new Vec4f(vMin.getPos()), new Vec4f(vMax.getPos())};
+            Vec4f[] normals = {new Vec4f(vMin.getNormal()), new Vec4f(vMax.getNormal())};
+
+            QEFData qef = new QEFData(new LevenQefSolver());
+            qef.qef_create_from_points(positions, normals, 2);
+            Vec4f solvedPos = qef.solve();
+            float error = qef.getError();
+            if (error > 0.f) {
+                error = 1.f / error;
+            }
+
+            // avoid vertices becoming a 'hub' for lots of edges by penalising collapses which will lead to a vertex with degree > 10
+            int penalty = Math.max(0, degree - 10);
+            error += penalty * (options.maxError * 0.1f);
+            if (error > options.maxError) {
+                continue;
+            }
+
+            collapseValid.add(i);
+
+            collapseNormal[i] = vMin.getNormal().sub(vMax.getNormal()).mul(0.5f);
+            collapsePosition[i] = new Vec4f(solvedPos.x, solvedPos.y, solvedPos.z, 1.f);
+
+            if (error < minEdgeCost[edge.getMin()]){
+                minEdgeCost[edge.getMin()] = error;
+                collapseEdgeID[edge.getMin()] = i;
+            }
+
+            if (error < minEdgeCost[edge.getMax()]){
+                minEdgeCost[edge.getMax()] = error;
+                collapseEdgeID[edge.getMax()] = i;
+            }
+            validCollapses++;
+        }
+        return validCollapses;
+    }
+
+    static void CollapseEdges(
+            ArrayList<Integer> collapseValid,
+            ArrayList<Edge> edges,
+            int[] collapseEdgeID,
+            Vec4f[] collapsePositions,
+            Vec3f[] collapseNormal,
+            ArrayList<MeshVertex> vertices,
+            int[] collapseTarget)
+    {
+        for (int i: collapseValid) {
+            Edge edge = edges.get(i);
+            if (collapseEdgeID[edge.getMin()] == i && collapseEdgeID[edge.getMax()] == i){
+                collapseTarget[edge.getMax()] = edge.getMin();
+                vertices.get(edge.getMin()).getPos().set(collapsePositions[i].x, collapsePositions[i].y, collapsePositions[i].z);
+                vertices.get(edge.getMin()).setNormal(collapseNormal[i]);
             }
         }
     }
@@ -207,14 +261,6 @@ public class NgMeshSimplify {
         return removedCount;
     }
 
-    public static <T>void swap(List<T> list1, List<T> list2){
-        List<T> tmpList = new ArrayList<>(list1);
-        list1.clear();
-        list1.addAll(list2);
-        list2.clear();
-        list2.addAll(tmpList);
-    }
-
     private static void RemoveEdges(int[] collapseTarget, ArrayList<Edge> edges, ArrayList<Edge> edgeBuffer) {
         edgeBuffer.clear();
         for (Edge edge: edges) {
@@ -234,118 +280,6 @@ public class NgMeshSimplify {
             }
         }
         swap(edges, edgeBuffer);
-    }
-
-    static void CollapseEdges(
-            ArrayList<Integer> collapseValid,
-            ArrayList<Edge> edges,
-            int[] collapseEdgeID,
-            Vec4f[] collapsePositions,
-            Vec3f[] collapseNormal,
-            ArrayList<MeshVertex> vertices,
-            int[] collapseTarget)
-    {
-        int countCollapsed = 0, countCandidates = 0;
-        for (int i: collapseValid) {
-            countCandidates++;
-		    Edge edge = edges.get(i);
-            if (collapseEdgeID[edge.getMin()] == i && collapseEdgeID[edge.getMax()] == i){
-                countCollapsed++;
-                collapseTarget[edge.getMax()] = edge.getMin();
-                vertices.get(edge.getMin()).getPos().set(collapsePositions[i].x, collapsePositions[i].y, collapsePositions[i].z);
-                vertices.get(edge.getMin()).setNormal(collapseNormal[i]);
-            }
-        }
-    }
-
-    public static int randomGet(Random rnd, int min, int max) // get random number from
-    // min to max (not max-1 !)
-    {
-        return min + (int) Math.floor(rnd.nextDouble() * (max - min + 1));
-    }
-
-    static int FindValidCollapses(
-	    MeshSimplificationOptions options,
-        ArrayList<Edge> edges,
-        ArrayList<MeshVertex> vertices,
-        ArrayList<MeshTriangle> tris,
-        int[] vertexTriangleCounts,
-        ArrayList<Integer> collapseValid,
-        int[] collapseEdgeID,
-        Vec4f[] collapsePosition,
-        Vec3f[] collapseNormal)
-    {
-        int validCollapses = 0;
-        int numRandomEdges = edges.size();
-        Random r = new Random(42);
-        ArrayList<Integer> randomEdges = new ArrayList<>(numRandomEdges);
-        for (int i = 0; i < numRandomEdges; i++) {
-		    int randomIdx = randomGet(r, 0, (edges.size() - 1));
-            randomEdges.add(randomIdx);
-        }
-        Collections.sort(randomEdges);
-
-        float[] minEdgeCost = new float[vertices.size()];
-        Arrays.fill(minEdgeCost, Float.MAX_VALUE);
-
-        for (int i: randomEdges) {
-		    Edge edge = edges.get(i);
-		    MeshVertex vMin = vertices.get(edge.getMin());
-            MeshVertex vMax = vertices.get(edge.getMax());
-
-            // prevent collapses along edges
-            float cosAngle = vMin.getNormal().dot(vMax.getNormal());
-            if (cosAngle < options.minAngleCosine) {
-                continue;
-            }
-
-		    float edgeSize = vMax.getPos().sub(vMin.getPos()).lengthSquared();
-            if (edgeSize > (options.maxEdgeSize * options.maxEdgeSize)) {
-                continue;
-            }
-
-            if (Math.abs(vMin.getColor().Z - vMax.getColor().getZ()) > 1e-3) { // [ToDo] color.w ???
-                continue;
-            }
-
-		    int degree = vertexTriangleCounts[edge.getMin()] + vertexTriangleCounts[edge.getMax()];
-            if (degree > COLLAPSE_MAX_DEGREE) {
-                continue;
-            }
-
-            Vec4f[] positions = {new Vec4f(vMin.getPos()), new Vec4f(vMax.getPos())};
-            Vec4f[] normals = {new Vec4f(vMin.getNormal()), new Vec4f(vMax.getNormal())};
-            qef.qef_create_from_points(positions, normals, 2);
-            Vec4f solvedPos = qef.solve();
-            float error = qef.getError();
-            if (error > 0.f) {
-                error = 1.f / error;
-            }
-
-            // avoid vertices becoming a 'hub' for lots of edges by penalising collapses which will lead to a vertex with degree > 10
-		    int penalty = Math.max(0, degree - 10);
-            error += penalty * (options.maxError * 0.1f);
-            if (error > options.maxError) {
-                continue;
-            }
-
-            collapseValid.add(i);
-
-            collapseNormal[i] = vMin.getNormal().sub(vMax.getNormal()).mul(0.5f);
-            collapsePosition[i] = new Vec4f(solvedPos.x, solvedPos.y, solvedPos.z, 1.f);
-
-            if (error < minEdgeCost[edge.getMin()]){
-                minEdgeCost[edge.getMin()] = error;
-                collapseEdgeID[edge.getMin()] = i;
-            }
-
-            if (error < minEdgeCost[edge.getMax()]){
-                minEdgeCost[edge.getMax()] = error;
-                collapseEdgeID[edge.getMax()] = i;
-            }
-            validCollapses++;
-        }
-        return validCollapses;
     }
 
     static void CompactVertices(ArrayList<MeshVertex> vertices, MeshBuffer meshBuffer) {
@@ -384,7 +318,58 @@ public class NgMeshSimplify {
         for (int i = 0; i < meshBuffer.getNumIndicates(); i++) {
             meshBuffer.getIndicates().put(i, remappedVertexIndices[meshBuffer.getIndicates().get(i)]);
         }
-
         swap(vertices, compactVertices);
+    }
+
+    public static <T>void swap(List<T> list1, List<T> list2){
+        List<T> tmpList = new ArrayList<>(list1);
+        list1.clear();
+        list1.addAll(list2);
+        list2.clear();
+        list2.addAll(tmpList);
+    }
+
+    public static int randomGet(Random rnd, int min, int max){// get random number from min to max (not max-1 !)
+        return min + (int) Math.floor(rnd.nextDouble() * (max - min + 1));
+    }
+
+    private ArrayList<MeshTriangle> copyTriangles(MeshBuffer mesh){
+        ArrayList<MeshTriangle> triangles = new ArrayList<>(mesh.getNumIndicates()/3);
+        for (int i = 0; i < mesh.getNumIndicates()/3; i++) {
+            int index = i * 3;
+            int i1 = mesh.getIndicates().get(index + 0);
+            int i2 = mesh.getIndicates().get(index + 1);
+            int i3 = mesh.getIndicates().get(index + 2);
+            MeshTriangle meshTriangle = new MeshTriangle(i1, i2, i3);
+            triangles.add(meshTriangle);
+        }
+        return triangles;
+    }
+
+    private ArrayList<MeshVertex> copyVertices(MeshBuffer mesh, Vec3i worldSpaceOffset){
+        ArrayList<MeshVertex> vertices = new ArrayList<>(mesh.getNumVertices());
+        for (int i = 0; i < mesh.getNumVertices(); i++) {
+            int index = i * 9;
+            float x = mesh.getVertices().get(index + 0);
+            float y = mesh.getVertices().get(index + 1);
+            float z = mesh.getVertices().get(index + 2);
+            float normX = mesh.getVertices().get(index + 3);
+            float normY = mesh.getVertices().get(index + 4);
+            float normZ = mesh.getVertices().get(index + 5);
+            float colorX = mesh.getVertices().get(index + 6);
+            float colorY = mesh.getVertices().get(index + 7);
+            float colorZ = mesh.getVertices().get(index + 8);
+
+            x -= worldSpaceOffset.x;
+            y -= worldSpaceOffset.y;
+            z -= worldSpaceOffset.z;
+
+            MeshVertex meshVertex = new MeshVertex();
+            meshVertex.setPos(new Vec3f(x, y, z));
+            meshVertex.setNormal(new Vec3f(normX, normY, normZ));
+            meshVertex.setColor(new Vec3f(colorX, colorY, colorZ));
+            vertices.add(meshVertex);
+        }
+        return vertices;
     }
 }
