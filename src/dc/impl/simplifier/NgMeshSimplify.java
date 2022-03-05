@@ -136,7 +136,7 @@ public class NgMeshSimplify {
             Vec3f[] collapseNormal)
     {
         int validCollapses = 0;
-        int numRandomEdges = edges.size();
+        int numRandomEdges = (int) (edges.size() * options.edgeFraction);
         Random r = new Random(42);
         ArrayList<Integer> randomEdges = new ArrayList<>(numRandomEdges);
         for (int i = 0; i < numRandomEdges; i++) {

@@ -4,7 +4,6 @@ import core.kernel.Camera;
 import core.math.Vec2f;
 import core.math.Vec3f;
 import core.math.Vec3i;
-import core.math.Vec4i;
 import core.physics.Physics;
 import core.physics.WorldCollisionNode;
 import dc.entities.MeshBuffer;
@@ -392,12 +391,12 @@ public class ChunkOctree {
         }
 
         if(useMeshSimplifier) {
-            Vec4i centrePos = new Vec4i(chunk.min.add(new Vec3i(chunk.size / 2)), 0);
-            float leafSize = meshGen.leafSizeScale * (chunk.size / meshGen.clipmapLeafSize);
+            Vec3i centrePos = chunk.min.add(new Vec3i(chunk.size / 2));
+            int leafSize = meshGen.leafSizeScale * (chunk.size / meshGen.clipmapLeafSize);
             MeshSimplificationOptions options = new MeshSimplificationOptions();
-            options.maxError = 5.f * leafSize;
-            options.maxEdgeSize = 2.5f * leafSize;
-            options.minAngleCosine = 0.7f;
+            options.maxError = 1.f * leafSize; //0.f, 50.f
+            options.maxEdgeSize = 0.5f * leafSize; // 0.5, 5.0
+            options.minAngleCosine = 0.1f; // 0, 1
             NgMeshSimplify simplifyer = new NgMeshSimplify();
             simplifyer.ngMeshSimplifier(meshBuffer, centrePos, options);
         }
