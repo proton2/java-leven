@@ -8,7 +8,7 @@ public class Edge{
     public Edge(int minIndex, int maxIndex) {
         this.min = minIndex;
         this.max = maxIndex;
-        idx = max | min;
+        idx = ((long) max << 32) | min;
     }
 
     public int getMin() {
@@ -17,7 +17,7 @@ public class Edge{
 
     public void setMin(int min) {
         this.min = min;
-        idx = max | min;
+        idx = ((long) max << 32) | min;
     }
 
     public int getMax() {
@@ -26,14 +26,10 @@ public class Edge{
 
     public void setMax(int max) {
         this.max = max;
-        idx = max | min;
+        idx = ((long) max << 32) | min;
     }
 
     public long getIdx() {
         return idx;
     }
-
-//    public void setIdx(long idx) {
-//        this.idx = idx;
-//    }
 }

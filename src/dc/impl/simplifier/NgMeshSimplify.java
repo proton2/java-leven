@@ -193,7 +193,7 @@ public class NgMeshSimplify {
 
             collapseValid.add(i);
 
-            collapseNormal[i] = vMin.getNormal().sub(vMax.getNormal()).mul(0.5f);
+            collapseNormal[i] = vMin.getNormal().add(vMax.getNormal()).mul(0.5f);//sub !!!
             collapsePosition[i] = new Vec4f(solvedPos.x, solvedPos.y, solvedPos.z, 1.f);
 
             if (error < minEdgeCost[edge.getMin()]){

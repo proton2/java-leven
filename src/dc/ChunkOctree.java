@@ -394,9 +394,9 @@ public class ChunkOctree {
             Vec3i centrePos = chunk.min.add(new Vec3i(chunk.size / 2));
             int leafSize = meshGen.leafSizeScale * (chunk.size / meshGen.clipmapLeafSize);
             MeshSimplificationOptions options = new MeshSimplificationOptions();
-            options.maxError = 1.f * leafSize; //0.f, 50.f
-            options.maxEdgeSize = 0.5f * leafSize; // 0.5, 5.0
-            options.minAngleCosine = 0.1f; // 0, 1
+            options.maxError *= leafSize; //0.f, 50.f
+            options.maxEdgeSize *= leafSize; // 0.5, 5.0
+            options.minAngleCosine = 0.01f; // 0, 1
             NgMeshSimplify simplifyer = new NgMeshSimplify();
             simplifyer.ngMeshSimplifier(meshBuffer, centrePos, options);
         }

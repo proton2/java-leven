@@ -5,7 +5,7 @@ public class MeshSimplificationOptions {
     // candidates for collapsing. There is likely a sweet spot here trading off against number
     // of edges processed vs number of invalid collapses generated due to collisions
     // (the more edges that are processed the higher the chance of collisions happening)
-    float edgeFraction = 0.125f;
+    float edgeFraction = 1f;
 
     // Stop simplfying after a given number of iterations
     int maxIterations = 10;
