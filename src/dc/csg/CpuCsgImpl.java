@@ -53,7 +53,7 @@ public class CpuCsgImpl implements ICSGOperations {
                 Vec4i key = new Vec4i(child.min, child.size);
                 CPUDensityField srcField = densityFieldCache.get(key);
                 if (srcField != null) {
-                    reduce(i, srcField, field);
+                    reduceMultiThread(i, srcField, field);
                     node.chunkCSGEdited = true;
                 }
             }
@@ -71,6 +71,38 @@ public class CpuCsgImpl implements ICSGOperations {
                 }
             }
         }
+    }
+
+    private void reduceMultiThread(int chunkOrder, CPUDensityField srcField, CPUDensityField dstField){
+        int bound = meshGen.getHermiteIndexSize();
+        Vec3i dstOffset = meshGen.offset(chunkOrder, bound/2);
+        int threadBound = (bound * bound * bound) / availableProcessors;
+        List<Callable<Integer>> tasks = new ArrayList<>();
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = from + threadBound;
+            boolean last = (i == availableProcessors - 1 && to <= (bound * bound * bound) - 1);
+            tasks.add(() -> {
+                int it = from;
+                while (it < (last ? bound * bound * bound : to)) {
+                    int x = it % bound;
+                    int y = (it / bound) % bound;
+                    int z = (it / bound / bound);
+                    Vec3i dstCellOffset = new Vec3i(x/2, y/2, z/2).add(dstOffset);
+                    reduceCell(srcField, dstField, dstCellOffset, z, y, x);
+
+                    if (x + 2 < bound) {
+                        it = it+2;
+                    } else if (y + 2 < bound) {
+                        it = z * bound * bound + (y+ 2) * bound;
+                    } else {
+                        it = (z + 2) * bound * bound;
+                    }
+                }
+                return 1;
+            });
+        }
+        VoxelOctree.performIntCallableTask(tasks, service, logger);
     }
 
     private void reduceCell(CPUDensityField srcField, CPUDensityField dstField, Vec3i dstCellOffset, int srcCellZ, int srcCellY, int srcCellX) {

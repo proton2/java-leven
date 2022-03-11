@@ -361,9 +361,28 @@ public class ChunkOctree {
     }
 
     private boolean filterNodesForDebug(ChunkNode node){
-        return  //(node.size == 32 && node.min.equals(new Vec3i(32, 0, -1408))) ||
-                (node.size == 64 && node.min.equals(new Vec3i(0,-64,-1408))) || // родитель чанка под дырой
-                (node.size == 32 && node.min.equals(new Vec3i(32, -32, -1408)));// || // чанк 32 под дырой
+        return searchNodeForDebug(new Vec3i(-64, -192, -1984), 64, node);
+    }
+
+    private boolean searchNodeForDebug(Vec3i min, int size, ChunkNode node){
+        long nodeMortonCode = Morton3D.codeForPosition(min, size, meshGen.worldSizeXZ/2);
+        ChunkNode searchNode = mortonCodesChunksMap.get(nodeMortonCode);
+
+//        for (int i = 0; i < 8; i++) {
+//            long locCodeChild = (searchNode.chunkCode << 3) | i;
+//            ChunkNode child = mortonCodesChunksMap.get(locCodeChild);
+//            if(node.equals(child)){
+//                return true;
+//            }
+//        }
+
+        Vec3i neighbourDown = searchNode.min.add(new Vec3i( 0, -1, 0 ).mul(searchNode.size));
+        long neighbourDownMortonCode = Morton3D.codeForPosition(neighbourDown, searchNode.size, meshGen.worldSizeXZ/2);
+        ChunkNode neighbourDownNode = mortonCodesChunksMap.get(neighbourDownMortonCode);
+        if(node.equals(neighbourDownNode)){
+            return true;
+        }
+        return node.equals(searchNode);
     }
 
     private List<RenderMesh> getRenderMeshes(List<ChunkNode> chunkNodes){

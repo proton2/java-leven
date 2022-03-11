@@ -1,4 +1,4 @@
-package dc;
+package test;
 
 import core.math.Vec3i;
 import dc.impl.MeshGenerationContext;
