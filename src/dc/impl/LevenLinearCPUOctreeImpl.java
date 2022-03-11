@@ -5,7 +5,6 @@ import core.math.Vec3i;
 import core.math.Vec4f;
 import core.math.Vec4i;
 import core.utils.BufferUtil;
-import core.utils.Constants;
 import dc.*;
 import dc.csg.ICSGOperations;
 import dc.entities.CSGOperationInfo;
@@ -105,7 +104,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             // ToDo return seamNodes which size have seamSize from method
             int seamSize = findSeamNodes(octree.nodeCodes, isSeamNode, 0, octree.numNodes);
             Set<Integer> seamNodeCodes = new HashSet<>(seamSize);
-            extractNodeInfo(isSeamNode, Constants.Yellow,//VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
+            extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
                     node.size / meshGen.getVoxelsPerChunk(), node.min, 0, octree.numNodes,
                     octree.nodeCodes, octree.nodeMaterials, octree.vertexPositions, octree.vertexNormals, seamNodes, seamNodeCodes);
 
