@@ -6,6 +6,51 @@ import java.util.ArrayList;
 
 public class Array3DMultiThreadTest {
     public static void main(String[] args) {
+        cicleTest();
+    }
+
+
+    private static void cicleTest(){
+        int size = 33;
+        int availableProcessors = 6;
+        int threadBound = size / availableProcessors;
+
+        ArrayList<Vec3i> threadArr = new ArrayList<>();
+        for (int i = 0; i < availableProcessors; i++) {
+            int from = i * threadBound;
+            int to = (i == availableProcessors - 1) ? size : from + threadBound;
+
+            for (int z = from + from % 2; z < to; z +=2) {
+                for (int y = 0; y < size; y += 2) {
+                    for (int x = 0; x < size; x += 2) {
+                        threadArr.add(new Vec3i(x, y, z));
+                    }
+                }
+            }
+        }
+
+        ArrayList<Vec3i> arr = new ArrayList<>();
+        for(int z = 0; z < size; z += 2 ) {
+            for (int y = 0; y < size; y += 2) {
+                for (int x = 0; x < size; x += 2) {
+                    arr.add(new Vec3i(x, y, z));
+                }
+            }
+        }
+
+        boolean equalsFlag = true;
+        for (int i=0; i<threadArr.size(); i++){
+            if(!threadArr.get(i).equals(arr.get(i))){
+                System.out.println("array element not equals in index " + i);
+                equalsFlag = false;
+            }
+        }
+        if(equalsFlag){
+            System.out.println("array element is equals");
+        }
+    }
+
+    private static void test1(){
         int size = 33;
         int availableProcessors = 4;
         int threadBound = (size * size * size) / availableProcessors;

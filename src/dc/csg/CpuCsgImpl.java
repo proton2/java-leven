@@ -74,29 +74,20 @@ public class CpuCsgImpl implements ICSGOperations {
     }
 
     private void reduceMultiThread(int chunkOrder, CPUDensityField srcField, CPUDensityField dstField){
-        int bound = meshGen.getHermiteIndexSize();
-        Vec3i dstOffset = meshGen.offset(chunkOrder, bound/2);
-        int threadBound = (bound * bound * bound) / availableProcessors;
+        int size = meshGen.getHermiteIndexSize();
+        Vec3i dstOffset = meshGen.offset(chunkOrder, size/2);
+        int threadBound = size / availableProcessors;
         List<Callable<Integer>> tasks = new ArrayList<>();
         for (int i = 0; i < availableProcessors; i++) {
             int from = i * threadBound;
-            int to = from + threadBound;
-            boolean last = (i == availableProcessors - 1 && to <= (bound * bound * bound) - 1);
+            int to = (i == availableProcessors - 1) ? size : from + threadBound;
             tasks.add(() -> {
-                int it = from;
-                while (it < (last ? bound * bound * bound : to)) {
-                    int x = it % bound;
-                    int y = (it / bound) % bound;
-                    int z = (it / bound / bound);
-                    Vec3i dstCellOffset = new Vec3i(x/2, y/2, z/2).add(dstOffset);
-                    reduceCell(srcField, dstField, dstCellOffset, z, y, x);
-
-                    if (x + 2 < bound) {
-                        it = it+2;
-                    } else if (y + 2 < bound) {
-                        it = z * bound * bound + (y+ 2) * bound;
-                    } else {
-                        it = (z + 2) * bound * bound;
+                for (int z = from + from % 2; z < to; z +=2) {
+                    for (int y = 0; y < size; y += 2) {
+                        for (int x = 0; x < size; x += 2) {
+                            Vec3i dstCellOffset = new Vec3i(x / 2, y / 2, z / 2).add(dstOffset);
+                            reduceCell(srcField, dstField, dstCellOffset, z, y, x);
+                        }
                     }
                 }
                 return 1;
