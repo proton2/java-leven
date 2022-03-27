@@ -16,10 +16,7 @@ import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
 import java.util.*;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
@@ -61,8 +58,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     @Override
     public void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize) {
         Vec4i key = new Vec4i(min, clipmapNodeSize);
-        CpuOctree octree = octreeCache.remove(key);
-        //System.out.println("octreeCache size " + octreeCache.size());
+        CpuOctree octree = octreeCache.remove(key);     //System.out.println("octreeCache size " + octreeCache.size());
         if(octree!=null) {
             octree.octreeNodes.clear();
             octree.nodeCodes = null;
@@ -104,7 +100,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int[] isSeamNode = new int[octree.numNodes];
             // ToDo return seamNodes which size have seamSize from method
             int seamSize = findSeamNodes(octree.nodeCodes, isSeamNode, 0, octree.numNodes);
-            extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
+            extractNodeInfo(isSeamNode, Constants.Yellow, //VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
                     node.size / meshGen.getVoxelsPerChunk(), node.min, 0, octree.numNodes,
                     octree.nodeCodes, octree.nodeMaterials, octree.vertexPositions, octree.vertexNormals, seamNodes);
         }
@@ -151,8 +147,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         }
         if(field.hermiteEdges.size()>0){
             octree = ConstructOctreeFromField(node.min, node.size, field);
-            octreeCache.put(key, octree);
-            //System.out.println("octreeCache size " + octreeCache.size());
+            octreeCache.put(key, octree);   //System.out.println("octreeCache size " + octreeCache.size());
         }
         return octree;
     }
@@ -195,8 +190,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         int[] d_leafCodes = new int [voxelCount];
         int[] d_leafMaterials = new int [voxelCount];
 
+        Map<Integer, Vec3i> additionalSeamNodes = new ConcurrentHashMap<>();
         octree.numNodes = FindActiveVoxelsMultiThread(chunkSize, chunkMin, field.materials,
-                d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials);
+                d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials, additionalSeamNodes);
         if (octree.numNodes<=0){
             return null;
         }
@@ -208,14 +204,10 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         octree.octreeNodes = compactVoxels(d_leafOccupancy, d_leafEdgeInfo, d_leafCodes, d_leafMaterials,
                 octree.nodeCodes, d_compactLeafEdgeInfo, octree.nodeMaterials, octree.numNodes);
 
-        QEFData[] qefs = new QEFData[octree.numNodes];
         octree.vertexNormals = new Vec4f[octree.numNodes];
-        createLeafNodesMultiThread(octree.numNodes, octree.nodeCodes, d_compactLeafEdgeInfo, field.hermiteEdges,
-                qefs, octree.vertexNormals, octree.nodeMaterials, chunkSize, chunkMin);
-
         octree.vertexPositions = new Vec4f[octree.numNodes];
-        solveQEFsMultiThread(octree.nodeCodes, chunkSize, meshGen.getVoxelsPerChunk(), chunkMin,
-                qefs, octree.vertexPositions, octree.numNodes);
+        createLeafNodesMultiThread(octree.numNodes, octree.nodeCodes, d_compactLeafEdgeInfo, field.hermiteEdges,
+                octree.vertexNormals, octree.nodeMaterials, chunkSize, chunkMin, additionalSeamNodes, octree.vertexPositions);
         return octree;
     }
 
@@ -278,29 +270,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         return VoxelOctree.performIntCallableTask(tasks, childsService, logger);
     }
 
-    private void FindFieldEdgesMultiThread(CPUDensityField field) {
-        int bound = meshGen.getHermiteIndexSize();
-        int threadBound = (bound * bound * bound) / availableProcessors;
-        List<Callable<Integer>> tasks = new ArrayList<>();
-        for (int i = 0; i < availableProcessors; i++) {
-            int finalI = i;
-            tasks.add(() -> {
-                int from = finalI * threadBound;
-                int to = from + threadBound;
-                int size = 0;
-                for (int it = from; it < to; it++) {
-                    int x = it % bound;
-                    int y = (it / bound) % bound;
-                    int z = (it / bound / bound);
-                    size = processFindFieldEdges(field.min, field.size / meshGen.getVoxelsPerChunk(),
-                            field.materials, size, z, y, x, field.hermiteEdges);
-                }
-                return size;
-            });
-        }
-        VoxelOctree.performIntCallableTask(tasks, service, logger);
-    }
-
     private int processFindFieldEdges(Vec3i chunkMin, int sampleScale, int[] materials,
                                       int size, int z, int y, int x, Map<Integer, Vec4f> normals) {
         Vec3i pos = new Vec3i(x, y, z);
@@ -328,13 +297,14 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         Vec3f p0 = new Vec3i(x, y, z).mul(sampleScale).add(chunkMin).toVec3f();
         Vec3f p1 = p0.add(EDGE_END_OFFSETS[axisIndex].mul(sampleScale).toVec3f());
 
-        Vec4f p = ApproximateLevenCrossingPosition(p0, p1);
+        Vec4f p = ApproximateZeroCrossingPosition(p0, p1);
         Vec4f normal = CalculateSurfaceNormal(p);
         return new Vec4f(normal.getVec3f(), p.w);
     }
 
     private int FindActiveVoxelsMultiThread(int chunkSize, Vec3i chunkMin, int[] materials,
-                                 int[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials) {
+                                 int[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials,
+                                            Map<Integer, Vec3i> additionalSeamNodes) {
         List<Callable<Integer>> tasks = new ArrayList<>();
         int bound = voxelMaterials.length;
         int threadBound = bound / availableProcessors;
@@ -344,14 +314,15 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int to = from + threadBound;
             boolean last = (i == availableProcessors - 1 && to <= bound - 1);
             tasks.add(() -> FindActiveVoxels(chunkSize, chunkMin, from, last ? bound : to, materials,
-                    voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials));
+                    voxelOccupancy, voxelEdgeInfo, voxelPositions, voxelMaterials, additionalSeamNodes));
         }
         return VoxelOctree.performIntCallableTask(tasks, service, logger);
     }
 
     private int FindActiveVoxels(int chunkSize, Vec3i chunkMin, int from, int to,
                          int[] materials,
-                         int[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials) {
+                         int[] voxelOccupancy, int[] voxelEdgeInfo, int[] voxelPositions, int[] voxelMaterials,
+                                 Map<Integer, Vec3i> additionalSeamNodes) {
         int size = 0;
         for (int k = from; k < to; k++) {
             int indexShift = VoxelHelperUtils.log2(meshGen.getVoxelsPerChunk()); // max octree depth
@@ -384,9 +355,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             cornerValues |= (((cornerMaterials[6]) == meshGen.MATERIAL_AIR ? 0 : 1) << 6);
             cornerValues |= (((cornerMaterials[7]) == meshGen.MATERIAL_AIR ? 0 : 1) << 7);
 
-            if (cornerValues != 0 && cornerValues != 255) {
-                ++size;
-            }
             // record which of the 12 voxel edges are on/off
             int edgeList = 0;
             for (int i = 0; i < 12; i++) {
@@ -397,15 +365,18 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 int signChange = edgeStart != edgeEnd ? 1 : 0;
                 edgeList |= (signChange << i);
             }
-            Vec3i nodePos = new Vec3i();
-            boolean haveVoxel = false;
+            Vec3i nodePos = null;
             if (cornerValues == 0 || cornerValues == 255) {
-                haveVoxel = tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, pos, cornerValues, nodePos);
+                nodePos = tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, pos, cornerValues);
+                if(nodePos!=null) {
+                    additionalSeamNodes.put(meshGen.codeForPosition(pos), nodePos);
+                }
             }
+            boolean haveVoxel = (cornerValues != 0 && cornerValues != 255) || nodePos!=null;
             if (haveVoxel) {
                 ++size;
             }
-            voxelOccupancy[index] = haveVoxel || (cornerValues != 0 && cornerValues != 255) ? 1 : 0;
+            voxelOccupancy[index] = haveVoxel ? 1 : 0;
             voxelPositions[index] = meshGen.codeForPosition(pos);
             voxelEdgeInfo[index] = edgeList;
 
@@ -433,7 +404,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private void createLeafNodesMultiThread(int bound, int[] voxelPositions, int[] voxelEdgeInfo, Map<Integer, Vec4f> nodes,
-                                               QEFData[] leafQEFs, Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin) {
+                                               Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin,
+                                            Map<Integer, Vec3i> additionalSeamNodes, Vec4f[] solvedPositions) {
         final int threadBound = bound / availableProcessors;
         List<Callable<Boolean>> tasks = new ArrayList<>();
         for (int i = 0; i < availableProcessors; i++) {
@@ -441,8 +413,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int to = from + threadBound;
             boolean last = (i == availableProcessors - 1 && to <= bound - 1);
             tasks.add(() -> {
-                createLeafNodes(from, last ? bound : to, voxelPositions, voxelEdgeInfo, nodes, leafQEFs, vertexNormals,
-                        voxelMaterials, chunkSize, chunkMin);
+                createLeafNodes(from, last ? bound : to, voxelPositions, voxelEdgeInfo, nodes, vertexNormals,
+                        voxelMaterials, chunkSize, chunkMin, additionalSeamNodes, solvedPositions);
                 return true;
             });
         }
@@ -450,7 +422,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private void createLeafNodes(int from, int to, int[] voxelPositions, int[] voxelEdgeInfo, Map<Integer, Vec4f> nodes,
-                         QEFData[] leafQEFs, Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin)
+                         Vec4f[] vertexNormals, int[] voxelMaterials, int chunkSize, Vec3i chunkMin,
+                                 Map<Integer, Vec3i> additionalSeamNodes, Vec4f[] solvedPositions)
     {
         for (int index = from; index < to; index++) {
             int encodedPosition = voxelPositions[index];
@@ -458,10 +431,8 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int corners = voxelMaterials[index] & 255;
             QEFData qef = new QEFData(new LevenQefSolver());
             if (corners==0 || corners==255){
-                Vec3i nodePos = new Vec3i();
-                tryToCreateBoundSeamPseudoNode(chunkMin, chunkSize, position, corners, nodePos);
-                qef.setSolvedPos(nodePos.toVec4f());
-                leafQEFs[index]=qef;
+                Vec3i nodePos = additionalSeamNodes.get(encodedPosition);
+                solvedPositions[index] = nodePos.toVec4f();
                 vertexNormals[index] = CalculateSurfaceNormal(nodePos.toVec4f());
                 continue;
             }
@@ -495,51 +466,21 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 }
             }
             qef.qef_create_from_points(edgePositions, edgeNormals, edgeCount);
-            leafQEFs[index] = qef;
 
             Vec4f normal = new Vec4f(0.f, 0.f, 0.f, 0.f);
             for (int i = 0; i < edgeCount; i++) {
                 normal = normal.add(edgeNormals[i]);
                 normal.w += 1.f;
             }
-
             Vec4f nor = normal.div(normal.w).normalize();
             normal.w = 0.f;
-
             vertexNormals[index] = nor;
-        }
-    }
 
-    private void solveQEFsMultiThread(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin,
-                                      QEFData[] qefs, Vec4f[] solvedPosition, int bound) {
-        final int threadBound = bound / availableProcessors;
-        List<Callable<Boolean>> tasks = new ArrayList<>();
-        for (int i = 0; i < availableProcessors; i++) {
-            int from = i * threadBound;
-            int to = from + threadBound;
-            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
-            tasks.add(() -> {
-                solveQEFs(d_nodeCodes, chunkSize, voxelsPerChunk, chunkMin, from, last ? bound : to, qefs, solvedPosition);
-                return true;
-            });
-        }
-        VoxelOctree.performBoolCallableTask(tasks, service, logger);
-    }
-
-    private void solveQEFs(int[] d_nodeCodes, int chunkSize, int voxelsPerChunk, Vec3i chunkMin, int from, int to,
-                           QEFData[] qefs, Vec4f[] solvedPositions){
-        for (int index = from; index < to; index++) {
-            int leafSize = (chunkSize / voxelsPerChunk);
-            Vec4f solvedPos;
-            if (qefs[index].getSolvedPos()!=null){
-                solvedPos = qefs[index].getSolvedPos();    // precalculated position for seam holes
-            } else {
-                solvedPos = qefs[index].solve();
-                solvedPos = solvedPos.mul(leafSize).add(chunkMin);
-            }
+            int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
+            Vec4f solvedPos = qef.solve().mul(leafSize).add(chunkMin);
             if(enableQefClamping) {
-                Vec3i leaf = meshGen.positionForCode(d_nodeCodes[index]).mul(leafSize).add(chunkMin);
-                Vec4f massPoint = qefs[index].getMasspoint().mul(leafSize).add(chunkMin);
+                Vec3i leaf = position.mul(leafSize).add(chunkMin);
+                Vec4f massPoint = qef.getMasspoint().mul(leafSize).add(chunkMin);
                 solvedPos = VoxelHelperUtils.isOutFromBounds(solvedPos.getVec3f(), leaf.toVec3f(), leafSize) ? massPoint : solvedPos;
             }
             solvedPositions[index] = solvedPos;
@@ -601,7 +542,6 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                 // need to check that the position generated when the offsets are added won't exceed
                 // the chunk bounds -- if this happens rather than failing the octree lookup
                 // will actually wrap around to 0 again causing weird polys to be generated
-
                 int a = pos[(axis + 1) % 3];
                 int b = pos[(axis + 2) % 3];
                 boolean isEdgeVoxel = a == (meshGen.getVoxelsPerChunk() - 1) || b == (meshGen.getVoxelsPerChunk() - 1);
@@ -640,11 +580,9 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
         if (!signChange) {
             return 0;
         }
-
         // flip the winding depending on which end of the edge is outside the volume
         int flip = m1 != 0 ? 1 : 0;
-        int[][] indices = {
-                // different winding orders depending on the sign change direction
+        int[][] indices = { // different winding orders depending on the sign change direction
                 {0, 1, 3, 0, 3, 2},
                 {0, 3, 1, 0, 2, 3},
         };
@@ -708,76 +646,4 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             }
         }
     }
-
-//    private int[] compactEdges(int[] edgeValid, int[] edges, int compactEdgesSize) {
-//        int[] compactActiveEdges = new int [compactEdgesSize];
-//        int current = 0;
-//        for (int index = 0; index < edges.length; index++) {
-//            if (edgeValid[index]==1) {
-//                compactActiveEdges[current] = edges[index];
-//                ++current;
-//            }
-//        }
-//        return compactActiveEdges;
-//    }
-
-//    private Vec4f[] FindEdgeIntersectionInfoMultiThread(Vec3i chunkMin, int sampleScale, int[] encodedEdges, int bound) {
-//
-//        Vec4f[] normals = new Vec4f[bound];
-//        final int threadBound = bound / availableProcessors;
-//        List<Callable<Boolean>> tasks = new ArrayList<>();
-//        for (int i = 0; i < availableProcessors; i++) {
-//            int from = i * threadBound;
-//            int to = from + threadBound;
-//            boolean last = (i == availableProcessors - 1 && to <= bound - 1);
-//            tasks.add(() -> {
-//                FindEdgeIntersectionInfo(chunkMin, sampleScale, from, last ? bound : to, encodedEdges, normals);
-//                return true;
-//            });
-//        }
-//        performBoolCallableTask(tasks, service);
-//        return normals;
-//    }
-
-    //    private void FindEdgeIntersectionInfo(Vec3i chunkMin, int sampleScale, int from, int to, int[] encodedEdges,
-//                                          Vec4f[] normals) {
-//        for (int index = from; index < to; index++) {
-//            int edge = encodedEdges[index];
-//            int axisIndex = edge & 3;
-//            int hermiteIndex = edge >> 2;
-//
-//            int x = (hermiteIndex >> (meshGen.getIndexShift() * 0)) & meshGen.getIndexMask();
-//            int y = (hermiteIndex >> (meshGen.getIndexShift() * 1)) & meshGen.getIndexMask();
-//            int z = (hermiteIndex >> (meshGen.getIndexShift() * 2)) & meshGen.getIndexMask();
-//            normals[index] = calculateNorm(chunkMin, sampleScale, axisIndex, x, y, z);
-//        }
-//    }
-
-    //    private int GenerateDefaultField(Vec3i offset, int sampleScale, int defaultMaterialIndex,
-//                              int[] field_materials)
-//    {
-//        int size = 0;
-//        for (int z = 0; z < meshGen.getFieldSize(); z++) {
-//            for (int y = 0; y < meshGen.getFieldSize(); y++) {
-//                for (int x = 0; x < meshGen.getFieldSize(); x++) {
-//                    size = processMaterial(offset, sampleScale, defaultMaterialIndex, field_materials, size, new Vec3i(x, y, z));
-//                }
-//            }
-//        }
-//        return size;
-//    }
-//
-//    private int GenerateDefaultField1d(Vec3i offset, int sampleScale, int defaultMaterialIndex,
-//                                     int[] field_materials)
-//    {
-//        int size = 0;
-//        int bound = meshGen.getFieldSize();
-//        for (int i = 0; i < bound * bound * bound; i++) {
-//            int x = i % bound;
-//            int y = (i / bound) % bound;
-//            int z = (i / bound / bound);
-//            size = processMaterial(offset, sampleScale, defaultMaterialIndex, field_materials, size, new Vec3i(x, y, z));
-//        }
-//        return size;
-//    }
 }

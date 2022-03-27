@@ -91,7 +91,6 @@ public class ChunkOctreeWrapper extends GameObject {
         } else{
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx, null, densityFieldCache, octreeCache);
             //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
-            //voxelOctree = new TransitionLinearOctreeImpl(meshGenCtx, null, densityFieldCache, octreeCache);
             voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(mortonCodesChunksMap), cpuDensityFieldCache, cpuOctreeCache, mortonCodesChunksMap);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         }

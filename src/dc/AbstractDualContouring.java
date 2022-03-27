@@ -417,13 +417,12 @@ public abstract class AbstractDualContouring implements DualContouring{
     }
 
     public Vec4f ApproximateZeroCrossingPosition(Vec3f p0, Vec3f p1) {
-        // approximate the zero crossing by finding the min value along the edge
         float minValue = 100000.f;
         float t = 0.f;
         float currentT = 0.f;
-        int steps = 8;
-        float increment = 1.f / (float)steps;
-        while (currentT <= 1.f) {
+        int steps = 8;  //16;
+        float increment = 1.f / steps;
+        for (int i = 0; i <= steps; i++) {
             Vec3f p = VoxelHelperUtils.mix(p0, p1, currentT);
             float density = Math.abs(getNoise(p));
             if (density < minValue) {
@@ -431,24 +430,6 @@ public abstract class AbstractDualContouring implements DualContouring{
                 t = currentT;
             }
             currentT += increment;
-        }
-        return new Vec4f(VoxelHelperUtils.mix(p0, p1, t), t);
-    }
-
-    public Vec4f ApproximateLevenCrossingPosition(Vec3f p0, Vec3f p1) {
-        float FIND_EDGE_INFO_INCREMENT = 1.f / 16.f;
-        int FIND_EDGE_INFO_STEPS = 16;
-        float minValue = 100000.f;;
-        float currentT = 0.f;
-        float t = 0.f;
-        for (int i = 0; i <= FIND_EDGE_INFO_STEPS; i++) {
-            Vec3f p = VoxelHelperUtils.mix(p0, p1, currentT);
-            float d = Math.abs(getNoise(p));
-            if (d < minValue) {
-                t = currentT;
-                minValue = d;
-            }
-            currentT += FIND_EDGE_INFO_INCREMENT;
         }
         return new Vec4f(VoxelHelperUtils.mix(p0, p1, t), t);
     }
@@ -560,7 +541,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         return faces;
     }
 
-    protected boolean tryToCreateBoundSeamPseudoNode(Vec3i chunkMin, int chunkSize, Vec3i pos, int corners, Vec3i nodePos) {
+    protected Vec3i tryToCreateBoundSeamPseudoNode(Vec3i chunkMin, int chunkSize, Vec3i pos, int corners) {
         Vec3i chunkBorders = getChunkBorder(pos);
         int nodeMinSize = meshGen.leafSizeScale;
         int leafSize = (chunkSize / meshGen.getVoxelsPerChunk());
@@ -575,16 +556,17 @@ public abstract class AbstractDualContouring implements DualContouring{
                     continue;
                 }
                 // node size at LOD 0 = 1, LOD 1 = 2, LOD 2 = 4, LOD 3 = 8
+                Vec3i nodePos = new Vec3i();
                 nodePos.x = leafMin.x + (BORDER_EDGE_OFFSETS[i].x) * leafSize / 2;
                 nodePos.y = leafMin.y + (BORDER_EDGE_OFFSETS[i].y) * leafSize / 2;
                 nodePos.z = leafMin.z + (BORDER_EDGE_OFFSETS[i].z) * leafSize / 2;
 
                 float density = getNoise(nodePos);
                 if ((density < 0 && corners == 0) || (density >= 0 && corners == 255)) {
-                    return true;
+                    return nodePos;
                 }
             }
         }
-        return false;    // voxel is full inside or outside the volume
+        return null;    // voxel is full inside or outside the volume
     }
 }
