@@ -7,6 +7,7 @@ Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation i
 CPU and OpenCL GPU implementations.
 
 ## Сhanges relative to the original solution
+- The main version is on the CPU. I use multithreading to speed up the CPU version
 - fixed the appearance of holes in the seams between chunks
 - fixed seam and chunk mesh overlap at seam intersections
 - no double call to generate mesh for rendering and mesh for collisions - mesh is generated only once
@@ -42,6 +43,7 @@ CSG operations:
 <img src="res/logo/screens/screen-04-csg.png" width="800" />
 <img src="res/logo/screens/screen-05-csg.png" width="800" />
 <img src="res/logo/screens/screen-06.png" width="800" />
+<img src="res/logo/screens/screen-07.png" width="800" />
 
 W/S/A/D - forward, backward, left, right
 
