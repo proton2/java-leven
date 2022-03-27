@@ -36,16 +36,20 @@ The dependencies are:
   * Java 11
   * I used IntelliJ IDEA Community edition
     <br>
+
+<p float="left">
 <img src="res/logo/screens/screen-01.png" width="270" />
 <img src="res/logo/screens/screen-02.png" width="270" />
 <img src="res/logo/screens/screen-06.png" width="270" />
+</p>
 <br>
 CSG operations:
 <br>
+<p float="left">
 <img src="res/logo/screens/screen-04-csg.png" width="270" />
 <img src="res/logo/screens/screen-05-csg.png" width="270" />
 <img src="res/logo/screens/screen-07.png" width="270" />
-
+</p>
 W/S/A/D - forward, backward, left, right
 
 Tab - enable/disable mouse rotation mode
