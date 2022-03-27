@@ -11,24 +11,10 @@ package core.physics;
 //import com.jme3.bullet.objects.PhysicsRigidBody;
 //import com.jme3.math.Vector3f;
 //import com.jme3.system.NativeLibraryLoader;
+
 import core.math.Vec3f;
-import core.math.Vec3i;
-import core.model.Vertex;
-import core.utils.BufferUtil;
 import dc.ChunkNode;
-import dc.entities.MeshBuffer;
-import dc.entities.MeshVertex;
 import dc.utils.Aabb;
-
-import java.io.File;
-import java.nio.FloatBuffer;
-import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-
-import static core.physics.PhysicsOperationType.PhysicsOp_RayCast;
-import static core.physics.PhysicsOperationType.PhysicsOp_WorldUpdate;
 
 public class JniNativeBulletPhysics implements Physics {
     private Vec3f collisionPos = new Vec3f();;
@@ -71,6 +57,11 @@ public class JniNativeBulletPhysics implements Physics {
 
     @Override
     public void Physics_SpawnPlayer(Vec3f origin) {
+    }
+
+    @Override
+    public int getMaxChunkSize() {
+        return 0;
     }
 
     @Override

@@ -100,7 +100,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             int[] isSeamNode = new int[octree.numNodes];
             // ToDo return seamNodes which size have seamSize from method
             int seamSize = findSeamNodes(octree.nodeCodes, isSeamNode, 0, octree.numNodes);
-            extractNodeInfo(isSeamNode, Constants.Yellow, //VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
+            extractNodeInfo(isSeamNode, VoxelHelperUtils.ColourForMinLeafSize(node.size / meshGen.getVoxelsPerChunk()),//Constants.Yellow,
                     node.size / meshGen.getVoxelsPerChunk(), node.min, 0, octree.numNodes,
                     octree.nodeCodes, octree.nodeMaterials, octree.vertexPositions, octree.vertexNormals, seamNodes);
         }

@@ -66,7 +66,7 @@ public class ChunkOctreeWrapper extends GameObject {
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
         ctx = null;//OCLUtils.getOpenCLContext();
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
-        physics = new JBulletPhysics(meshGenCtx.worldBounds, 256, playerCollision);
+        physics = new JBulletPhysics(meshGenCtx.worldBounds, 128, playerCollision);
         Camera camera = Camera.getInstance();
         camera.setPosition(new Vec3f(-144.05437f,49.39413f,-1894.7849f));
         camera.setForward(new Vec3f(-0.05832729f,0.18052073f,0.9818402f));

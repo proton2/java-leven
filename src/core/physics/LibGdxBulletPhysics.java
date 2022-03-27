@@ -4,22 +4,12 @@ package core.physics;
 //import com.badlogic.gdx.physics.bullet.collision.*;
 //import com.badlogic.gdx.physics.bullet.dynamics.*;
 //import com.badlogic.gdx.utils.SharedLibraryLoader;
+
 import core.math.Vec3f;
-import core.math.Vec3i;
 import dc.ChunkNode;
-import dc.entities.MeshBuffer;
 import dc.utils.Aabb;
 
-import javax.vecmath.Vector3f;
-import java.nio.ByteBuffer;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import static core.physics.PhysicsOperationType.PhysicsOp_RayCast;
-import static core.physics.PhysicsOperationType.PhysicsOp_WorldUpdate;
 
 public class LibGdxBulletPhysics implements Physics{
     final public static Logger logger = Logger.getLogger(LibGdxBulletPhysics.class.getName());
@@ -63,6 +53,11 @@ public class LibGdxBulletPhysics implements Physics{
 
     @Override
     public void Physics_SpawnPlayer(Vec3f origin) {
+    }
+
+    @Override
+    public int getMaxChunkSize() {
+        return 0;
     }
 
     @Override

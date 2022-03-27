@@ -35,7 +35,7 @@ public class ChunkOctree {
     private static final NumberFormat INT_FORMATTER = NumberFormat.getIntegerInstance();
     private ArrayList<ChunkNode> prevSelectedNodes;
     private final Map<Long, ChunkNode> mortonCodesChunksMap;
-    private final boolean useMeshSimplifier = false;
+    private final boolean useMeshSimplifier = true;
 
     public Vec3f getRayCollisionPos(){
         return physics.getCollisionPos();
@@ -409,7 +409,7 @@ public class ChunkOctree {
             return false;
         }
 
-        if(useMeshSimplifier) {
+        if(useMeshSimplifier && chunk.size > physics.getMaxChunkSize()) {
             Vec3i centrePos = chunk.min.add(new Vec3i(chunk.size / 2));
             int leafSize = meshGen.leafSizeScale * (chunk.size / meshGen.clipmapLeafSize);
             MeshSimplificationOptions options = new MeshSimplificationOptions();

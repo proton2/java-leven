@@ -61,6 +61,10 @@ public class JBulletPhysics implements Physics {
     private int maxChunkSize;
     private boolean playerCollision;
 
+    public int getMaxChunkSize() {
+        return maxChunkSize;
+    }
+
     private void EnqueuePhysicsOperation(PhysicsOperationType opType, Runnable op) {
         try {
             boolean res = g_operationQueue.add(op);
