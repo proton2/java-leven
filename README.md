@@ -11,7 +11,6 @@ CPU and OpenCL GPU implementations.
 - fixed the appearance of holes in the seams between chunks
 - fixed seam and chunk mesh overlap at seam intersections
 - no double call to generate mesh for rendering and mesh for collisions - mesh is generated only once
-- CPU multi-threaded implementation, which made it possible to improve performance in the CPU realization
 - faster selectActiveChunkNodes and ReleaseInvalidatedNodes (no need to recursively traverse the whole tree to invalidate chunks - which improved performance)
 - Linear chunk's octree instead of Pointer Based octree. It used Morton codes.
 - Chunks reduce instead of queue of CSG operations. Only the leaf chunk is edited. Rougher chunks have a simplification of the voxel lattice with Hermitian data.
