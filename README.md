@@ -36,13 +36,18 @@ The dependencies are:
   * Java 11
   * I used IntelliJ IDEA Community edition
 
-<img src="res/logo/screens/screen-01.png" width="800" />
-<img src="res/logo/screens/screen-02.png" width="800" />
+<p float="left">
+<img src="https://github.com/proton2/java-leven/tree/master/res/logo/screens/screen-01.png" width="270" />
+<img src="https://github.com/proton2/java-leven/tree/master/res/logo/screens/screen-02.png" width="270" />
+<img src="https://github.com/proton2/java-leven/tree/master/res/logo/screens/screen-06.png" width="270" />
+</p>
+
 CSG operations:
-<img src="res/logo/screens/screen-04-csg.png" width="800" />
-<img src="res/logo/screens/screen-05-csg.png" width="800" />
-<img src="res/logo/screens/screen-06.png" width="800" />
-<img src="res/logo/screens/screen-07.png" width="800" />
+<p float="left">
+<img src="https://github.com/proton2/java-leven/tree/master/res/logo/screens/screen-04-csg.png" width="270" />
+<img src="https://github.com/proton2/java-leven/tree/master/res/logo/screens/screen-05-csg.png" width="270" />
+<img src="https://github.com/proton2/java-leven/tree/master/res/logo/screens/screen-07.png" width="270" />
+</p>
 
 W/S/A/D - forward, backward, left, right
 
