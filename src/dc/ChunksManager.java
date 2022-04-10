@@ -22,8 +22,8 @@ import java.util.logging.Logger;
 
 import static dc.utils.VoxelHelperUtils.checkNodeForSelection;
 
-public class ChunkOctree {
-    final public static Logger logger = Logger.getLogger(ChunkOctree.class.getName());
+public class ChunksManager {
+    final public static Logger logger = Logger.getLogger(ChunksManager.class.getName());
     private ChunkNode root;
     private final Camera camera;
     private final VoxelOctree voxelOctree;
@@ -45,8 +45,8 @@ public class ChunkOctree {
         return invalidateMeshes;
     }
 
-    public ChunkOctree(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics ph, Camera cam,
-                       boolean enablePhysics, Map<Long, ChunkNode> chunks) {
+    public ChunksManager(VoxelOctree voxelOctree, MeshGenerationContext meshGen, Physics ph, Camera cam,
+                         boolean enablePhysics, Map<Long, ChunkNode> chunks) {
         this.mortonCodesChunksMap = chunks;
         this.meshGen = meshGen;
         this.physics = ph;

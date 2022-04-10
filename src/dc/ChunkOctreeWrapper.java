@@ -44,7 +44,7 @@ public class ChunkOctreeWrapper extends GameObject {
 
     final public static Logger logger = Logger.getLogger(ChunkOctreeWrapper.class.getName());
 
-    private final ChunkOctree chunkOctree;
+    private final ChunksManager chunksManager;
     private final CSGOperationsProcessor csgProcessor;
     private KernelsHolder kernelHolder;
     protected boolean drawSeamBounds = false;
@@ -94,7 +94,7 @@ public class ChunkOctreeWrapper extends GameObject {
             voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(mortonCodesChunksMap), cpuDensityFieldCache, cpuOctreeCache, mortonCodesChunksMap);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         }
-        chunkOctree = new ChunkOctree(voxelOctree, meshGenCtx, physics, camera, playerCollision, mortonCodesChunksMap);
+        chunksManager = new ChunksManager(voxelOctree, meshGenCtx, physics, camera, playerCollision, mortonCodesChunksMap);
         csgProcessor = new CSGOperationsProcessor(voxelOctree, meshGenCtx, camera, mortonCodesChunksMap);
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
     }
@@ -107,7 +107,7 @@ public class ChunkOctreeWrapper extends GameObject {
             Vec3f rayTo = new Vec3f(ray.direction.scaleAdd(Constants.ZFAR, ray.origin));
             service.submit(() -> {
                 try {
-                    chunkOctree.update();
+                    chunksManager.update();
                 } catch (Throwable e){
                     e.printStackTrace();
                 }
@@ -167,7 +167,7 @@ public class ChunkOctreeWrapper extends GameObject {
         if(kernelHolder!=null) {
             kernelHolder.destroyContext();
         }
-        chunkOctree.clean();
+        chunksManager.clean();
         service.shutdown();
     }
 
@@ -190,14 +190,14 @@ public class ChunkOctreeWrapper extends GameObject {
     private void renderMesh(Ray ray) {
         getComponents().clear();
         RenderDebugCmdBuffer renderCmds = new RenderDebugCmdBuffer();
-        List<RenderMesh> invalidateMeshes = chunkOctree.getInvalidateMeshes();
+        List<RenderMesh> invalidateMeshes = chunksManager.getInvalidateMeshes();
         if(invalidateMeshes!=null) {
             for (RenderMesh mesh : invalidateMeshes) {
                 deleteRenderer(mesh);
             }
-            chunkOctree.getInvalidateMeshes().clear();
+            chunksManager.getInvalidateMeshes().clear();
         }
-        List<RenderMesh> renderNodes = chunkOctree.getRenderMeshes(true);
+        List<RenderMesh> renderNodes = chunksManager.getRenderMeshes(true);
         int i=0;
         for (RenderMesh node : renderNodes) {
             if(drawNodeBounds) {
@@ -216,7 +216,7 @@ public class ChunkOctreeWrapper extends GameObject {
         }
 
         if (Input.getInstance().isButtonHolding(0)) { //select visible chunks for debug
-            List<ChunkNode> nodes = chunkOctree.getRayIntersected(ray);
+            List<ChunkNode> nodes = chunksManager.getRayIntersected(ray);
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
             System.out.println("selected " + nodes.size() + " chunks");
             for(ChunkNode node : nodes) {
@@ -233,7 +233,7 @@ public class ChunkOctreeWrapper extends GameObject {
 
         if (Input.getInstance().isButtonHolding(1)) {
             RenderDebugCmdBuffer camRayCmds = new RenderDebugCmdBuffer();
-            Vec3f rayPos = chunkOctree.getRayCollisionPos();
+            Vec3f rayPos = chunksManager.getRayCollisionPos();
             logger.log(Level.SEVERE, "rayCollisionPos X " + rayPos.X + " Y " + rayPos.Y + " Z " + rayPos.Z);
             camRayCmds.addWireCube(Constants.Yellow, 1f, rayPos, brushSize);
             //camRayCmds.addSphere(Constants.Red, 0.2f, chunkOctree.getRayCollisionPos(), 10);
