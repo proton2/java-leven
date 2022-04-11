@@ -50,6 +50,7 @@ public class CSGOperationsProcessor {
 
     private void processCSGOperationsImpl(){
         Set<CSGOperationInfo> operations = new HashSet<>(g_operationQueue);
+        CSGOperationInfo lastOperation = g_operationQueue.getLast();
         g_operationQueue.clear();
         if (operations.isEmpty()) {
             return;
@@ -59,10 +60,10 @@ public class CSGOperationsProcessor {
         for (CSGOperationInfo opInfo: operations){
             touchedNodes.addAll(findNodesInsideAABB(calcCSGOperationBounds(opInfo)));
         }
-        CSGReduceOperations(touchedNodes, operations);
+        CSGReduceOperations(touchedNodes, lastOperation);
     }
 
-    private void CSGReduceOperations(Set<ChunkNode> touchedNodes, Set<CSGOperationInfo> operations){
+    private void CSGReduceOperations(Set<ChunkNode> touchedNodes, CSGOperationInfo lastOperation){
         List<ChunkNode> nodes = new ArrayList<>(touchedNodes);
         nodes.sort(Comparator.comparingInt((ChunkNode lhs) -> lhs.size));
         int activeNodeNumber = 0;
@@ -82,7 +83,7 @@ public class CSGOperationsProcessor {
         }
         List<ChunkNode> subList = nodes.subList(0, activeNodeNumber+1);
         for(ChunkNode node : subList) {
-            voxelOctree.computeApplyCSGOperations(operations, node);
+            voxelOctree.computeApplyCSGOperations(lastOperation, node);
         }
     }
 

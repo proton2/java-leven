@@ -439,7 +439,7 @@ public abstract class AbstractDualContouring implements DualContouring{
         return chunkScaleSize * meshGen.leafSizeScale;
     }
 
-    public void computeApplyCSGOperations(Collection<CSGOperationInfo> operations, ChunkNode node){
+    public void computeApplyCSGOperations(CSGOperationInfo lastOperation, ChunkNode node){
     }
 
     private final Vec3i[] BORDER_EDGE_OFFSETS = {

@@ -15,7 +15,10 @@ import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -108,13 +111,13 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     @Override
-    public void computeApplyCSGOperations(Collection<CSGOperationInfo> opInfo, ChunkNode node) {
+    public void computeApplyCSGOperations(CSGOperationInfo lastOperation, ChunkNode node) {
         CPUDensityField field = LoadDensityField(node);
         if(field==null)
             return;
 
         if(node.size == meshGen.clipmapLeafSize) {
-            node.chunkIsChanged = getCsgOperationsProcessor().ApplyCSGOperations(meshGen, opInfo, node, field);
+            node.chunkIsChanged = getCsgOperationsProcessor().ApplyCSGOperations(meshGen, lastOperation, node, field);
             if(node.chunkIsChanged) {
                 node.chunkCSGEdited = true;
             }

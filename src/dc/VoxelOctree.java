@@ -4,7 +4,6 @@ import core.math.Vec3i;
 import dc.entities.CSGOperationInfo;
 import dc.entities.MeshBuffer;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -41,7 +40,7 @@ public interface VoxelOctree {
 
     boolean createLeafVoxelNodes(ChunkNode node, List<OctreeNode> seamNodes, MeshBuffer meshBuffer);
     void processNodesToMesh(List<OctreeNode> seamNodes, Vec3i min, int rootNodeSize, boolean isSeam, MeshBuffer meshBuffer);
-    void computeApplyCSGOperations(Collection<CSGOperationInfo> operations, ChunkNode node);
+    void computeApplyCSGOperations(CSGOperationInfo lastOperation, ChunkNode node);
     void computeFreeChunkOctree(Vec3i min, int clipmapNodeSize);
 
     static int performIntCallableTask(List<Callable<Integer>> tasks, ExecutorService service, Logger logger){
