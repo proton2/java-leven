@@ -361,7 +361,15 @@ public class ChunksManager {
     }
 
     private boolean filterNodesForDebug(ChunkNode node){
-        return searchNodeForDebug(new Vec3i(-64, -192, -1984), 64, node);
+
+        if((node.min.equals(new Vec3i(0, -128, -1088)) && node.size == 64)||
+            (node.min.equals(new Vec3i(64, -128, -1088)) && node.size == 64)||
+            (node.min.equals(new Vec3i(0, -128, -1024)) && node.size == 128)
+        ){
+            return true;
+        }
+        return false;
+        //return searchNodeForDebug(new Vec3i(-64, -192, -1984), 64, node);
     }
 
     private boolean searchNodeForDebug(Vec3i min, int size, ChunkNode node){

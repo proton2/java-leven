@@ -299,8 +299,11 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
     }
 
     private void deepSearchIntersection(int sampleScale, Map<Integer, Vec4f> normals, Vec3i pos, Vec3i chunkMin, int i, int edgeCode) {
-        if ((pos.x == meshGen.getHermiteIndexSize()-1 || pos.y == meshGen.getHermiteIndexSize()-1 || pos.z == meshGen.getHermiteIndexSize()-1)
-                && sampleScale != meshGen.leafSizeScale){
+        if (sampleScale != meshGen.leafSizeScale &&
+                (pos.x == 0 || pos.y == 0 || pos.z == 0
+                        || pos.x == meshGen.getHermiteIndexSize()-1
+                        || pos.y == meshGen.getHermiteIndexSize()-1
+                        || pos.z == meshGen.getHermiteIndexSize()-1)) {
 
             Vec3i startPoint = pos.mul(sampleScale).add(chunkMin);
             Vec3i midPoint = startPoint.add(EDGE_END_OFFSETS[i].mul(sampleScale /2));
@@ -661,7 +664,7 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
             if (isSeamNode==null || isSeamNode[index]==1) {
                 Vec3i min = meshGen.positionForCode(octreeCodes[index]).mul(leafSize).add(chunkMin);
                 PointerBasedOctreeNode node = new PointerBasedOctreeNode(min, leafSize, OctreeNodeType.Node_Leaf);
-                node.corners = octreeMaterials[index];
+                node.corners = octreeMaterials[index] & 255;
                 OctreeDrawInfo drawInfo = new OctreeDrawInfo();
                 drawInfo.position = octreePositions[index].getVec3f();
                 if(node.corners==0 || node.corners==255){

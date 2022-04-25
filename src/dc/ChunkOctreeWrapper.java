@@ -68,9 +68,9 @@ public class ChunkOctreeWrapper extends GameObject {
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 128, playerCollision);
         Camera camera = Camera.getInstance();
-        camera.setPosition(new Vec3f(-144.05437f,49.39413f,-1894.7849f));
-        camera.setForward(new Vec3f(-0.05832729f,0.18052073f,0.9818402f));
-        camera.setUp(new Vec3f(0.011019673f,0.9835712f,-0.18018433f));
+        camera.setPosition(new Vec3f(44.94776f,-4.30505f,-1229.6176f));
+        camera.setForward(new Vec3f(-0.05808757f,-0.20107773f,0.9778515f));
+        camera.setUp(new Vec3f(-0.011923655f,0.97957534f,0.20072392f));
         if(playerCollision) {
             camera.setPhysics(physics);
         }
