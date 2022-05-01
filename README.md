@@ -25,18 +25,9 @@ CPU and OpenCL GPU implementations.
   - Nick Gildea Leven Dual contouring implementation translated to Java CPU realization - LevenLinearCPUOctreeImpl.java
   - Nick Gildea Leven OpenCL Dual contouring implementation. In this implementation LevenLinearGPUOctreeImpl.java I call OpenCL kernels in java .
 - CSG operations (add/delete sphere/box brushes);  
-
-## Build Instructions
-please, perform
 <br>
-mvn clean install
-
-The dependencies are:
-  * Maven
-  * Java 11
-  * I used IntelliJ IDEA Community edition
-    <br>
-
+<br>
+  Video https://www.youtube.com/watch?v=ewr7YZyBYnI
 <p float="left">
 <img src="res/logo/screens/screen-01.png" width="270" />
 <img src="res/logo/screens/screen-02.png" width="270" />
@@ -50,6 +41,19 @@ CSG operations:
 <img src="res/logo/screens/screen-05-csg.png" width="270" />
 <img src="res/logo/screens/screen-07.png" width="270" />
 </p>
+<br>
+## Build Instructions
+please, perform
+<br>
+mvn clean install
+
+The dependencies are:
+  * Maven
+  * Java 11
+  * I used IntelliJ IDEA Community edition
+    <br>
+    <br>
+
 W/S/A/D - forward, backward, left, right
 
 Tab - enable/disable mouse rotation mode
