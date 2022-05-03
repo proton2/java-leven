@@ -2,19 +2,24 @@
 
 Dual Contouring Chunking LODs with seams
 
-Nick Gildea Dual Contouring https://github.com/nickgildea/leven implementation in Java LWJGL
+This solution based on Nick Gildea Dual Contouring https://github.com/nickgildea/leven 
+This is Java LWJGL implementation
 
 CPU and OpenCL GPU implementations.
 
-## Сhanges relative to the original solution
-- The main version is on the CPU. I use multithreading to speed up the CPU version
+## Improvements relative to the original solution
 - fixed the appearance of holes in the seams between chunks
 - fixed seam and chunk mesh overlap at seam intersections
 - no double call to generate mesh for rendering and mesh for collisions - mesh is generated only once
 - faster selectActiveChunkNodes and ReleaseInvalidatedNodes (no need to recursively traverse the whole tree to invalidate chunks - which improved performance)
 - Linear chunk's octree instead of Pointer Based octree. It used Morton codes.
-- Chunks reduce instead of queue of CSG operations. Only the leaf chunk is edited. Rougher chunks have a simplification of the voxel lattice with Hermitian data.
+- Chunks reduce instead of queue of CSG operations. Only the leaf chunk is edited. Rougher chunks have a simplification of the voxel lattice with Hermite data.
+- The main version is on the CPU. I use multithreading to speed up the CPU version
 
+<br>
+<b>
+In first run it generate density field and store it to file. For this reason, the first time the demo starts for a long time
+</b>
 
 ## Features:
 - Used JBullet physics engine (ray pick and collision detection);
