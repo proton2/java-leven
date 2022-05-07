@@ -4,6 +4,9 @@ Dual Contouring Chunking LODs with seams
 
 This solution based on Nick Gildea Dual Contouring https://github.com/nickgildea/leven 
 This is Java LWJGL implementation
+<br>
+<br>
+This project is written in Java. Created for the practice of Java core. The code will be very clear to Unity users.
 
 CPU and OpenCL GPU implementations.
 
