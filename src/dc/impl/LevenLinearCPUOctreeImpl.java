@@ -292,45 +292,46 @@ public class LevenLinearCPUOctreeImpl extends AbstractDualContouring implements 
                     (CORNER_MATERIALS[0] == meshGen.MATERIAL_AIR && CORNER_MATERIALS[e] != meshGen.MATERIAL_AIR);
             if (signChange) {
                 normals.put(edgeCode, calculateNorm(chunkMin, sampleScale, axis, x, y, z));
-            } else {
+            } else if (isEdgeBoundAndNotLeaf(sampleScale, pos)) {
                 deepSearchIntersection(sampleScale, normals, pos, chunkMin, axis, edgeCode);
             }
         }
     }
 
-    private void deepSearchIntersection(int sampleScale, Map<Integer, Vec4f> normals, Vec3i pos, Vec3i chunkMin, int i, int edgeCode) {
-        if (sampleScale != meshGen.leafSizeScale &&
+    private boolean isEdgeBoundAndNotLeaf(int sampleScale, Vec3i pos) {
+        return sampleScale != meshGen.leafSizeScale &&
                 (pos.x == 0 || pos.y == 0 || pos.z == 0
-                        || pos.x == meshGen.getHermiteIndexSize()-1
-                        || pos.y == meshGen.getHermiteIndexSize()-1
-                        || pos.z == meshGen.getHermiteIndexSize()-1)) {
+                        || pos.x == meshGen.getHermiteIndexSize() - 1
+                        || pos.y == meshGen.getHermiteIndexSize() - 1
+                        || pos.z == meshGen.getHermiteIndexSize() - 1);
+    }
 
-            Vec3i startPoint = pos.mul(sampleScale).add(chunkMin);
-            Vec3i midPoint = startPoint.add(EDGE_END_OFFSETS[i].mul(sampleScale /2));
-            Vec3i endPoint = startPoint.add(EDGE_END_OFFSETS[i].mul(sampleScale));
+    private void deepSearchIntersection(int sampleScale, Map<Integer, Vec4f> normals, Vec3i pos, Vec3i chunkMin, int i, int edgeCode) {
+        Vec3i startPoint = pos.mul(sampleScale).add(chunkMin);
+        Vec3i midPoint = startPoint.add(EDGE_END_OFFSETS[i].mul(sampleScale / 2));
+        Vec3i endPoint = startPoint.add(EDGE_END_OFFSETS[i].mul(sampleScale));
 
-            Vec4f destNorm = new Vec4f();
-            int numIntersections = 0;
-            int startPointMaterial = getNoise(startPoint) < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
-            int midPointMaterial = getNoise(midPoint) < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
-            if(startPointMaterial != midPointMaterial){
-                Vec4f midNormal = calculateNorm(startPoint, midPoint);
-                destNorm = new Vec4f(midNormal.getVec3f(), midNormal.w * 0.5f);
-                numIntersections++;
-            }
+        Vec4f destNorm = new Vec4f();
+        int numIntersections = 0;
+        int startPointMaterial = getNoise(startPoint) < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
+        int midPointMaterial = getNoise(midPoint) < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
+        if (startPointMaterial != midPointMaterial) {
+            Vec4f midNormal = calculateNorm(startPoint, midPoint);
+            destNorm = new Vec4f(midNormal.getVec3f(), midNormal.w * 0.5f);
+            numIntersections++;
+        }
 
-            int endPointMaterial = getNoise(endPoint) < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
-            if(midPointMaterial!=endPointMaterial){
-                Vec4f srcMidPointNorm = calculateNorm(midPoint, endPoint);
-                destNorm = destNorm.add(srcMidPointNorm.getVec3f(), 0.5f + srcMidPointNorm.w * 0.5f);
-                numIntersections++;
-            }
-            if(numIntersections > 0) {
-                float invNum = 1.0f / numIntersections;
-                Vec3f d = destNorm.getVec3f().mul(invNum).normalize();
-                float w = destNorm.w * invNum;
-                normals.put(edgeCode, new Vec4f(d, w));
-            }
+        int endPointMaterial = getNoise(endPoint) < 0.f ? meshGen.MATERIAL_SOLID : meshGen.MATERIAL_AIR;
+        if (midPointMaterial != endPointMaterial) {
+            Vec4f srcMidPointNorm = calculateNorm(midPoint, endPoint);
+            destNorm = destNorm.add(srcMidPointNorm.getVec3f(), 0.5f + srcMidPointNorm.w * 0.5f);
+            numIntersections++;
+        }
+        if (numIntersections > 0) {
+            float invNum = 1.0f / numIntersections;
+            Vec3f d = destNorm.getVec3f().mul(invNum).normalize();
+            float w = destNorm.w * invNum;
+            normals.put(edgeCode, new Vec4f(d, w));
         }
     }
 
