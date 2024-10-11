@@ -1,6 +1,6 @@
 package test;
 
-import dc.impl.opencl.*;
+import dc.impl.nonused.opencl.*;
 import dc.utils.VoxelHelperUtils;
 import org.lwjgl.opencl.CL;
 import org.lwjgl.opencl.CL10;

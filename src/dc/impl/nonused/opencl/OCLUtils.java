@@ -1,4 +1,4 @@
-package dc.impl.opencl;
+package dc.impl.nonused.opencl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;

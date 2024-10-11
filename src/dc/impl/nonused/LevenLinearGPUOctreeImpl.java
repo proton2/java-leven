@@ -1,4 +1,4 @@
-package dc.impl;
+package dc.impl.nonused;
 
 import core.math.Vec3i;
 import core.math.Vec4f;
@@ -10,7 +10,8 @@ import dc.OctreeNode;
 import dc.VoxelOctree;
 import dc.csg.ICSGOperations;
 import dc.entities.MeshBuffer;
-import dc.impl.opencl.*;
+import dc.impl.MeshGenerationContext;
+import dc.impl.nonused.opencl.*;
 
 import java.util.List;
 import java.util.Map;

@@ -1,14 +1,13 @@
 package test;
 
 import dc.impl.MeshGenerationContext;
-import dc.impl.opencl.*;
+import dc.impl.nonused.opencl.*;
 import dc.utils.VoxelHelperUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;
 
 import static org.lwjgl.opencl.CL10.*;
-import static org.lwjgl.opencl.CL10.clEnqueueNDRangeKernel;
 
 public class CuckooServiceTest {
     public static void main(String[] args) {

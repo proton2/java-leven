@@ -1,16 +1,15 @@
-package dc.impl.opencl;
+package dc.impl.nonused.opencl;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
 import core.utils.BufferUtil;
 import core.utils.Constants;
 import dc.OctreeNode;
-import dc.PointerBasedOctreeNode;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
-import dc.impl.GPUDensityField;
-import dc.impl.GpuOctree;
 import dc.impl.MeshGenerationContext;
+import dc.impl.nonused.GPUDensityField;
+import dc.impl.nonused.GpuOctree;
 import dc.utils.VoxelHelperUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;

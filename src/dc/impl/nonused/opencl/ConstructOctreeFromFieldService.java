@@ -1,9 +1,9 @@
-package dc.impl.opencl;
+package dc.impl.nonused.opencl;
 
 import core.math.Vec4f;
-import dc.impl.GPUDensityField;
-import dc.impl.GpuOctree;
 import dc.impl.MeshGenerationContext;
+import dc.impl.nonused.GPUDensityField;
+import dc.impl.nonused.GpuOctree;
 import dc.solver.QEFData;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;

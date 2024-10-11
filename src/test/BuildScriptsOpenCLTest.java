@@ -1,12 +1,13 @@
 package test;
 
 import dc.impl.MeshGenerationContext;
-import dc.impl.opencl.*;
+import dc.impl.nonused.opencl.ComputeContext;
+import dc.impl.nonused.opencl.KernelNames;
+import dc.impl.nonused.opencl.KernelsHolder;
+import dc.impl.nonused.opencl.OCLUtils;
 import dc.utils.VoxelHelperUtils;
 import org.lwjgl.opencl.CL;
-import org.lwjgl.opencl.CL10;
 
-import java.nio.IntBuffer;
 import java.util.ArrayList;
 
 public final class BuildScriptsOpenCLTest {

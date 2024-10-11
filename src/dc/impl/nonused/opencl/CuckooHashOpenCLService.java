@@ -1,7 +1,6 @@
-package dc.impl.opencl;
+package dc.impl.nonused.opencl;
 
 import dc.impl.MeshGenerationContext;
-import dc.utils.VoxelHelperUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;

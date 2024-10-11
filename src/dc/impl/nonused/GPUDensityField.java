@@ -1,7 +1,7 @@
-package dc.impl;
+package dc.impl.nonused;
 
 import core.math.Vec3i;
-import dc.impl.opencl.BufferGpu;
+import dc.impl.nonused.opencl.BufferGpu;
 
 public class GPUDensityField {
     private BufferGpu materials;

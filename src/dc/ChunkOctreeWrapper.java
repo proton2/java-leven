@@ -21,10 +21,10 @@ import core.utils.Constants;
 import dc.csg.CSGOperationsProcessor;
 import dc.csg.CpuCsgImpl;
 import dc.entities.DebugDrawBuffer;
-import dc.impl.*;
-import dc.impl.opencl.ComputeContext;
-import dc.impl.opencl.KernelNames;
-import dc.impl.opencl.KernelsHolder;
+import dc.impl.CPUDensityField;
+import dc.impl.CpuOctree;
+import dc.impl.LevenLinearCPUOctreeImpl;
+import dc.impl.MeshGenerationContext;
 import dc.shaders.DcSimpleShader;
 import dc.shaders.RenderDebugShader;
 import dc.utils.*;
@@ -41,16 +41,15 @@ import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.opengl.GL11.*;
 
 public class ChunkOctreeWrapper extends GameObject {
-
     final public static Logger logger = Logger.getLogger(ChunkOctreeWrapper.class.getName());
 
     private final ChunksManager chunksManager;
     private final CSGOperationsProcessor csgProcessor;
-    private KernelsHolder kernelHolder;
+    //private KernelsHolder kernelHolder;
+    //private final ComputeContext ctx; // for GPU
     protected boolean drawSeamBounds = false;
     protected boolean drawNodeBounds = false;
     private final MeshGenerationContext meshGenCtx;
-    private final ComputeContext ctx;
     private Physics physics;
     private boolean playerCollision = false;
     private int brushSize = 12;
@@ -59,12 +58,10 @@ public class ChunkOctreeWrapper extends GameObject {
     private final ExecutorService service;
     //private ModelEntity actorCSGCube;
 
-    // Uncomment necessary implementation in constructor
     public ChunkOctreeWrapper() {
         service = Executors.newSingleThreadExecutor();
         meshGenCtx = new MeshGenerationContext(32);
         SimplexNoise.getInstance("./res/floatArray.dat", meshGenCtx.worldSizeXZ);
-        ctx = null;//OCLUtils.getOpenCLContext();
         //actorCSGCube = new ModelEntity(new RenderDebugCmdBuffer().createCube());
         physics = new JBulletPhysics(meshGenCtx.worldBounds, 128, playerCollision);
         Camera camera = Camera.getInstance();
@@ -74,11 +71,13 @@ public class ChunkOctreeWrapper extends GameObject {
         if(playerCollision) {
             camera.setPhysics(physics);
         }
-        VoxelOctree voxelOctree;
         Map<Vec4i, CPUDensityField> cpuDensityFieldCache = new HashMap<>();
-        Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
         Map<Vec4i, CpuOctree> cpuOctreeCache = new HashMap<>();
         Map<Long, ChunkNode> mortonCodesChunksMap = new HashMap<>();
+        /*
+        This is GPU initialisations.
+        Map<Vec4i, GpuOctree> octreeCache = new HashMap<>();
+        ctx = OCLUtils.getOpenCLContext();
         if(ctx!=null) {
             StringBuilder kernelBuildOptions = VoxelHelperUtils.createMainBuildOptions(meshGenCtx);
             kernelHolder = new KernelsHolder(ctx);
@@ -91,9 +90,10 @@ public class ChunkOctreeWrapper extends GameObject {
         } else{
             //voxelOctree = new PointerBasedOctreeImpl(true, meshGenCtx, null, densityFieldCache, octreeCache);
             //voxelOctree = new SimpleLinearOctreeImpl(meshGenCtx, new CpuCsgImpl(), densityFieldCache, octreeCache);
-            voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(mortonCodesChunksMap), cpuDensityFieldCache, cpuOctreeCache, mortonCodesChunksMap);
             //VoxelOctree voxelOctree = new ManifoldDCOctreeImpl(meshGenCtx);
         }
+        */
+        VoxelOctree voxelOctree = new LevenLinearCPUOctreeImpl(meshGenCtx, new CpuCsgImpl(mortonCodesChunksMap), cpuDensityFieldCache, cpuOctreeCache, mortonCodesChunksMap);
         chunksManager = new ChunksManager(voxelOctree, meshGenCtx, physics, camera, playerCollision, mortonCodesChunksMap);
         csgProcessor = new CSGOperationsProcessor(voxelOctree, meshGenCtx, camera, mortonCodesChunksMap);
         logger.log(Level.SEVERE, "{0}={1}", new Object[]{"Initialise", "complete"});
@@ -164,9 +164,11 @@ public class ChunkOctreeWrapper extends GameObject {
     }
 
     public void cleanUp(){
+        /*
         if(kernelHolder!=null) {
             kernelHolder.destroyContext();
         }
+         */
         chunksManager.clean();
         service.shutdown();
     }

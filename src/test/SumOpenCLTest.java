@@ -1,26 +1,19 @@
 package test;
 
 import core.utils.ResourceLoader;
-import dc.impl.opencl.BufferGpu;
-import dc.impl.opencl.BufferGpuService;
-import dc.impl.opencl.ComputeContext;
-import dc.impl.opencl.OCLUtils;
+import dc.impl.nonused.opencl.BufferGpu;
+import dc.impl.nonused.opencl.BufferGpuService;
+import dc.impl.nonused.opencl.ComputeContext;
+import dc.impl.nonused.opencl.OCLUtils;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL;
 import org.lwjgl.opencl.CL10;
-import org.lwjgl.opencl.CLCapabilities;
-import org.lwjgl.opencl.CLContextCallback;
-import org.lwjgl.system.MemoryStack;
 
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 
 import static org.lwjgl.opencl.CL10.*;
-import static org.lwjgl.opencl.CL11.CL_DEVICE_OPENCL_C_VERSION;
-import static org.lwjgl.system.MemoryStack.stackPush;
 import static org.lwjgl.system.MemoryUtil.NULL;
-import static org.lwjgl.system.MemoryUtil.memUTF8;
 
 /*
     Take from http://forum.lwjgl.org/index.php?topic=6521.0

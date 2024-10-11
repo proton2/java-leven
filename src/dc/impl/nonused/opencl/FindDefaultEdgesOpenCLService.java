@@ -1,8 +1,8 @@
-package dc.impl.opencl;
+package dc.impl.nonused.opencl;
 
 import core.math.Vec4f;
-import dc.impl.GPUDensityField;
 import dc.impl.MeshGenerationContext;
+import dc.impl.nonused.GPUDensityField;
 import org.lwjgl.BufferUtils;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.opencl.CL10;

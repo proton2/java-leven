@@ -1,6 +1,6 @@
 package test;
 
-import dc.impl.opencl.*;
+import dc.impl.nonused.opencl.*;
 import org.lwjgl.opencl.CL;
 
 public final class NVidiaScanOpenCLTest {

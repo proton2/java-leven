@@ -1,4 +1,4 @@
-package dc.impl.opencl;
+package dc.impl.nonused.opencl;
 
 public class BufferGpu {
     private long mem;

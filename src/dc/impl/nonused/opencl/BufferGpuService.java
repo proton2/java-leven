@@ -1,4 +1,4 @@
-package dc.impl.opencl;
+package dc.impl.nonused.opencl;
 
 import org.lwjgl.opencl.CL10;
 

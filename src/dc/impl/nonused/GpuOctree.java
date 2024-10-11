@@ -1,6 +1,6 @@
-package dc.impl;
+package dc.impl.nonused;
 
-import dc.impl.opencl.BufferGpu;
+import dc.impl.nonused.opencl.BufferGpu;
 
 public class GpuOctree {
     public int numNodes = 0;

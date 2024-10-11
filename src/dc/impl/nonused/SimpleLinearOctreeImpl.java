@@ -1,4 +1,4 @@
-package dc.impl;
+package dc.impl.nonused;
 
 import core.math.Vec3f;
 import core.math.Vec3i;
@@ -11,6 +11,7 @@ import dc.csg.CpuCsgImpl;
 import dc.csg.ICSGOperations;
 import dc.entities.MeshBuffer;
 import dc.entities.MeshVertex;
+import dc.impl.MeshGenerationContext;
 import dc.solver.LevenQefSolver;
 import dc.solver.QEFData;
 import dc.utils.VoxelHelperUtils;
